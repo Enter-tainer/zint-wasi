@@ -144,7 +144,7 @@ static void svg_put_opacity_close(const unsigned char alpha, const float val,
     svg_put_fattrib(" opacity=\"", 3, val, fsvg);
   }
   if (close) {
-    *fsvg = sdscat(*fsvg, " />\n");
+    *fsvg = sdscat(*fsvg, "/");
   }
   *fsvg = sdscat(*fsvg, ">\n");
 }
