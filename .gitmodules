@@ -1,0 +1,3 @@
+[submodule "zint-wasm-sys/zint"]
+	path = zint-wasm-sys/zint
+	url = https://github.com/zint/zint
