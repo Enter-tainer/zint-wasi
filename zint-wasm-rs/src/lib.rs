@@ -1,3 +1,3 @@
-mod error;
-mod options;
-mod symbol;
+pub mod error;
+pub mod options;
+pub mod symbol;

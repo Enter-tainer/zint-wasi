@@ -9,12 +9,12 @@ use self::{
     symbology::Barcode,
 };
 
-mod capability;
-mod color;
-mod input_mode;
-mod option3;
-mod output_options;
-mod symbology;
+pub mod capability;
+pub mod color;
+pub mod input_mode;
+pub mod option3;
+pub mod output_options;
+pub mod symbology;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Options {
@@ -59,9 +59,36 @@ pub struct Options {
 }
 
 impl Options {
-    pub unsafe fn to_zint_symbol(self) -> Symbol {
-        let mut sym = Symbol::from_ptr(zint_wasm_sys::ZBarcode_Create().as_mut().unwrap());
-        let inner = sym.get_mut();
+    pub fn with_symbology(symbology: Barcode) -> Self {
+        Self {
+            symbology,
+            height: None,
+            scale: None,
+            whitespace_width: None,
+            whitespace_height: None,
+            border_width: None,
+            output_options: None,
+            fg_color: None,
+            bg_color: None,
+            primary: None,
+            option_1: None,
+            option_2: None,
+            option_3: None,
+            show_hrt: None,
+            input_mode: None,
+            eci: None,
+            dot_size: None,
+            text_gap: None,
+            guard_decent: None,
+        }
+    }
+}
+
+impl Options {
+    pub fn to_zint_symbol(self) -> Symbol {
+        let mut sym =
+            unsafe { Symbol::from_ptr(zint_wasm_sys::ZBarcode_Create().as_mut().unwrap()) };
+        let inner = unsafe { sym.get_mut() };
         inner.symbology = self.symbology.into();
         if let Some(height) = self.height {
             inner.height = height;

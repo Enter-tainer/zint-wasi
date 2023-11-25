@@ -1,4 +1,4 @@
-use std::ffi::CStr;
+use std::ffi::{CStr, CString};
 
 use zint_wasm_sys::{
     free_svg_plot_string, svg_plot_string, zint_symbol, ZBarcode_Encode_and_Buffer_Vector,
@@ -23,15 +23,23 @@ impl Symbol {
         self.inner.as_mut().unwrap()
     }
 
-    pub fn encode(self, data: &[u8], length: i32, rotate_angle: i32) -> Result<String, String> {
+    pub fn encode(self, data: &str, length: i32, rotate_angle: i32) -> Result<String, String> {
+        let c_str_data = CString::new(data).expect("CString::new failed");
         let error_code = unsafe {
-            ZBarcode_Encode_and_Buffer_Vector(self.inner, data.as_ptr(), length, rotate_angle)
+            ZBarcode_Encode_and_Buffer_Vector(
+                self.inner,
+                c_str_data.as_bytes_with_nul().as_ptr(),
+                length,
+                rotate_angle,
+            )
         };
-        let error: ZintErrorWarning = error_code.into();
-        match error {
-            ZintErrorWarning::Error(error) => return Err(format!("Error: {:#?}", error)),
-            ZintErrorWarning::Warning(_warn) => {} // ZintErrorWarning::Warning(warn) => return Err(format!("Warning: {:#?}", warn)),
-        };
+        if error_code != 0 {
+            let error: ZintErrorWarning = error_code.into();
+            match error {
+                ZintErrorWarning::Error(error) => return Err(format!("Error: {:#?}", error)),
+                ZintErrorWarning::Warning(_warn) => {} // ZintErrorWarning::Warning(warn) => return Err(format!("Warning: {:#?}", warn)),
+            };
+        }
         let mut err_code: i32 = 0;
         let res = unsafe {
             let err_code_ptr = &mut err_code as *mut i32;
@@ -40,11 +48,14 @@ impl Symbol {
             free_svg_plot_string(svg_cstr);
             svg_str
         };
-        let error: ZintErrorWarning = err_code.into();
-        match error {
-            ZintErrorWarning::Error(error) => return Err(format!("Error: {:#?}", error)),
-            ZintErrorWarning::Warning(_warn) => {} // ZintErrorWarning::Warning(warn) => return Err(format!("Warning: {:#?}", warn)),
-        };
+        if err_code != 0 {
+            let error: ZintErrorWarning = err_code.into();
+            match error {
+                ZintErrorWarning::Error(error) => return Err(format!("Error: {:#?}", error)),
+                ZintErrorWarning::Warning(_warn) => {} // ZintErrorWarning::Warning(warn) => return Err(format!("Warning: {:#?}", warn)),
+            };
+        }
+
         Ok(res)
     }
 }
