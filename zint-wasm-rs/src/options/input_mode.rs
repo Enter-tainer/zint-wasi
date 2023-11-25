@@ -23,7 +23,7 @@ pub enum InputMode {
     ExtraEscape,
 }
 
-impl From<InputMode> for u32 {
+impl From<InputMode> for i32 {
     fn from(input_mode: InputMode) -> Self {
         match input_mode {
             InputMode::Data => DATA_MODE,
@@ -36,5 +36,7 @@ impl From<InputMode> for u32 {
             InputMode::Fast => FAST_MODE,
             InputMode::ExtraEscape => EXTRA_ESCAPE_MODE,
         }
+        .try_into()
+        .unwrap()
     }
 }

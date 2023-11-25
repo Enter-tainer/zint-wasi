@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use zint_wasm_sys::*;
 /// Output options
 #[derive(Debug, Serialize, Deserialize)]
-pub enum OutputOptions {
+pub enum OutputOption {
     /// Boundary bar above the symbol only (not below), does not affect stacking
     BarcodeBindTop,
     /// Boundary bars above & below the symbol and between stacked symbols
@@ -37,25 +37,43 @@ pub enum OutputOptions {
     EmbedVectorFont,
 }
 
-impl From<OutputOptions> for u32 {
-    fn from(output_options: OutputOptions) -> Self {
+impl From<OutputOption> for i32 {
+    fn from(output_options: OutputOption) -> Self {
         match output_options {
-            OutputOptions::BarcodeBindTop => BARCODE_BIND_TOP,
-            OutputOptions::BarcodeBind => BARCODE_BIND,
-            OutputOptions::BarcodeBox => BARCODE_BOX,
-            OutputOptions::BarcodeStdout => BARCODE_STDOUT,
-            OutputOptions::ReaderInit => READER_INIT,
-            OutputOptions::SmallText => SMALL_TEXT,
-            OutputOptions::BoldText => BOLD_TEXT,
-            OutputOptions::CmykColour => CMYK_COLOUR,
-            OutputOptions::BarcodeDottyMode => BARCODE_DOTTY_MODE,
-            OutputOptions::Gs1GsSeparator => GS1_GS_SEPARATOR,
-            OutputOptions::OutBufferIntermediate => OUT_BUFFER_INTERMEDIATE,
-            OutputOptions::BarcodeQuietZones => BARCODE_QUIET_ZONES,
-            OutputOptions::BarcodeNoQuietZones => BARCODE_NO_QUIET_ZONES,
-            OutputOptions::CompliantHeight => COMPLIANT_HEIGHT,
-            OutputOptions::EanUpcGuardWhitespace => EANUPC_GUARD_WHITESPACE,
-            OutputOptions::EmbedVectorFont => EMBED_VECTOR_FONT,
+            OutputOption::BarcodeBindTop => BARCODE_BIND_TOP,
+            OutputOption::BarcodeBind => BARCODE_BIND,
+            OutputOption::BarcodeBox => BARCODE_BOX,
+            OutputOption::BarcodeStdout => BARCODE_STDOUT,
+            OutputOption::ReaderInit => READER_INIT,
+            OutputOption::SmallText => SMALL_TEXT,
+            OutputOption::BoldText => BOLD_TEXT,
+            OutputOption::CmykColour => CMYK_COLOUR,
+            OutputOption::BarcodeDottyMode => BARCODE_DOTTY_MODE,
+            OutputOption::Gs1GsSeparator => GS1_GS_SEPARATOR,
+            OutputOption::OutBufferIntermediate => OUT_BUFFER_INTERMEDIATE,
+            OutputOption::BarcodeQuietZones => BARCODE_QUIET_ZONES,
+            OutputOption::BarcodeNoQuietZones => BARCODE_NO_QUIET_ZONES,
+            OutputOption::CompliantHeight => COMPLIANT_HEIGHT,
+            OutputOption::EanUpcGuardWhitespace => EANUPC_GUARD_WHITESPACE,
+            OutputOption::EmbedVectorFont => EMBED_VECTOR_FONT,
         }
+        .try_into()
+        .unwrap()
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct OutputOptions {
+    pub options: Vec<OutputOption>,
+}
+
+impl From<OutputOptions> for i32 {
+    fn from(output_options: OutputOptions) -> Self {
+        let mut options: i32 = 0;
+        for option in output_options.options {
+            let option: i32 = option.into();
+            options |= option;
+        }
+        options
     }
 }

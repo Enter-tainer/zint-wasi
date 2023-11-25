@@ -50,16 +50,18 @@ pub enum WarningLevel {
     FailAll,
 }
 
-impl From<WarningLevel> for u32 {
+impl From<WarningLevel> for i32 {
     fn from(val: WarningLevel) -> Self {
         match val {
             WarningLevel::Default => WARN_DEFAULT,
             WarningLevel::FailAll => WARN_FAIL_ALL,
         }
+        .try_into()
+        .unwrap()
     }
 }
 
-impl From<ZintWarning> for u32 {
+impl From<ZintWarning> for i32 {
     fn from(val: ZintWarning) -> Self {
         match val {
             ZintWarning::HRTTruncated => ZINT_WARN_HRT_TRUNCATED,
@@ -67,10 +69,30 @@ impl From<ZintWarning> for u32 {
             ZintWarning::UsesECI => ZINT_WARN_USES_ECI,
             ZintWarning::Noncompliant => ZINT_WARN_NONCOMPLIANT,
         }
+        .try_into()
+        .unwrap()
     }
 }
 
-impl From<ZintError> for u32 {
+impl ZintWarning {
+    fn max_value() -> i32 {
+        ZINT_WARN_NONCOMPLIANT.try_into().unwrap()
+    }
+}
+
+impl From<i32> for ZintWarning {
+    fn from(val: i32) -> Self {
+        match val.try_into().unwrap() {
+            ZINT_WARN_HRT_TRUNCATED => ZintWarning::HRTTruncated,
+            ZINT_WARN_INVALID_OPTION => ZintWarning::InvalidOption,
+            ZINT_WARN_USES_ECI => ZintWarning::UsesECI,
+            ZINT_WARN_NONCOMPLIANT => ZintWarning::Noncompliant,
+            _ => panic!("Unknown warning code: {}", val),
+        }
+    }
+}
+
+impl From<ZintError> for i32 {
     fn from(val: ZintError) -> Self {
         match val {
             ZintError::TooLong => ZINT_ERROR_TOO_LONG,
@@ -84,6 +106,52 @@ impl From<ZintError> for u32 {
             ZintError::UsesECI => ZINT_ERROR_USES_ECI,
             ZintError::Noncompliant => ZINT_ERROR_NONCOMPLIANT,
             ZintError::HRTTruncated => ZINT_ERROR_HRT_TRUNCATED,
+        }
+        .try_into()
+        .unwrap()
+    }
+}
+
+impl From<i32> for ZintError {
+    fn from(val: i32) -> Self {
+        match val.try_into().unwrap() {
+            ZINT_ERROR_TOO_LONG => ZintError::TooLong,
+            ZINT_ERROR_INVALID_DATA => ZintError::InvalidData,
+            ZINT_ERROR_INVALID_CHECK => ZintError::InvalidCheck,
+            ZINT_ERROR_INVALID_OPTION => ZintError::InvalidOption,
+            ZINT_ERROR_ENCODING_PROBLEM => ZintError::EncodingProblem,
+            ZINT_ERROR_FILE_ACCESS => ZintError::FileAccess,
+            ZINT_ERROR_MEMORY => ZintError::Memory,
+            ZINT_ERROR_FILE_WRITE => ZintError::FileWrite,
+            ZINT_ERROR_USES_ECI => ZintError::UsesECI,
+            ZINT_ERROR_NONCOMPLIANT => ZintError::Noncompliant,
+            ZINT_ERROR_HRT_TRUNCATED => ZintError::HRTTruncated,
+            _ => panic!("Unknown error code: {}", val),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub enum ZintErrorWarning {
+    Error(ZintError),
+    Warning(ZintWarning),
+}
+
+impl From<ZintErrorWarning> for i32 {
+    fn from(val: ZintErrorWarning) -> Self {
+        match val {
+            ZintErrorWarning::Error(err) => err.into(),
+            ZintErrorWarning::Warning(warn) => warn.into(),
+        }
+    }
+}
+
+impl From<i32> for ZintErrorWarning {
+    fn from(val: i32) -> Self {
+        if val <= ZintWarning::max_value() {
+            ZintErrorWarning::Warning(val.into())
+        } else {
+            ZintErrorWarning::Error(val.into())
         }
     }
 }

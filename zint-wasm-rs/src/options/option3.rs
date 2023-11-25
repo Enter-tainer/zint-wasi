@@ -12,13 +12,15 @@ pub enum DataMatrixOption {
     ISO144,
 }
 
-impl From<DataMatrixOption> for u32 {
+impl From<DataMatrixOption> for i32 {
     fn from(val: DataMatrixOption) -> Self {
         match val {
             DataMatrixOption::Square => DM_SQUARE,
             DataMatrixOption::DMRE => DM_DMRE,
             DataMatrixOption::ISO144 => DM_ISO_144,
         }
+        .try_into()
+        .unwrap()
     }
 }
 
@@ -29,11 +31,13 @@ pub enum QRMatrixOption {
     FullMultibyte,
 }
 
-impl From<QRMatrixOption> for u32 {
+impl From<QRMatrixOption> for i32 {
     fn from(val: QRMatrixOption) -> Self {
         match val {
             QRMatrixOption::FullMultibyte => ZINT_FULL_MULTIBYTE,
         }
+        .try_into()
+        .unwrap()
     }
 }
 
@@ -44,10 +48,28 @@ pub enum UltracodeOption {
     Compression,
 }
 
-impl From<UltracodeOption> for u32 {
+impl From<UltracodeOption> for i32 {
     fn from(val: UltracodeOption) -> Self {
         match val {
             UltracodeOption::Compression => ULTRA_COMPRESSION,
+        }
+        .try_into()
+        .unwrap()
+    }
+}
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub enum Option3 {
+    DataMatrix(DataMatrixOption),
+    QRMatrix(QRMatrixOption),
+    Ultracode(UltracodeOption),
+}
+
+impl From<Option3> for i32 {
+    fn from(val: Option3) -> Self {
+        match val {
+            Option3::DataMatrix(val) => val.into(),
+            Option3::QRMatrix(val) => val.into(),
+            Option3::Ultracode(val) => val.into(),
         }
     }
 }

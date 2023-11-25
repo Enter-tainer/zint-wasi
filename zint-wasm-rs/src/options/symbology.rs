@@ -123,7 +123,7 @@ pub enum Barcode {
     BC412,
     Last,
 }
-impl From<Barcode> for u32 {
+impl From<Barcode> for i32 {
     fn from(barcode: Barcode) -> Self {
         match barcode {
             Barcode::Code11 => BARCODE_CODE11,
@@ -224,5 +224,7 @@ impl From<Barcode> for u32 {
             Barcode::RMQR => BARCODE_RMQR,
             Barcode::BC412 | Barcode::Last => BARCODE_LAST,
         }
+        .try_into()
+        .unwrap()
     }
 }

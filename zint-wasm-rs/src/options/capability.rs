@@ -37,7 +37,7 @@ pub enum CapabilityFlags {
     CompliantHeight,
 }
 
-impl From<CapabilityFlags> for u32 {
+impl From<CapabilityFlags> for i32 {
     fn from(val: CapabilityFlags) -> Self {
         match val {
             CapabilityFlags::HRT => ZINT_CAP_HRT,
@@ -56,5 +56,7 @@ impl From<CapabilityFlags> for u32 {
             CapabilityFlags::StructApp => ZINT_CAP_STRUCTAPP,
             CapabilityFlags::CompliantHeight => ZINT_CAP_COMPLIANT_HEIGHT,
         }
+        .try_into()
+        .unwrap()
     }
 }
