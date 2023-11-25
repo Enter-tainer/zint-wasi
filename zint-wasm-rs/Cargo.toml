@@ -7,3 +7,4 @@ edition = "2021"
 crate-type = ["cdylib"]
 [dependencies]
 zint-wasm-sys = { path = "../zint-wasm-sys" }
+serde = { version = "1", features = ["derive"] }
