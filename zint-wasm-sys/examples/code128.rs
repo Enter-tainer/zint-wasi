@@ -34,7 +34,7 @@ pub fn main() {
         let err_code_ptr = &mut err_code as *mut i32;
         let svg_cstr = svg_plot_string(symbol, err_code_ptr);
         let svg_str = CStr::from_ptr(svg_cstr).to_string_lossy().into_owned();
-        libc::free(svg_cstr as *mut libc::c_void);
+        free_svg_plot_string(svg_cstr);
         svg_str
     };
     assert_eq!(err_code, 0);

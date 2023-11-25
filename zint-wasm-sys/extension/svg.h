@@ -6,6 +6,7 @@
 extern "C" {
 #endif /* __cplusplus */
 ZINT_EXTERN char *svg_plot_string(struct zint_symbol *symbol, int *error_code);
+ZINT_EXTERN void free_svg_plot_string(char *string);
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */

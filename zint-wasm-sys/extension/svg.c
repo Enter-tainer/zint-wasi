@@ -397,4 +397,6 @@ char *svg_plot_string(struct zint_symbol *symbol, int *error_code) {
   return res_string;
 }
 
+void free_svg_plot_string(char *string) { free(string); }
+
 /* vim: set ts=4 sw=4 et : */
