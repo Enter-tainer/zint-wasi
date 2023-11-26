@@ -1,0 +1,20 @@
+[package]
+name = "UNDECIED"
+version = "0.1.0"
+entrypoint = "lib.typ"
+authors = ["Wenzhuo Liu"]
+license = "MIT"
+description = "Barcode generator for Typst using Zint."
+
+homepage = "https://github.com/Enter-tainer/zint-wasi"
+repository = "https://github.com/Enter-tainer/zint-wasi"
+keywords = [
+    "wasm",
+    "rust",
+    "zint",
+    "barcode",
+    "qrcode",
+]
+exclude = [
+  "manual.typ"
+]
