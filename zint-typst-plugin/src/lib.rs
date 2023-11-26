@@ -1,10 +1,6 @@
-use anyhow::{anyhow, bail, Context, Result};
-use serde::{Deserialize, Serialize};
+use anyhow::{anyhow, Context, Result};
 use wasm_minimal_protocol::*;
-use zint_wasm_rs::{
-    options::{symbology::Symbology, Options},
-    symbol::Symbol,
-};
+use zint_wasm_rs::options::{symbology::Symbology, Options};
 
 initiate_protocol!();
 

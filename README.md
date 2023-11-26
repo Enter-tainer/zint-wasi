@@ -9,3 +9,8 @@ This is a Zint binding for WASI.
 This package only uses the Zint library but not any of its frontends. So it is MIT licensed.
 
 Checkout examples and `typst-package/manual.typ` for more information.
+
+![doc-1](assets/doc-1.svg)
+![doc-1](assets/doc-2.svg)
+![doc-1](assets/doc-3.svg)
+![doc-1](assets/doc-4.svg)
