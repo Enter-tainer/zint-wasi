@@ -112,15 +112,15 @@
   #align(right)[#msi-plessey("1234567", width: 7em)]
 ]
 
-// = Micro PDF417
+= Micro PDF417
 
-// #left-right[
-//   ```typ
-//   #micro-pdf417("1234567890")
-//   ```
-// ][
-//   #align(right)[#micro-pdf417("1234567890", height: barcode-height)]
-// ]
+#left-right[
+  ```typ
+  #micro-pdf417("1234")
+  ```
+][
+  #align(right)[#micro-pdf417("1234", height: barcode-height)]
+]
 
 = Aztec Code
 
@@ -163,6 +163,129 @@
 ]
 
 = Others
+
+This package supports many other barcode types thanks to zint. You can find the full list in here:
+
++ Code11
++ C25Standard
++ C25Matrix
++ C25Inter
++ C25IATA
++ C25Logic
++ C25Ind
++ Code39
++ ExCode39
++ EANX
++ EANXChk
++ GS1128
++ EAN128
++ Codabar
++ Code128
++ DPLEIT
++ DPIDENT
++ Code16k
++ Code49
++ Code93
++ Flat
++ DBarOmn
++ RSS14
++ DBarLtd
++ RSSLtd
++ DBarExp
++ RSSExp
++ Telepen
++ UPCA
++ UPCAChk
++ UPCE
++ UPCEChk
++ Postnet
++ MSIPlessey
++ FIM
++ Logmars
++ Pharma
++ PZN
++ PharmaTwo
++ CEPNet
++ PDF417
++ PDF417Comp
++ PDF417Trunc
++ MaxiCode
++ QRCode
++ Code128AB
++ Code128B
++ AusPost
++ AusReply
++ AusRoute
++ AusRedirect
++ ISBNX
++ RM4SCC
++ DataMatrix
++ EAN14
++ VIN
++ CodablockF
++ NVE18
++ JapanPost
++ KoreaPost
++ DBarStk
++ RSS14Stack
++ DBarOmnStk
++ RSS14StackOmni
++ DBarExpStk
++ RSSExpStack
++ Planet
++ MicroPDF417
++ USPSIMail
++ OneCode
++ Plessey
++ TelepenNum
++ ITF14
++ KIX
++ Aztec
++ DAFT
++ DPD
++ MicroQR
++ HIBC128
++ HIBC39
++ HIBCDM
++ HIBCQR
++ HIBCPDF
++ HIBCMicPDF
++ HIBCCodablockF
++ HIBCAztec
++ DotCode
++ HanXin
++ Mailmark2D
++ UPUS10
++ Mailmark4S
++ Mailmark
++ AzRune
++ Code32
++ EANXCC
++ GS1128CC
++ EAN128CC
++ DBarOmnCC
++ RSS14CC
++ DBarLtdCC
++ RSSLtdCC
++ DBarExpCC
++ RSSExpCC
++ UPCACC
++ UPCECC
++ DBarStkCC
++ RSS14StackCC
++ DBarOmnStkCC
++ RSS14OmniCC
++ DBarExpStkCC
++ RSSExpStackCC
++ Channel
++ CodeOne
++ GridMatrix
++ UPNQR
++ Ultra
++ RMQR
++ BC412
+
+There are some examples:
 
 == C25Standard
 
@@ -262,4 +385,24 @@
   ```
 ][
   #align(right)[#barcode("1234567890", "Code128B", height: 3em)]
+]
+
+== ISBN
+
+#left-right[
+  ```typ
+  #barcode("9789861817286", "ISBNX")
+  ```
+][
+#align(right)[#barcode("9789861817286", "ISBNX", height: 4em)]
+]
+
+== PharmaTwo
+
+#left-right[
+  ```typ
+  #barcode("1234567890", "PharmaTwo")
+  ```
+][
+  #align(right)[#barcode("12345678", "PharmaTwo", width: 3em)]
 ]
