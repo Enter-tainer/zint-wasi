@@ -17,6 +17,7 @@ keywords = [
 ]
 exclude = [
   "manual.typ",
+  "manual.pdf",
   "example.typ",
   "example.svg"
 ]
