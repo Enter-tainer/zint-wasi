@@ -4,7 +4,7 @@ use zint_wasm_sys::{
     free_svg_plot_string, svg_plot_string, zint_symbol, ZBarcode_Encode_and_Buffer_Vector,
 };
 
-use crate::error::ZintErrorWarning;
+use crate::error::{ZintErrorWarning, ZintError};
 
 pub struct Symbol {
     inner: *mut zint_symbol,
@@ -23,7 +23,7 @@ impl Symbol {
         self.inner.as_mut().unwrap()
     }
 
-    pub fn encode(self, data: &str, length: i32, rotate_angle: i32) -> Result<String, String> {
+    pub fn encode(self, data: &str, length: i32, rotate_angle: i32) -> Result<String, ZintError> {
         let c_str_data = CString::new(data).expect("CString::new failed");
         let error_code = unsafe {
             ZBarcode_Encode_and_Buffer_Vector(
@@ -36,7 +36,7 @@ impl Symbol {
         if error_code != 0 {
             let error: ZintErrorWarning = error_code.into();
             match error {
-                ZintErrorWarning::Error(error) => return Err(format!("Error: {:#?}", error)),
+                ZintErrorWarning::Error(error) => return Err(error),
                 ZintErrorWarning::Warning(_warn) => {} // ZintErrorWarning::Warning(warn) => return Err(format!("Warning: {:#?}", warn)),
             };
         }
@@ -51,7 +51,7 @@ impl Symbol {
         if err_code != 0 {
             let error: ZintErrorWarning = err_code.into();
             match error {
-                ZintErrorWarning::Error(error) => return Err(format!("Error: {:#?}", error)),
+                ZintErrorWarning::Error(error) => return Err(error),
                 ZintErrorWarning::Warning(_warn) => {} // ZintErrorWarning::Warning(warn) => return Err(format!("Warning: {:#?}", warn)),
             };
         }

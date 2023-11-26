@@ -3,5 +3,6 @@ package.edition = "2021"
 resolver = "2"
 members = [
     "zint-wasm-sys",
-    "zint-wasm-rs"
+    "zint-wasm-rs",
+    "zint-typst-plugin"
 ]

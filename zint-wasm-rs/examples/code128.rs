@@ -6,6 +6,6 @@ pub fn main() {
     let symbol = options.to_zint_symbol();
     match symbol.encode(encoded_text, 0, 0) {
         Ok(svg) => println!("{}", svg),
-        Err(err) => println!("{}", err),
+        Err(err) => println!("{:#?}", err),
     }
 }
