@@ -1,4 +1,4 @@
-use zint_wasm_rs::options::symbology::Barcode::Code128;
+use zint_wasm_rs::options::symbology::Symbology::Code128;
 use zint_wasm_rs::options::Options;
 pub fn main() {
     let encoded_text = "A12345B";

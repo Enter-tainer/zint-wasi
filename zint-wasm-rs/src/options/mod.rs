@@ -6,7 +6,7 @@ use crate::symbol::Symbol;
 
 use self::{
     color::Color, input_mode::InputMode, option3::Option3, output_options::OutputOptions,
-    symbology::Barcode,
+    symbology::Symbology,
 };
 
 pub mod capability;
@@ -19,7 +19,7 @@ pub mod symbology;
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Options {
     /// Barcode symbol to use
-    symbology: Barcode,
+    symbology: Symbology,
     /// Barcode height in X-dimensions (ignored for fixed-width barcodes)
     height: Option<f32>,
     /// Scale factor when printing barcode, i.e. adjusts X-dimension. Default 1
@@ -59,7 +59,7 @@ pub struct Options {
 }
 
 impl Options {
-    pub fn with_symbology(symbology: Barcode) -> Self {
+    pub fn with_symbology(symbology: Symbology) -> Self {
         Self {
             symbology,
             height: None,
