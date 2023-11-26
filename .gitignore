@@ -67,3 +67,4 @@ Mkfile.old
 dkms.conf
 license.html
 *.wasm
+*.pdf
