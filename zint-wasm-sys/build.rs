@@ -279,7 +279,7 @@ async fn main() -> Result<()> {
     let bindings = bindgen::Builder::default()
         .header("wrapper.h")
         .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
-        .clang_args(&["-fvisibility=default", "--target=wasm32-wasi", &sysroot])
+        .clang_args(&["-fvisibility=hidden", "--target=wasm32-wasi", &sysroot])
         .size_t_is_usize(false)
         .generate()?;
 

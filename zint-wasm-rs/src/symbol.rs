@@ -4,7 +4,7 @@ use zint_wasm_sys::{
     free_svg_plot_string, svg_plot_string, zint_symbol, ZBarcode_Encode_and_Buffer_Vector,
 };
 
-use crate::error::{ZintErrorWarning, ZintError};
+use crate::error::{ZintError, ZintErrorWarning};
 
 pub struct Symbol {
     inner: *mut zint_symbol,
