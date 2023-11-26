@@ -65,3 +65,4 @@ modules.order
 Module.symvers
 Mkfile.old
 dkms.conf
+license.html

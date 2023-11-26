@@ -6,7 +6,7 @@ members = [
     "zint-wasm-rs",
     "zint-typst-plugin"
 ]
-
+package.license = "MIT"
 [profile.release]
 lto = true          # Enable link-time optimization
 strip = true        # Strip symbols from binary*
