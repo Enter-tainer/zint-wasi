@@ -1,7 +1,34 @@
 #import "./lib.typ": *
-#show: doc => columns(2, doc)
+
+#show link: underline
+
+#{
+  set align(center)
+  text(17pt)[tiaoma]
+  par(justify: false)[
+    A barcode generator for typst. Using #link("https://github.com/zint/zint")[zint] as backend.
+  ]
+}
 #let barcode-height = 5em
 #let left-right(..args) = grid(columns: (1fr, auto), gutter: 1%, ..args)
+
+This package provides shortcut for commonly used barcode types. It also supports all barcode types supported by zint. All additional arguments will be passed to `image.decode` function. Therefore you may customize the barcode image by passing additional arguments.
+
+#left-right[
+  ```typ
+  #ean("6975004310001", width: 10em)
+  ```
+][
+  #align(right)[#ean("6975004310001", width: 10em)]
+]
+
+For more examples, please refer to the following sections.
+
+#line(length: 100%)
+
+#show: doc => columns(2, doc)
+
+
 = EAN
 == EAN-13
 #left-right[
