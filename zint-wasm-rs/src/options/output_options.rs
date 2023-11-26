@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use zint_wasm_sys::*;
 /// Output options
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(tag = "type")]
 pub enum OutputOption {
     /// Boundary bar above the symbol only (not below), does not affect stacking
     BarcodeBindTop,

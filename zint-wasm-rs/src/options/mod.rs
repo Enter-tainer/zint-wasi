@@ -21,40 +21,58 @@ pub struct Options {
     /// Barcode symbol to use
     symbology: Symbology,
     /// Barcode height in X-dimensions (ignored for fixed-width barcodes)
+    #[serde(default)]
     height: Option<f32>,
     /// Scale factor when printing barcode, i.e. adjusts X-dimension. Default 1
+    #[serde(default)]
     scale: Option<f32>,
     /// Width in X-dimensions of whitespace to left & right of barcode
+    #[serde(default)]
     whitespace_width: Option<i32>,
     /// Height in X-dimensions of whitespace above & below the barcode
+    #[serde(default)]
     whitespace_height: Option<i32>,
     /// Size of border in X-dimensions
+    #[serde(default)]
     border_width: Option<i32>,
     /// Various output parameters (bind, box etc, see below)
+    #[serde(default)]
     output_options: Option<OutputOptions>,
     /// foreground color
+    #[serde(default)]
     fg_color: Option<Color>,
     /// background color
+    #[serde(default)]
     bg_color: Option<Color>,
     /// Primary message data (MaxiCode, Composite)
+    #[serde(default)]
     primary: Option<String>,
     /// Symbol-specific options (see "../docs/manual.txt")
+    #[serde(default)]
     option_1: Option<i32>,
     /// Symbol-specific options (see "../docs/manual.txt")
+    #[serde(default)]
     option_2: Option<i32>,
     /// Symbol-specific options (see "../docs/manual.txt")
+    #[serde(default)]
     option_3: Option<Option3>,
     /// Show (1) or hide (0) Human Readable Text (HRT). Default 1
+    #[serde(default)]
     show_hrt: Option<bool>,
     /// Encoding of input data
+    #[serde(default)]
     input_mode: Option<InputMode>,
     /// Extended Channel Interpretation.
+    #[serde(default)]
     eci: Option<i32>,
     /// Size of dots used in BARCODE_DOTTY_MODE.
+    #[serde(default)]
     dot_size: Option<f32>,
     /// Gap between barcode and text (HRT) in X-dimensions.
+    #[serde(default)]
     text_gap: Option<f32>,
     /// Height in X-dimensions that EAN/UPC guard bars descend.
+    #[serde(default)]
     guard_decent: Option<f32>,
 }
 

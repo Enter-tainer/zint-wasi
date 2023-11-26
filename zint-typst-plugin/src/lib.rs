@@ -18,6 +18,18 @@ fn gen_code_simple(text: &str, symbology: Symbology) -> Result<Vec<u8>> {
 }
 
 #[wasm_func]
+pub fn gen_with_options(options: &[u8], text: &[u8]) -> Result<Vec<u8>> {
+    let options: Options =
+        ciborium::from_reader(options).context("Failed to deserialize options")?;
+    let text = std::str::from_utf8(text).context("invalid utf8")?;
+    let symbol = options.to_zint_symbol();
+    let svg = symbol
+        .encode(text, 0, 0)
+        .map_err(|e| anyhow!(format!("{:#?}", e)))?;
+    Ok(svg.into_bytes())
+}
+
+#[wasm_func]
 pub fn ean_gen(text: &[u8]) -> Result<Vec<u8>> {
     let text = std::str::from_utf8(text).context("invalid utf8")?;
     gen_code_simple(text, Symbology::EANXChk)
@@ -38,7 +50,7 @@ pub fn code39_gen(text: &[u8]) -> Result<Vec<u8>> {
 #[wasm_func]
 pub fn upca_gen(text: &[u8]) -> Result<Vec<u8>> {
     let text = std::str::from_utf8(text).context("invalid utf8")?;
-    gen_code_simple(text, Symbology::UPCA)
+    gen_code_simple(text, Symbology::UPCAChk)
 }
 
 #[wasm_func]

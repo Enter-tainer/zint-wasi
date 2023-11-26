@@ -4,6 +4,7 @@ use zint_wasm_sys::*;
 /// Capability flags (ZBarcode_Cap() `cap_flag`)
 #[derive(Debug, Copy, Clone, Serialize, Deserialize)]
 #[allow(clippy::upper_case_acronyms)]
+#[serde(tag = "type")]
 pub enum CapabilityFlags {
     /// Prints Human Readable Text?
     HRT,

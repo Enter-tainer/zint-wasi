@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use zint_wasm_sys::*;
 #[derive(Debug, Serialize, Deserialize)]
 #[allow(clippy::upper_case_acronyms)]
+#[serde(tag = "type")]
 pub enum Symbology {
     Code11,
     C25Standard,
@@ -121,7 +122,6 @@ pub enum Symbology {
     Ultra,
     RMQR,
     BC412,
-    Last,
 }
 impl From<Symbology> for i32 {
     fn from(barcode: Symbology) -> Self {
@@ -222,7 +222,7 @@ impl From<Symbology> for i32 {
             Symbology::UPNQR => BARCODE_UPNQR,
             Symbology::Ultra => BARCODE_ULTRA,
             Symbology::RMQR => BARCODE_RMQR,
-            Symbology::BC412 | Symbology::Last => BARCODE_LAST,
+            Symbology::BC412 => BARCODE_LAST,
         }
         .try_into()
         .unwrap()

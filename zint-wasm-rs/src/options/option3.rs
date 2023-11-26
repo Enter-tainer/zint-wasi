@@ -3,6 +3,7 @@ use zint_wasm_sys::*;
 /// Data Matrix specific options
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 #[allow(clippy::upper_case_acronyms)]
+#[serde(tag = "type")]
 pub enum DataMatrixOption {
     /// Only consider square versions on automatic symbol size selection
     Square,
@@ -26,6 +27,7 @@ impl From<DataMatrixOption> for i32 {
 
 /// QR, Han Xin, Grid Matrix specific options
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[serde(tag = "type")]
 pub enum QRMatrixOption {
     /// Enable Kanji/Hanzi compression for Latin-1 & binary data
     FullMultibyte,
@@ -43,6 +45,7 @@ impl From<QRMatrixOption> for i32 {
 
 /// Ultracode specific option
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[serde(tag = "type")]
 pub enum UltracodeOption {
     /// Enable Ultracode compression (experimental)
     Compression,
@@ -58,6 +61,7 @@ impl From<UltracodeOption> for i32 {
     }
 }
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[serde(tag = "type")]
 pub enum Option3 {
     DataMatrix(DataMatrixOption),
     QRMatrix(QRMatrixOption),

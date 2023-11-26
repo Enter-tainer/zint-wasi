@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use zint_wasm_sys::*;
 /// Input modes
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(tag = "type")]
 pub enum InputMode {
     /// Binary
     Data,

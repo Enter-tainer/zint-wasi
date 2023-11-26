@@ -1,7 +1,7 @@
 #import "./lib.typ": *
 #show: doc => columns(2, doc)
 #let barcode-height = 5em
-#let left-right(..args) = grid(columns: (auto, 1fr), gutter: 1%, ..args)
+#let left-right(..args) = grid(columns: (1fr, auto), gutter: 1%, ..args)
 = EAN
 == EAN-13
 #left-right[
@@ -66,10 +66,10 @@
 
 #left-right[
   ```typ
-  #upca("12345678901")
+  #upca("123456789012")
   ```
 ][
-  #align(right)[#upca("12345678901", height: barcode-height)]
+  #align(right)[#upca("123456789012", height: barcode-height)]
 ]
 
 = Data Matrix
@@ -159,5 +159,107 @@
   #planet("1234567890")
   ```
 ][
-  #align(right)[#planet("1234567890", width: 7em)]
+  #align(right)[#planet("1234567890", width: 9em)]
+]
+
+= Others
+
+== C25Standard
+
+#left-right[
+  ```typ
+  #barcode("123", "C25Standard")
+  ```
+][
+  #align(right)[#barcode("123", "C25Standard", height: barcode-height)]
+]
+
+== UPCE
+
+#left-right[
+  ```typ
+  #barcode("1234567", "UPCEChk")
+  ```
+][
+  #align(right)[#barcode("1234567", "UPCEChk", width: barcode-height)]
+]
+
+== MicroQR
+
+#left-right[
+  ```typ
+  #barcode("1234567890", "MicroQR")
+  ```
+][
+  #align(right)[#barcode("1234567890", "MicroQR", width: 3em)]
+]
+
+== Aztec Runes
+
+#left-right[
+  ```typ
+  #barcode("1234567890", "AzRune")
+  ```
+][
+  #align(right)[#barcode("122", "AzRune", height: 3em)]
+]
+
+== Australia Post
+
+#left-right[
+  ```typ
+  #barcode("1234567890", "AusPost")
+  ```
+][
+  #align(right)[#barcode("12345678", "AusPost", width: 9em)]
+]
+
+== DotCode
+
+#left-right[
+  ```typ
+  #barcode("1234567890", "DotCode")
+  ```
+][
+  #align(right)[#barcode("1234567890", "DotCode", width: 3em)]
+]
+
+== CodeOne
+
+#left-right[
+  ```typ
+  #barcode("1234567890", "CodeOne")
+  ```
+][
+  #align(right)[#barcode("1234567890", "CodeOne", height: 3em)]
+]
+
+== Grid Matrix
+
+#left-right[
+  ```typ
+  #barcode("1234567890", "GridMatrix")
+  ```
+][
+  #align(right)[#barcode("1234567890", "GridMatrix", width: 2em)]
+]
+
+== Han Xin Code
+
+#left-right[
+  ```typ
+  #barcode("1234567890", "HanXin")
+  ```
+][
+  #align(right)[#barcode("1234567890", "HanXin", width: 3em)]
+]
+
+== Code128B
+
+#left-right[
+  ```typ
+  #barcode("1234567890", "Code128B")
+  ```
+][
+  #align(right)[#barcode("1234567890", "Code128B", height: 3em)]
 ]

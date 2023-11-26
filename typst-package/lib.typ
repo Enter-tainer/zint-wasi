@@ -25,3 +25,13 @@
 #let maxicode(data, ..args) = image.decode(str(zint-wasm.maxicode_gen(bytes(data))), ..args)
 
 #let planet(data, ..args) = image.decode(str(zint-wasm.planet_gen(bytes(data))), ..args)
+
+#let barcode(data, type, ..args) = image.decode(
+  str(
+    zint-wasm.gen_with_options(
+      cbor.encode(
+        (symbology: (type: type),)
+      ), bytes(data)
+    )
+  ),
+..args)
