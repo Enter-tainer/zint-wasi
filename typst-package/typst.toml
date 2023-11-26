@@ -1,10 +1,10 @@
 [package]
-name = "UNDECIED"
+name = "tiaoma"
 version = "0.1.0"
 entrypoint = "lib.typ"
 authors = ["Wenzhuo Liu"]
 license = "MIT"
-description = "Barcode generator for Typst using Zint."
+description = "Barcode and QRCode generator for Typst using Zint."
 
 homepage = "https://github.com/Enter-tainer/zint-wasi"
 repository = "https://github.com/Enter-tainer/zint-wasi"
@@ -16,5 +16,7 @@ keywords = [
     "qrcode",
 ]
 exclude = [
-  "manual.typ"
+  "manual.typ",
+  "example.typ",
+  "example.svg"
 ]
