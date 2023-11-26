@@ -13,10 +13,4 @@ ciborium = "0.2.1"
 serde = { version = "1", features = ["derive"] }
 serde_bytes = "0.11.12"
 wasm-minimal-protocol = { git = "https://github.com/astrale-sharp/wasm-minimal-protocol" }
-
-[profile.release]
-lto = true          # Enable link-time optimization
-strip = true        # Strip symbols from binary*
-opt-level = 'z'     # Optimize for size
-codegen-units = 1   # Reduce number of codegen units to increase optimizations
-panic = 'abort'     # Abort on panic
+zint-wasm-rs = { path = "../zint-wasm-rs" }
