@@ -1,9 +1,12 @@
 use serde::{Deserialize, Serialize};
 use zint_wasm_sys::*;
-#[derive(Debug, Serialize, Deserialize)]
+
+#[derive(Debug, Default, Serialize, Deserialize)]
 #[allow(clippy::upper_case_acronyms)]
 #[serde(tag = "type")]
+#[non_exhaustive]
 pub enum Symbology {
+    #[default]
     Code11,
     C25Standard,
     C25Matrix,

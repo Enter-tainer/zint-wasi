@@ -1,18 +1,59 @@
 #import "./lib.typ": *
+#import "./lib.typ"
+#import "@preview/tidy:0.2.0"
 
 #show link: underline
 
 #{
   set align(center)
-  text(17pt)[tiaoma]
+  heading(level: 1, text(size: 17pt)[tiaoma])
   par(justify: false)[
     A barcode generator for typst. Using #link("https://github.com/zint/zint")[zint] as backend.
   ]
 }
-#let barcode-height = 5em
-#let left-right(..args) = grid(columns: (1fr, auto), gutter: 1%, ..args)
 
-This package provides shortcut for commonly used barcode types. It also supports all barcode types supported by zint. All additional arguments will be passed to `image.decode` function. Therefore you may customize the barcode image by passing additional arguments.
+#show heading.where(level: 2): it => {
+  text(size: 14pt, it)
+}
+
+#let entry-height = 5em
+#let entry-gutter = 1em
+
+#let left-right(..args) = grid(columns: (1fr, auto), gutter: 1%, ..args)
+#let example-entry(name, code-block, preview, ..extra) = block(breakable: false,
+  left-right(
+    stack(dir: ttb, spacing: 10pt,
+      heading(level: 2, name),
+      code-block,
+      ..extra,
+    ),
+    align(right+horizon, block(height: entry-height, width: 7em, preview))
+  )
+)
+#let example-of-simple(name, func-name, func, data, ..extra) = example-entry(
+  name,
+  raw("#" + func-name + "(\"" + data + "\")",
+    block: true,
+    lang: "typ"
+  ),
+  func(data, fit: "contain"),
+  ..extra
+)
+
+
+// Only works when entire content fits on a single page
+#let section(..content) = [
+  #v(1em)
+  #grid(
+    columns: (1fr, 1fr),
+    column-gutter: 5pt,
+    row-gutter: entry-gutter,
+    ..content.pos()
+  )
+  #v(2em)
+]
+
+This package provides shortcuts for commonly used barcode types. It also supports all barcode types supported by zint. All additional arguments will be passed to #link("https://typst.app/docs/reference/visualize/image/#definitions-decode", raw("image.decode", lang: "typst")) function. Therefore you may customize the barcode image by passing additional arguments.
 
 #left-right[
   ```typ
@@ -26,410 +67,212 @@ For more examples, please refer to the following sections.
 
 #line(length: 100%)
 
-#show: doc => columns(2, doc)
+#show "<dbar>": [GS1 DataBar]
+#show "(chk)": [w/ Check Digit]
+#show "(cc)": [Composite Code]
+#show "(omni)": [Omnidirectional]
+#show "(omn)": [Omnidirectional]
+#show "(stk)": [Stacked]
+#show "(exp)": [Expanded]
+#show "(ltd)": [Limited]
 
+= EAN (European Article Number)
+#section(
+example-of-simple("EAN", "eanx", eanx, "1234567890"),
+example-of-simple("EAN-14", "ean14", ean14, "1234567890"),
+example-of-simple("EAN-13", "ean", ean, "6975004310001"),
+example-of-simple("EAN-8", "ean", ean, "12345564"),
+example-of-simple("EAN-5", "ean", ean, "12345"),
+example-of-simple("EAN-2", "ean", ean, "12"),
+example-of-simple("EAN 128 (Legacy)", "ean128", ean128, "[02]12345678901234")[
+  EAN 128 is superseded by #link(<GS1>)[GS1].
+],
+//example-of-simple("EAN (cc)", "eanx-cc", eanx-cc, "3312345768903"),
+//example-of-simple("EAN128 (cc)", "ean128-cc", ean128-cc, "[01]95012345678903[3103]000123")
+)
 
-= EAN
-== EAN-13
-#left-right[
-  ```typ
-  #ean("6975004310001")
-  ```
-][
-  #align(right)[#ean("6975004310001", height: barcode-height)]
-]
+= PDF417
+#section(
+example-of-simple("Micro PDF417", "micro-pdf417", micro-pdf417, "1234567890"),
+example-of-simple("PDF417", "pdf417", pdf417, "1234567890"),
+example-of-simple("Compact PDF417", "pdf417-comp", pdf417-comp, "1234567890"),
+example-of-simple("Truncated PDF417 (Legacy)", "pdf417-trunc", pdf417-trunc, "1234567890"),
+)
 
-== EAN-8
+= GS1 <GS1>
 
-#left-right[
-  ```typ
-  #ean("12345564")
-  ```
-][
-  #align(right)[#ean("12345564", height: barcode-height)]
-]
+#section(
+example-of-simple("GS1-128", "gs1-128", gs1-128, "[01]98898765432106[3202]012345[15]991231"),
+example-of-simple("<dbar> Omnidirectional", "dbar-omn", dbar-omn, "1234567890"),
+example-of-simple("<dbar> (ltd)", "dbar-ltd", dbar-ltd, "1234567890"),
+//example-of-simple("dbar (exp)", "dbar-exp", dbar-exp, "1234567890"),
+example-of-simple("<dbar> (stk)", "dbar-stk", dbar-stk, "1234567890"),
+example-of-simple("<dbar> (stk) (omn)", "dbar-omn-stk", dbar-omn-stk, "1234567890"),
+// example for "<dbar> (exp) (stk)",
+// example for "<dbar> (omn) (cc)"
+// example for "<dbar> (omn) (cc)"
+// example for "<dbar> (ltd) (cc)"
+// example for "<dbar> (exp) (cc)"
+// example for "<dbar> (stk) (cc)"
+// example for "<dbar> (omn) (stk) (cc)"
+// example for "<dbar> (exp) (stk) (cc)"
+)
 
-== EAN-5
+// TODO: Remove once utilities and above examples are provided
+Zint also supports (omn), (ltd), (exp), (stk) and (cc) variants of GS1. See #link(<additional_options>)[additional options] section for information on how to use them.
 
-#left-right[
-  ```typ
-  #ean("12345")
-  ```
-][
-  #align(right)[#ean("12345", height: barcode-height)]
-]
+= C25
 
-== EAN-2
-
-#left-right[
-  ```typ
-  #ean("12")
-  ```
-][
-  #align(right)[#ean("12", height: barcode-height)]
-]
+#section(
+example-of-simple("Standard", "c25-standard", c25-standard, "123"),
+example-of-simple("Matrix (Legacy)", "c25-matrix", c25-matrix, "1234567890"),
+example-of-simple("Interleaved", "c25-inter", c25-inter, "1234567890"),
+example-of-simple("IATA", "c25-iata", c25-iata, "1234567890"),
+example-of-simple("Data Logic", "c25-logic", c25-logic, "1234567890"),
+example-of-simple("Industrial", "c25-ind", c25-ind, "1234567890"),
+)
 
 = Code 128
 
-#left-right[
-  ```typ
-  #code128("1234567890")
-  ```
-][
-  #align(right)[#code128("1234567890", height: barcode-height)]
-]
+#section(
+example-of-simple("Code 128", "code128", code128, "1234567890"),
+example-of-simple("Code 128 (AB)", "code128ab", code128ab, "1234567890"),
+example-of-simple("Code 128 (B)", "code128b", code128b, "1234567890"),
+)
 
-= Code 39
+= UPC (Universal Product Code)
 
-#left-right[
-  ```typ
-  #code39("ABCD")
-  ```
-][
-  #align(right)[#code39("ABCD", height: barcode-height)]
-]
+#section(
+example-of-simple("UPC-A", "upca", upca, "1234567890"),
+example-of-simple("UPC-A (chk)", "upca-chk", upca-chk, "1234567890"),
+example-of-simple("UPC-E", "upce", upce, "1234567"),
+example-of-simple("UPC-E (chk)", "upce-chk", upce-chk, "1234567"),
+// example-of-simple("UPC-A (cc)", "upca-cc", upca-cc, "1234567890"),
+// example-of-simple("UPC-E (cc)", "upce-cc", upce-cc, "1234567890"),
+)
 
-= UPCA
+= HIBC (Health Industry Barcodes)
 
-#left-right[
-  ```typ
-  #upca("123456789012")
-  ```
-][
-  #align(right)[#upca("123456789012", height: barcode-height)]
-]
+#section(
+example-of-simple("Code 128", "hibc-128", hibc-128, "1234567890"),
+example-of-simple("Code 39", "hibc-39", hibc-39, "1234567890"),
+example-of-simple("Data Matrix", "hibc-dm", hibc-dm, "1234567890"),
+example-of-simple("QR", "hibc-qr", hibc-qr, "1234567890"),
+example-of-simple("PDF417", "hibc-pdf", hibc-pdf, "1234567890"),
+example-of-simple("Micro PDF417", "hibc-mic-pdf", hibc-mic-pdf, "1234567890"),
+example-of-simple("Codablock-F", "hibc-codablock-f", hibc-codablock-f, "1234567890"),
+example-of-simple("Aztec", "hibc-aztec", hibc-aztec, "1234567890"),
+)
 
-= Data Matrix
+= Postal
 
-#left-right[
-  ```typ
-  #data-matrix("1234567890")
-  ```
-][
-  #align(right)[#data-matrix("1234567890", height: barcode-height)]
-]
+#section(
+example-of-simple("Australia Post Redirection", "aus-redirect", aus-redirect, "12345678"),
+example-of-simple("Australia Post Reply Paid", "aus-reply", aus-reply, "12345678"),
+example-of-simple("Australia Post Routing", "aus-route", aus-route, "12345678"),
+example-of-simple("Australia Post Standard Customer", "aus-post", aus-post, "12345678"),
+example-of-simple("Brazilian CEPNet Postal Code", "cepnet", cepnet, "1234567890"),
+example-of-simple("DAFT Code", "daft", daft, "DAFTFDATATFDTFAD"),
+example-of-simple("Deutsche Post Identcode", "dp-ident", dp-ident, "1234567890"),
+example-of-simple("Deutsche Post Leitcode", "dp-leitcode", dp-leitcode, "1234567890"),
+example-of-simple("Deutsher Paket Dienst", "dpd", dpd, "0123456789012345678901234567"),
+example-of-simple("Dutch Post KIX Code", "kix", kix, "1234567890"),
+example-of-simple("Japanese Postal Code", "japan-post", japan-post, "1234567890"),
+example-of-simple("Korea Post", "korea-post", korea-post, "123456"),
+example-of-simple("POSTNET", "postnet", postnet, "1234567890"),
+example-entry("Royal Mail 2D Mailmark (CMDM)",
+  raw("#mailmark-2d(\n\t32, 32,\n\t\"JGB 0111234567123456...\"\n)", block: true, lang: "typ"), mailmark-2d(
+    32, 32,
+    "JGB 011123456712345678CW14NJ1T 0EC2M2QS      REFERENCE1234567890QWERTYUIOPASDFGHJKLZXCVBNM"
+  ),
+),
+example-of-simple("Royal Mail 4-State Customer Code", "rm4scc", rm4scc, "1234567890"),
+example-of-simple("Royal Mail 4-State Mailmark", "mailmark-4s", mailmark-4s, "21B2254800659JW5O9QA6Y"),
+example-of-simple("Universal Postal Union S10", "upus10", upus10, "RR072705659PL"),
+example-of-simple("UPNQR (Univerzalnega Plačilnega Naloga QR)", "upnqr", upnqr, "1234567890"),
+example-of-simple("USPS Intelligent Mail", "uspsi-mail", uspsi-mail, "01300123456123456789"),
+example-of-simple("OneCode (Legacy)", "onecode", onecode, "01300123456123456789", [
+  Superseded by USPS Intelligent Mail
+]),
+)
 
-= QR Code
+= Other Generic Codes
 
-#left-right[
-  ```typ
-  #qrcode("1234567890")
-  ```
-][
-  #align(right)[#qrcode("1234567890", height: barcode-height)]
-]
+#section(
+example-of-simple("Aztec Code", "aztec", aztec, "1234567890"),
+example-of-simple("Aztec Rune", "azrune", azrune, "122"),
+example-of-simple("Channel Code", "channel", channel, "123456"),
+example-of-simple("Codabar", "codabar", codabar, "A123456789B"),
+example-of-simple("Codablock-F", "codablock-f", codablock-f, "1234567890"),
+example-of-simple("Code 11", "code11", code11, "0123452"),
+example-of-simple("Code 16k", "code16k", code16k, "1234567890"),
+example-of-simple("Code 32", "code32", code32, "12345678"),
+example-of-simple("Code 39", "code39", code39, "1234567890"),
+example-of-simple("Code 49", "code49", code49, "1234567890"),
+example-of-simple("Code 93", "code93", code93, "1234567890"),
+example-of-simple("Code One", "code-one", code-one, "1234567890"),
+example-of-simple("Data Matrix (ECC200)", "data-matrix", data-matrix, "1234567890"),
+example-of-simple("DotCode", "dotcode", dotcode, "1234567890"),
+example-of-simple("Extended Code 39", "ex-code39", ex-code39, "1234567890"),
+example-of-simple("Grid Matrix", "grid-matrix", grid-matrix, "1234567890"),
+example-of-simple("Han Xin (Chinese Sensible)", "hanxin", hanxin, "abc123全ň全漄"),
+example-of-simple("IBM BC412 (SEMI T1-95)", "bc412", bc412, "1234567890"),
+example-of-simple("ISBN", "isbnx", isbnx, "9789861817286"),
+example-of-simple("ITF-14", "itf14", itf14, "1234567890"),
+example-of-simple("LOGMARS", "logmars", logmars, "1234567890"),
+example-of-simple("MaxiCode", "maxicode", maxicode, "1234567890"),
+example-of-simple("Micro QR", "micro-qr", micro-qr, "1234567890"),
+example-of-simple("MSI Plessey", "msi-plessey", msi-plessey, "1234567890"),
+example-of-simple("NVE-18 (SSCC-18)", "nve18", nve18, "1234567890"),
+example-of-simple("Pharmacode One-Track", "pharma", pharma, "123456"),
+example-of-simple("Pharmacode Two-Track", "pharma-two", pharma-two, "12345678"),
+example-of-simple("Pharmazentralnummer", "pzn", pzn, "12345678"),
+example-of-simple("Planet", "planet", planet, "1234567890"),
+example-of-simple("Plessey", "plessey", plessey, "1234567890"),
+example-of-simple("QR Code", "qrcode", qrcode, "1234567890"),
+example-of-simple("Rectangular Micro QR Code (rMQR)", "rmqr", rmqr, "1234567890"),
+example-of-simple("Telepen Numeric", "telepen-num", telepen-num, "1234567890"),
+example-of-simple("Telepen", "telepen", telepen, "ABCD12345"),
+example-of-simple("Ultracode", "ultra", ultra, "1234567890"),
+example-of-simple("Vehicle Identification Number", "vin", vin, "2GNFLGE30D6201432"),
+example-of-simple("Facing Identification Mark", "fim", fim, "A"),
+example-of-simple("Flattermarken", "flat", flat, "123")[
+  Used for marking book covers to indicate volume order.
+],
+)
 
-= Channel Code
+= RSS14 (Legacy)
 
-#left-right[
-  ```typ
-  #channel("1234567")
-  ```
-][
-  #align(right)[#channel("1234567", height: barcode-height)]
-]
+These codes are now referred to as GS1. See #link(<GS1>)[GS1 section] for newer implementations.
 
-= MSI Plessey
+#section(
+example-of-simple("RSS14", "rss14", rss14, "1234567890"),
+example-of-simple("RSS14 (ltd)", "rss-ltd", rss-ltd, "1234567890"),
+// example-of-simple("RSS14 (exp)", "rss-exp", rss-exp, "1234567890"),
+example-of-simple("RSS14 (stk)", "rss14-stack", rss14-stack, "1234567890"),
+example-of-simple("RSS14 (stk) (omn)", "rss14-stack-omni", rss14-stack-omni, "1234567890"),
+// example-of-simple("RSS14 (exp) (stk)", "rss-exp-stack", rss-exp-stack, "1234567890"),
+// example-of-simple("RSS14 (cc)", "rss14-cc", rss14-cc, "1234567890"),
+// example-of-simple("RSS14 (exp) (cc)", "rss-exp-cc", rss-exp-cc, "1234567890"),
+// example-of-simple("RSS14 (ltd) (cc)", "rss-ltd-cc", rss-ltd-cc, "1234567890"),
+// example-of-simple("RSS14 (stk) (cc)", "rss14-stack-cc", rss14-stack-cc, "1234567890"),
+// example-of-simple("RSS14 (omni) (cc)", "rss14-omni-cc", rss14-omni-cc, "1234567890"),
+// example-of-simple("RSS14 (exp) (stk) (cc)", "rss-exp-stack-cc", rss-exp-stack-cc, "1234567890"),
+)
 
-#left-right[
-  ```typ
-  #msi-plessey("1234567")
-  ```
-][
-  #align(right)[#msi-plessey("1234567", width: 7em)]
-]
+= Additional Code Options <additional_options>
 
-= Micro PDF417
+While most barcodes are supported through shortcut functions, some require additional configuration/options (such as composite codes). Check out the #link("https://zint.org.uk/manual")[official Zint manual] for a complete description of supported codes.
 
-#left-right[
-  ```typ
-  #micro-pdf417("1234")
-  ```
-][
-  #align(right)[#micro-pdf417("1234", height: barcode-height)]
-]
+#let docs = tidy.parse-module(
+  read("lib.typ"),
+  name: "tiaoma",
+  scope: (tiaoma: lib)
+)
 
-= Aztec Code
-
-#left-right[
-  ```typ
-  #aztec("1234567890")
-  ```
-][
-  #align(right)[#aztec("1234567890", height: barcode-height)]
-]
-
-= Code 16k
-
-#left-right[
-  ```typ
-  #code16k("1234567890")
-  ```
-][
-  #align(right)[#code16k("1234567890", width: 7em)]
-]
-
-= MaxiCode
-
-#left-right[
-  ```typ
-  #maxicode("1234567890")
-  ```
-][
-  #align(right)[#maxicode("1234567890", height: barcode-height)]
-]
-
-= Planet Code
-
-#left-right[
-  ```typ
-  #planet("1234567890")
-  ```
-][
-  #align(right)[#planet("1234567890", width: 9em)]
-]
-
-= Others
-
-This package supports many other barcode types thanks to zint. You can find the full list in here:
-
-+ Code11
-+ C25Standard
-+ C25Matrix
-+ C25Inter
-+ C25IATA
-+ C25Logic
-+ C25Ind
-+ Code39
-+ ExCode39
-+ EANX
-+ EANXChk
-+ GS1128
-+ EAN128
-+ Codabar
-+ Code128
-+ DPLEIT
-+ DPIDENT
-+ Code16k
-+ Code49
-+ Code93
-+ Flat
-+ DBarOmn
-+ RSS14
-+ DBarLtd
-+ RSSLtd
-+ DBarExp
-+ RSSExp
-+ Telepen
-+ UPCA
-+ UPCAChk
-+ UPCE
-+ UPCEChk
-+ Postnet
-+ MSIPlessey
-+ FIM
-+ Logmars
-+ Pharma
-+ PZN
-+ PharmaTwo
-+ CEPNet
-+ PDF417
-+ PDF417Comp
-+ PDF417Trunc
-+ MaxiCode
-+ QRCode
-+ Code128AB
-+ Code128B
-+ AusPost
-+ AusReply
-+ AusRoute
-+ AusRedirect
-+ ISBNX
-+ RM4SCC
-+ DataMatrix
-+ EAN14
-+ VIN
-+ CodablockF
-+ NVE18
-+ JapanPost
-+ KoreaPost
-+ DBarStk
-+ RSS14Stack
-+ DBarOmnStk
-+ RSS14StackOmni
-+ DBarExpStk
-+ RSSExpStack
-+ Planet
-+ MicroPDF417
-+ USPSIMail
-+ OneCode
-+ Plessey
-+ TelepenNum
-+ ITF14
-+ KIX
-+ Aztec
-+ DAFT
-+ DPD
-+ MicroQR
-+ HIBC128
-+ HIBC39
-+ HIBCDM
-+ HIBCQR
-+ HIBCPDF
-+ HIBCMicPDF
-+ HIBCCodablockF
-+ HIBCAztec
-+ DotCode
-+ HanXin
-+ Mailmark2D
-+ UPUS10
-+ Mailmark4S
-+ Mailmark
-+ AzRune
-+ Code32
-+ EANXCC
-+ GS1128CC
-+ EAN128CC
-+ DBarOmnCC
-+ RSS14CC
-+ DBarLtdCC
-+ RSSLtdCC
-+ DBarExpCC
-+ RSSExpCC
-+ UPCACC
-+ UPCECC
-+ DBarStkCC
-+ RSS14StackCC
-+ DBarOmnStkCC
-+ RSS14OmniCC
-+ DBarExpStkCC
-+ RSSExpStackCC
-+ Channel
-+ CodeOne
-+ GridMatrix
-+ UPNQR
-+ Ultra
-+ RMQR
-+ BC412
-
-There are some examples:
-
-== C25Standard
-
-#left-right[
-  ```typ
-  #barcode("123", "C25Standard")
-  ```
-][
-  #align(right)[#barcode("123", "C25Standard", height: barcode-height)]
-]
-
-== UPCE
-
-#left-right[
-  ```typ
-  #barcode("1234567", "UPCEChk")
-  ```
-][
-  #align(right)[#barcode("1234567", "UPCEChk", width: barcode-height)]
-]
-
-== MicroQR
-
-#left-right[
-  ```typ
-  #barcode("1234567890", "MicroQR")
-  ```
-][
-  #align(right)[#barcode("1234567890", "MicroQR", width: 3em)]
-]
-
-== Aztec Runes
-
-#left-right[
-  ```typ
-  #barcode("1234567890", "AzRune")
-  ```
-][
-  #align(right)[#barcode("122", "AzRune", height: 3em)]
-]
-
-== Australia Post
-
-#left-right[
-  ```typ
-  #barcode("1234567890", "AusPost")
-  ```
-][
-  #align(right)[#barcode("12345678", "AusPost", width: 9em)]
-]
-
-== DotCode
-
-#left-right[
-  ```typ
-  #barcode("1234567890", "DotCode")
-  ```
-][
-  #align(right)[#barcode("1234567890", "DotCode", width: 3em)]
-]
-
-== CodeOne
-
-#left-right[
-  ```typ
-  #barcode("1234567890", "CodeOne")
-  ```
-][
-  #align(right)[#barcode("1234567890", "CodeOne", height: 3em)]
-]
-
-== Grid Matrix
-
-#left-right[
-  ```typ
-  #barcode("1234567890", "GridMatrix")
-  ```
-][
-  #align(right)[#barcode("1234567890", "GridMatrix", width: 2em)]
-]
-
-== Han Xin Code
-
-#left-right[
-  ```typ
-  #barcode("1234567890", "HanXin")
-  ```
-][
-  #align(right)[#barcode("1234567890", "HanXin", width: 3em)]
-]
-
-== Code128B
-
-#left-right[
-  ```typ
-  #barcode("1234567890", "Code128B")
-  ```
-][
-  #align(right)[#barcode("1234567890", "Code128B", height: 3em)]
-]
-
-== ISBN
-
-#left-right[
-  ```typ
-  #barcode("9789861817286", "ISBNX")
-  ```
-][
-#align(right)[#barcode("9789861817286", "ISBNX", height: 4em)]
-]
-
-== PharmaTwo
-
-#left-right[
-  ```typ
-  #barcode("1234567890", "PharmaTwo")
-  ```
-][
-  #align(right)[#barcode("12345678", "PharmaTwo", width: 3em)]
-]
+#tidy.show-module(
+  docs,
+  first-heading-level: 1,
+  show-module-name: false,
+  show-outline: false,
+)

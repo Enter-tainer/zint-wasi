@@ -11,7 +11,12 @@ pub struct Symbol {
 }
 
 impl Symbol {
+    /// # Safety
+    /// Provided `ptr` must point to a properly initalized `Symbol`.
     pub unsafe fn from_ptr(ptr: *mut zint_symbol) -> Self {
+        if ptr.is_null() {
+            panic!("can't create a Symbol from null pointer")
+        }
         Self { inner: ptr }
     }
 
