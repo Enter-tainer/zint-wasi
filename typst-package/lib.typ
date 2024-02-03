@@ -1,100 +1,8 @@
 #let zint-wasm = plugin("./zint_typst_plugin.wasm")
 
-/// Option to use a square Data Matrix.
-#let DM_SQUARE = int(100);
-/// Option to use a rectangular Data Matrix.
-#let DM_DMRE = int(101);
-
-#let DM_ISO_144 = int(128);
-#let ULTRA_COMPRESSION = int(128);
-
-/// Draw a barcode SVG of any supported `type`.
-///
-/// *Example:*
-/// #example(`tiaoma.barcode("12345678", "AusPost")`)
-///
-/// - data (str): Data to encode in the 
-/// - type (str): Symbology type name; must be one of #link("https://github.com/Enter-tainer/zint-wasi/blob/master/zint-wasm-rs/src/options/symbology.rs")[supported types].
-///
-///     Example values: `"Code11"`, `"C25Standard"`, ...
-/// - options (dictionary): Any additional options to pass to Zint.
-///     
-///     See #link("https://zint.org.uk/manual/chapter/5")[Zint manual: Using API] for details on available options and how to use them.
-/// - ..args (any): Any additional arguments to forward to #link("https://typst.app/docs/reference/visualize/image/#definitions-decode", raw("image.decode", lang: "typ")) function.
-/// -> content
-#let barcode(data, type, options: (:), ..args) = image.decode(
-  zint-wasm.gen_with_options(
-    cbor.encode(
-      (symbology: (type: type), ..options)
-    ), bytes(data)
-  ),
-  format: "svg",
-  ..args
-)
-
-/// Returns option value for given Data Matrix _width_ and _height_.
-///
-/// Zint allows square and rectangular values to be enforced with `DM_SQUARE` and `DM_DMRE` (respectively); see Zint manual for details.
-///
-/// - width (int): Data Matrix width
-/// - height (int): Data Matrix height
-/// -> int
-#let dm-size(height, width) = {
-  // Copied from DM size table
-  if height == 10 and width == 10 { return int(1) }
-  if height == 12 and width == 12 { return int(2) }
-  if height == 14 and width == 14 { return int(3) }
-  if height == 16 and width == 16 { return int(4) }
-  if height == 18 and width == 18 { return int(5) }
-  if height == 20 and width == 20 { return int(6) }
-  if height == 22 and width == 22 { return int(7) }
-  if height == 24 and width == 24 { return int(8) }
-  if height == 26 and width == 26 { return int(9) }
-  if height == 32 and width == 32 { return int(10) }
-  if height == 36 and width == 36 { return int(11) }
-  if height == 40 and width == 40 { return int(12) }
-  if height == 44 and width == 44 { return int(13) }
-  if height == 48 and width == 48 { return int(14) }
-  if height == 52 and width == 52 { return int(15) }
-  if height == 64 and width == 64 { return int(16) }
-  if height == 72 and width == 72 { return int(17) }
-  if height == 80 and width == 80 { return int(18) }
-  if height == 88 and width == 88 { return int(19) }
-  if height == 96 and width == 96 { return int(20) }
-  if height == 104 and width == 104 { return int(21) }
-  if height == 120 and width == 120 { return int(22) }
-  if height == 132 and width == 132 { return int(23) }
-  if height == 144 and width == 144 { return int(24) }
-  if height == 8 and width == 18 { return int(25) }
-  if height == 8 and width == 32 { return int(26) }
-  if height == 12 and width == 26 { return int(28) }
-  if height == 12 and width == 36 { return int(28) }
-  if height == 16 and width == 36 { return int(29) }
-  if height == 16 and width == 48 { return int(30) }
-
-  // Copied from DMRE table
-  if height == 8 and width == 48 { return int(31) }
-  if height == 8 and width == 64 { return int(32) }
-  if height == 8 and width == 80 { return int(33) }
-  if height == 8 and width == 96 { return int(34) }
-  if height == 8 and width == 120 { return int(35) }
-  if height == 8 and width == 144 { return int(36) }
-  if height == 12 and width == 64 { return int(37) }
-  if height == 12 and width == 88 { return int(38) }
-  if height == 16 and width == 64 { return int(39) }
-  if height == 20 and width == 36 { return int(40) }
-  if height == 20 and width == 44 { return int(41) }
-  if height == 20 and width == 64 { return int(42) }
-  if height == 22 and width == 48 { return int(43) }
-  if height == 24 and width == 48 { return int(44) }
-  if height == 24 and width == 64 { return int(45) }
-  if height == 26 and width == 40 { return int(46) }
-  if height == 26 and width == 48 { return int(47) }
-  if height == 26 and width == 64  { return int(48) }
-  panic("Data Matrix with dimensions " + str(width) + "x" + str(height) + " not supported")
-}
-
 /// Builds `output_options` value from boolean values.
+///
+/// Note that this function is automatically used for mapping if a #typst-type("dictionary") is stored in `options.output_options`.
 ///
 /// - barcode-bind-top (bool): Boundary bar _above_ the symbol and between rows if stacking multiple symbols.
 /// - barcode-bind (bool): Boundary bars _above_ and _below_ the symbol and between rows if stacking multiple symbols.
@@ -188,7 +96,9 @@
 
 /// Builds `input_mode` value from boolean values.
 ///
-/// Note that `data-mode`, `unicode-mode`, `gs1-mode` are mutually exclusive and one must be set
+/// Note that this function is automatically used for mapping if a #typst-type("dictionary") is stored in `options.input_mode`.
+///
+/// Options `data-mode`, `unicode-mode`, `gs1-mode` are _mutually exclusive_ and only one must be set. Default is `data-mode`.
 ///
 /// - data-mode (bool): Uses full 8-bit range interpreted as binary data.
 /// - unicode-mode (bool): Uses UTF-8 input.
@@ -252,9 +162,147 @@
   return result
 }
 
+// handles option conversion
+#let _cleanup_options(options) = {
+  let result = options
+
+  let output_options = result.at("output_options", default: none)
+  if output_options != none {
+    if type(output_options) == dictionary {
+      result.insert("output_options", output-options(..output_options))
+    } else if type(output_options) == int {
+      // pass
+    } else {
+      panic("output_options must be a dictionary or int; found: " + type(output_options))
+    }
+  }
+
+  let input_mode = result.at("input_mode", default: none)
+  if input_mode != none {
+    if type(input_mode) == dictionary {
+      result.insert("input_mode", input-mode(..input_mode))
+    } else if type(input_mode) == int {
+      // pass
+    } else {
+      panic("input_mode must be a dictionary or int; found: " + type(input_mode))
+    }
+  }
+
+  let proc_color(opt, name) = {
+    let c = opt.at(name, default: none)
+    if c != none {
+      if type(c) == color {
+        return c.to-hex().slice(1)
+      } else if type(c) == str {
+        color.rgb("#" + c) // error: not a HEX valid color
+        return c
+      } else {
+        panic(name + " must be a color or HEX color str; found: " + type(c))
+      }
+    }
+    return none
+  }
+
+  let fg_color = proc_color(result, "fg_color")
+  if fg_color != none {
+    result.insert("fg_color", fg_color)
+  }
+  let bg_color = proc_color(result, "bg_color")
+  if bg_color != none {
+    result.insert("bg_color", bg_color)
+  }
+
+  return result 
+}
+
+/// Draw a barcode SVG of any supported `type`.
+///
+/// *Example:*
+/// #example(`tiaoma.barcode("12345678", "AusPost")`)
+///
+/// - data (str): Data to encode in the 
+/// - type (str): Symbology type name; must be one of #link("https://github.com/Enter-tainer/zint-wasi/blob/master/zint-wasm-rs/src/options/symbology.rs")[supported types].
+///
+///     Example values: `"Code11"`, `"C25Standard"`, ...
+/// - options (dictionary): Any additional options to pass to Zint.
+///     
+///     See #link("https://zint.org.uk/manual/chapter/5")[Zint manual: Using API] for details on available options and how to use them.
+/// - ..args (any): Any additional arguments to forward to #link("https://typst.app/docs/reference/visualize/image/#definitions-decode", raw("image.decode", lang: "typ")) function.
+/// -> content
+#let barcode(data, type, options: (:), ..args) = image.decode(
+  zint-wasm.gen_with_options(
+    cbor.encode(
+      (symbology: type, .._cleanup_options(options))
+    ), bytes(data)
+  ),
+  format: "svg",
+  ..args
+)
+
+/// Returns option value for given Data Matrix _width_ and _height_.
+///
+/// Zint allows square and rectangular values to be enforced with `DM_SQUARE` and `DM_DMRE` (respectively); see Zint manual for details.
+///
+/// - width (int): Data Matrix width
+/// - height (int): Data Matrix height
+/// -> int
+#let dm-size(height, width) = {
+  // Copied from DM size table
+  if height == 10 and width == 10 { return int(1) }
+  if height == 12 and width == 12 { return int(2) }
+  if height == 14 and width == 14 { return int(3) }
+  if height == 16 and width == 16 { return int(4) }
+  if height == 18 and width == 18 { return int(5) }
+  if height == 20 and width == 20 { return int(6) }
+  if height == 22 and width == 22 { return int(7) }
+  if height == 24 and width == 24 { return int(8) }
+  if height == 26 and width == 26 { return int(9) }
+  if height == 32 and width == 32 { return int(10) }
+  if height == 36 and width == 36 { return int(11) }
+  if height == 40 and width == 40 { return int(12) }
+  if height == 44 and width == 44 { return int(13) }
+  if height == 48 and width == 48 { return int(14) }
+  if height == 52 and width == 52 { return int(15) }
+  if height == 64 and width == 64 { return int(16) }
+  if height == 72 and width == 72 { return int(17) }
+  if height == 80 and width == 80 { return int(18) }
+  if height == 88 and width == 88 { return int(19) }
+  if height == 96 and width == 96 { return int(20) }
+  if height == 104 and width == 104 { return int(21) }
+  if height == 120 and width == 120 { return int(22) }
+  if height == 132 and width == 132 { return int(23) }
+  if height == 144 and width == 144 { return int(24) }
+  if height == 8 and width == 18 { return int(25) }
+  if height == 8 and width == 32 { return int(26) }
+  if height == 12 and width == 26 { return int(28) }
+  if height == 12 and width == 36 { return int(28) }
+  if height == 16 and width == 36 { return int(29) }
+  if height == 16 and width == 48 { return int(30) }
+
+  // Copied from DMRE table
+  if height == 8 and width == 48 { return int(31) }
+  if height == 8 and width == 64 { return int(32) }
+  if height == 8 and width == 80 { return int(33) }
+  if height == 8 and width == 96 { return int(34) }
+  if height == 8 and width == 120 { return int(35) }
+  if height == 8 and width == 144 { return int(36) }
+  if height == 12 and width == 64 { return int(37) }
+  if height == 12 and width == 88 { return int(38) }
+  if height == 16 and width == 64 { return int(39) }
+  if height == 20 and width == 36 { return int(40) }
+  if height == 20 and width == 44 { return int(41) }
+  if height == 20 and width == 64 { return int(42) }
+  if height == 22 and width == 48 { return int(43) }
+  if height == 24 and width == 48 { return int(44) }
+  if height == 24 and width == 64 { return int(45) }
+  if height == 26 and width == 40 { return int(46) }
+  if height == 26 and width == 48 { return int(47) }
+  if height == 26 and width == 64  { return int(48) }
+  panic("Data Matrix with dimensions " + str(width) + "x" + str(height) + " not supported")
+}
+
 #let code11(data, options: (:), ..args) = barcode(data, "Code11", options: options, ..args)
 #let c25-standard(data, options: (:), ..args) = barcode(data, "C25Standard", options: options, ..args)
-#let c25-matrix(data, options: (:), ..args) = barcode(data, "C25Matrix", options: options, ..args)
 #let c25-inter(data, options: (:), ..args) = barcode(data, "C25Inter", options: options, ..args)
 #let c25-iata(data, options: (:), ..args) = barcode(data, "C25IATA", options: options, ..args)
 #let c25-logic(data, options: (:), ..args) = barcode(data, "C25Logic", options: options, ..args)
@@ -262,9 +310,9 @@
 #let code39(data, options: (:), ..args) = barcode(data, "Code39", options: options, ..args)
 #let ex-code39(data, options: (:), ..args) = barcode(data, "ExCode39", options: options, ..args)
 #let eanx(data, options: (:), ..args) = barcode(data, "EANX", options: options, ..args)
-#let ean(data, options: (:), ..args) = barcode(data, "EANXChk", options: options, ..args)
+#let eanx-chk(data, options: (:), ..args) = barcode(data, "EANXChk", options: options, ..args)
+#let ean(data, options: (:), ..args) = eanx-chk(data, options: options, ..args)
 #let gs1-128(data, options: (:), ..args) = barcode(data, "GS1128", options: options, ..args)
-#let ean128(data, options: (:), ..args) = barcode(data, "EAN128", options: options, ..args)
 #let codabar(data, options: (:), ..args) = barcode(data, "Codabar", options: options, ..args)
 #let code128(data, options: (:), ..args) = barcode(data, "Code128", options: options, ..args)
 #let dp-leitcode(data, options: (:), ..args) = barcode(data, "DPLEIT", options: options, ..args)
@@ -274,11 +322,8 @@
 #let code93(data, options: (:), ..args) = barcode(data, "Code93", options: options, ..args)
 #let flat(data, options: (:), ..args) = barcode(data, "Flat", options: options, ..args)
 #let dbar-omn(data, options: (:), ..args) = barcode(data, "DBarOmn", options: options, ..args)
-#let rss14(data, options: (:), ..args) = barcode(data, "RSS14", options: options, ..args)
 #let dbar-ltd(data, options: (:), ..args) = barcode(data, "DBarLtd", options: options, ..args)
-#let rss-ltd(data, options: (:), ..args) = barcode(data, "RSSLtd", options: options, ..args)
 #let dbar-exp(data, options: (:), ..args) = barcode(data, "DBarExp", options: options, ..args)
-#let rss-exp(data, options: (:), ..args) = barcode(data, "RSSExp", options: options, ..args)
 #let telepen(data, options: (:), ..args) = barcode(data, "Telepen", options: options, ..args)
 #let upca(data, options: (:), ..args) = barcode(data, "UPCA", options: options, ..args)
 #let upca-chk(data, options: (:), ..args) = barcode(data, "UPCAChk", options: options, ..args)
@@ -294,11 +339,9 @@
 #let cepnet(data, options: (:), ..args) = barcode(data, "CEPNet", options: options, ..args)
 #let pdf417(data, options: (:), ..args) = barcode(data, "PDF417", options: options, ..args)
 #let pdf417-comp(data, options: (:), ..args) = barcode(data, "PDF417Comp", options: options, ..args)
-#let pdf417-trunc(data, options: (:), ..args) = barcode(data, "PDF417Trunc", options: options, ..args)
 #let maxicode(data, options: (:), ..args) = barcode(data, "MaxiCode", options: options, ..args)
 #let qrcode(data, options: (:), ..args) = barcode(data, "QRCode", options: options, ..args)
 #let code128ab(data, options: (:), ..args) = barcode(data, "Code128AB", options: options, ..args)
-#let code128b(data, options: (:), ..args) = barcode(data, "Code128B", options: options, ..args)
 #let aus-post(data, options: (:), ..args) = barcode(data, "AusPost", options: options, ..args)
 #let aus-reply(data, options: (:), ..args) = barcode(data, "AusReply", options: options, ..args)
 #let aus-route(data, options: (:), ..args) = barcode(data, "AusRoute", options: options, ..args)
@@ -313,15 +356,11 @@
 #let japan-post(data, options: (:), ..args) = barcode(data, "JapanPost", options: options, ..args)
 #let korea-post(data, options: (:), ..args) = barcode(data, "KoreaPost", options: options, ..args)
 #let dbar-stk(data, options: (:), ..args) = barcode(data, "DBarStk", options: options, ..args)
-#let rss14-stack(data, options: (:), ..args) = barcode(data, "RSS14Stack", options: options, ..args)
 #let dbar-omn-stk(data, options: (:), ..args) = barcode(data, "DBarOmnStk", options: options, ..args)
-#let rss14-stack-omni(data, options: (:), ..args) = barcode(data, "RSS14StackOmni", options: options, ..args)
 #let dbar-exp-stk(data, options: (:), ..args) = barcode(data, "DBarExpStk", options: options, ..args)
-#let rss-exp-stack(data, options: (:), ..args) = barcode(data, "RSSExpStack", options: options, ..args)
 #let planet(data, options: (:), ..args) = barcode(data, "Planet", options: options, ..args)
 #let micro-pdf417(data, options: (:), ..args) = barcode(data, "MicroPDF417", options: options, ..args)
-#let uspsi-mail(data, options: (:), ..args) = barcode(data, "USPSIMail", options: options, ..args)
-#let onecode(data, options: (:), ..args) = barcode(data, "OneCode", options: options, ..args)
+#let usps-imail(data, options: (:), ..args) = barcode(data, "USPSIMail", options: options, ..args)
 #let plessey(data, options: (:), ..args) = barcode(data, "Plessey", options: options, ..args)
 #let telepen-num(data, options: (:), ..args) = barcode(data, "TelepenNum", options: options, ..args)
 #let itf14(data, options: (:), ..args) = barcode(data, "ITF14", options: options, ..args)
@@ -342,7 +381,6 @@
 #let hanxin(data, options: (:), ..args) = barcode(data, "HanXin", options: options, ..args)
 #let upus10(data, options: (:), ..args) = barcode(data, "UPUS10", options: options, ..args)
 #let mailmark-4s(data, options: (:), ..args) = barcode(data, "Mailmark4S", options: options, ..args)
-// #let mailmark(data, options: (:), ..args) = barcode(data, "Mailmark", options: options, ..args) // internal?
 #let azrune(data, options: (:), ..args) = barcode(data, "AzRune", options: options, ..args)
 #let code32(data, options: (:), ..args) = barcode(data, "Code32", options: options, ..args)
 #let channel(data, options: (:), ..args) = barcode(data, "Channel", options: options, ..args)

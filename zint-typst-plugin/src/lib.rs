@@ -24,7 +24,7 @@ type Result<T> = std::result::Result<T, crate::Error>;
 pub fn gen_with_options(options: &[u8], text: &[u8]) -> Result<Vec<u8>> {
     let options: Options = ciborium::from_reader(options)?;
     let text = std::str::from_utf8(text).expect("non-utf8 string"); // bytes(data) always creates a utf8 slice
-    let symbol = options.to_zint_symbol();
+    let symbol = options.into_zint_symbol();
     let svg = symbol.encode(text, 0, 0)?;
     Ok(svg.into_bytes())
 }

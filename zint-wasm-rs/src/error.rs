@@ -55,6 +55,8 @@ pub enum ZintError {
     /// Error writing to output file
     #[error("error writing to output file")]
     FileWrite,
+    #[error("invalid color format")]
+    InvalidColor,
     /// Errors caused when `[WarningLevel::FailAll]` is set.
     #[error("fail on warning: {0}")]
     Warning(ZintWarning),
@@ -117,7 +119,7 @@ impl From<ZintError> for i32 {
             ZintError::TooLong => ZINT_ERROR_TOO_LONG,
             ZintError::InvalidData => ZINT_ERROR_INVALID_DATA,
             ZintError::InvalidCheck => ZINT_ERROR_INVALID_CHECK,
-            ZintError::InvalidOption => ZINT_ERROR_INVALID_OPTION,
+            ZintError::InvalidOption | ZintError::InvalidColor => ZINT_ERROR_INVALID_OPTION,
             ZintError::EncodingProblem => ZINT_ERROR_ENCODING_PROBLEM,
             ZintError::FileAccess => ZINT_ERROR_FILE_ACCESS,
             ZintError::Memory => ZINT_ERROR_MEMORY,
