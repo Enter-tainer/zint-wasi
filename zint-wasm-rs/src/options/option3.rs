@@ -3,75 +3,92 @@ use std::fmt::Debug;
 use serde::Deserialize;
 use zint_wasm_sys::*;
 
-use crate::error::ZintError;
+use crate::error::Error;
+
 /// Data Matrix specific options
 #[derive(Debug, Clone, Copy, Deserialize)]
 #[allow(clippy::upper_case_acronyms)]
-#[serde(untagged, try_from = "i32")]
-#[repr(i32)]
+#[serde(untagged, try_from = "u32")]
+#[repr(u32)]
 pub enum DataMatrixOption {
     /// Only consider square versions on automatic symbol size selection
-    Square = DM_SQUARE as i32,
+    Square = DM_SQUARE,
     /// Consider DMRE versions on automatic symbol size selection
-    DMRE = DM_DMRE as i32,
+    DMRE = DM_DMRE,
     /// Use ISO instead of "de facto" format for 144x144 (i.e. don't skew ECC)
-    ISO144 = DM_ISO_144 as i32,
+    ISO144 = DM_ISO_144,
 }
 
-impl TryFrom<i32> for DataMatrixOption {
-    type Error = ZintError;
+impl TryFrom<u32> for DataMatrixOption {
+    type Error = Error;
 
-    fn try_from(value: i32) -> Result<Self, Self::Error> {
-        Ok(match value as u32 {
+    fn try_from(value: u32) -> Result<Self, Self::Error> {
+        Ok(match value {
             DM_SQUARE => Self::Square,
             DM_DMRE => Self::DMRE,
             DM_ISO_144 => Self::ISO144,
-            _ => return Err(ZintError::InvalidOption),
+            other => {
+                return Err(Error::UnknownOption {
+                    which: "option_3",
+                    value: Box::new(other),
+                })
+            }
         })
     }
 }
 
 /// QR, Han Xin, Grid Matrix specific options
 #[derive(Debug, Clone, Copy, Deserialize)]
-#[serde(untagged, try_from = "i32")]
-#[repr(i32)]
+#[serde(untagged, try_from = "u32")]
+#[repr(u32)]
 pub enum QRMatrixOption {
     /// Enable Kanji/Hanzi compression for Latin-1 & binary data
-    FullMultibyte = ZINT_FULL_MULTIBYTE as i32,
+    FullMultibyte = ZINT_FULL_MULTIBYTE,
 }
 
-impl TryFrom<i32> for QRMatrixOption {
-    type Error = ZintError;
+impl TryFrom<u32> for QRMatrixOption {
+    type Error = Error;
 
-    fn try_from(value: i32) -> Result<Self, Self::Error> {
-        Ok(match value as u32 {
+    fn try_from(value: u32) -> Result<Self, Self::Error> {
+        Ok(match value {
             ZINT_FULL_MULTIBYTE => Self::FullMultibyte,
-            _ => return Err(ZintError::InvalidOption),
+            other => {
+                return Err(Error::UnknownOption {
+                    which: "option_3",
+                    value: Box::new(other),
+                })
+            }
         })
     }
 }
 
 /// Ultracode specific option
 #[derive(Debug, Clone, Copy, Deserialize)]
-#[serde(untagged, try_from = "i32")]
-#[repr(i32)]
+#[serde(untagged, try_from = "u32")]
+#[repr(u32)]
 pub enum UltracodeOption {
     /// Enable Ultracode compression (experimental)
-    Compression = ULTRA_COMPRESSION as i32,
+    Compression = ULTRA_COMPRESSION,
 }
 
-impl TryFrom<i32> for UltracodeOption {
-    type Error = ZintError;
+impl TryFrom<u32> for UltracodeOption {
+    type Error = Error;
 
-    fn try_from(value: i32) -> Result<Self, Self::Error> {
-        Ok(match value as u32 {
+    fn try_from(value: u32) -> Result<Self, Self::Error> {
+        Ok(match value {
             ULTRA_COMPRESSION => Self::Compression,
-            _ => return Err(ZintError::InvalidOption),
+            other => {
+                return Err(Error::UnknownOption {
+                    which: "option_3",
+                    value: Box::new(other),
+                })
+            }
         })
     }
 }
 
-/// Option3 is an `i32` whose variant is determined by [`Options::symbology`](super::Options::symbology) value.
+/// Option3 is an `u32` whose variant is determined by
+/// [`Options::symbology`](super::Options::symbology) value.
 #[derive(Clone, Copy)]
 #[repr(C)]
 pub union Option3 {
@@ -82,10 +99,12 @@ pub union Option3 {
 
 impl Option3 {
     pub fn as_i32(&self) -> i32 {
-        unsafe {
-            // Safety: All variants are i32
+        let result: u32 = unsafe {
+            // Safety: All variants are u32
             std::mem::transmute(*self)
-        }
+        };
+
+        result as i32
     }
     /// # Safety
     /// Option3 can be treated as [`DataMatrixOption`] only when
@@ -141,10 +160,11 @@ impl From<UltracodeOption> for Option3 {
     }
 }
 
-impl TryFrom<i32> for Option3 {
-    type Error = ZintError;
-    fn try_from(value: i32) -> Result<Self, Self::Error> {
-        // don't care which variant it is, we're just checking that the value can be stored as one
+impl TryFrom<u32> for Option3 {
+    type Error = Error;
+    fn try_from(value: u32) -> Result<Self, Self::Error> {
+        // don't care which variant it is, we're just checking that the value
+        // can be stored as one
         DataMatrixOption::try_from(value)
             .map(From::<DataMatrixOption>::from)
             .or_else(|_| QRMatrixOption::try_from(value).map(From::<QRMatrixOption>::from))
@@ -164,14 +184,21 @@ impl<'de> Deserialize<'de> for Option3 {
             type Value = Option3;
 
             fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-                formatter.write_str("valid option_3 value")
+                formatter.write_str("option_3 value")
             }
 
-            fn visit_i32<E>(self, v: i32) -> Result<Self::Value, E>
+            fn visit_u64<E>(self, v: u64) -> Result<Self::Value, E>
             where
                 E: de::Error,
             {
-                Option3::try_from(v).map_err(|err| de::Error::custom(err))
+                Option3::try_from(v as u32).map_err(de::Error::custom)
+            }
+
+            fn visit_i64<E>(self, v: i64) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                Option3::try_from(v as u32).map_err(de::Error::custom)
             }
 
             fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
@@ -189,15 +216,8 @@ impl<'de> Deserialize<'de> for Option3 {
                     "ultra-compression" | "compression" => {
                         Option3::from(UltracodeOption::Compression)
                     }
-                    _ => return Err(de::Error::invalid_value(de::Unexpected::Str(&v), &self)),
+                    _ => return Err(de::Error::invalid_value(de::Unexpected::Str(v), &self)),
                 })
-            }
-
-            fn visit_string<E>(self, v: String) -> Result<Self::Value, E>
-            where
-                E: de::Error,
-            {
-                self.visit_str(&v)
             }
         }
 

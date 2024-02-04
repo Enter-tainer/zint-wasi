@@ -1,5 +1,5 @@
 use wasm_minimal_protocol::*;
-use zint_wasm_rs::options::Options;
+use zint_wasm_rs::{options::Options, symbol::Symbol};
 
 initiate_protocol!();
 
@@ -11,12 +11,8 @@ pub enum Error {
         #[source]
         ciborium::de::Error<std::io::Error>,
     ),
-    #[error("Zint encoding error: {0}")]
-    ZintEncoding(
-        #[from]
-        #[source]
-        zint_wasm_rs::error::ZintError,
-    ),
+    #[error(transparent)]
+    ZintEncoding(#[from] zint_wasm_rs::error::Error),
 }
 type Result<T> = std::result::Result<T, crate::Error>;
 
@@ -24,7 +20,7 @@ type Result<T> = std::result::Result<T, crate::Error>;
 pub fn gen_with_options(options: &[u8], text: &[u8]) -> Result<Vec<u8>> {
     let options: Options = ciborium::from_reader(options)?;
     let text = std::str::from_utf8(text).expect("non-utf8 string"); // bytes(data) always creates a utf8 slice
-    let symbol = options.into_zint_symbol();
-    let svg = symbol.encode(text, 0, 0)?;
+    let symbol = Symbol::new(&options);
+    let svg = symbol.encode_svg(text, 0, 0)?;
     Ok(svg.into_bytes())
 }

@@ -2,7 +2,7 @@ use std::str::FromStr;
 
 use serde::Deserialize;
 
-use crate::error::ZintError;
+use crate::error::Error;
 
 #[derive(Debug, Clone, Copy)]
 pub struct Color {
@@ -13,6 +13,19 @@ pub struct Color {
 }
 
 impl Color {
+    pub const BLACK: Color = Color {
+        r: 0,
+        g: 0,
+        b: 0,
+        a: u8::MAX,
+    };
+    pub const TRANSPARENT: Color = Color {
+        r: u8::MAX,
+        g: u8::MAX,
+        b: u8::MAX,
+        a: 0,
+    };
+
     pub fn to_hex_string(&self) -> String {
         hex::encode([self.r, self.g, self.b, self.a])
     }
@@ -23,7 +36,7 @@ impl Color {
 }
 
 impl FromStr for Color {
-    type Err = ZintError;
+    type Err = Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let v = s.strip_prefix('#').unwrap_or(s);
@@ -33,12 +46,18 @@ impl FromStr for Color {
             v.chars().map(|it| it as u8).collect()
         };
 
-        let bytes = hex::decode(v.as_slice()).map_err(|_| ZintError::InvalidColor)?;
+        let bytes = hex::decode(v.as_slice()).map_err(Error::InvalidColorEncoding)?;
 
         Ok(Color {
-            r: *bytes.first().ok_or(ZintError::InvalidColor)?,
-            g: *bytes.get(1).ok_or(ZintError::InvalidColor)?,
-            b: *bytes.get(2).ok_or(ZintError::InvalidColor)?,
+            r: *bytes.first().ok_or(Error::InvalidColor {
+                reason: "hex too short",
+            })?,
+            g: *bytes.get(1).ok_or(Error::InvalidColor {
+                reason: "hex too short",
+            })?,
+            b: *bytes.get(2).ok_or(Error::InvalidColor {
+                reason: "hex too short",
+            })?,
             a: bytes.get(3).cloned().unwrap_or(u8::MAX),
         })
     }
@@ -53,7 +72,7 @@ impl<'de> Deserialize<'de> for Color {
 
         #[derive(Deserialize)]
         #[serde(field_identifier, rename_all = "lowercase")]
-        pub enum Fields {
+        enum Fields {
             Red,
             R,
             Green,
@@ -64,7 +83,7 @@ impl<'de> Deserialize<'de> for Color {
             A,
         }
 
-        pub struct ColorVisitor;
+        struct ColorVisitor;
         impl<'de> de::Visitor<'de> for ColorVisitor {
             type Value = Color;
 

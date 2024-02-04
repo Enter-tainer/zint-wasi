@@ -1,4 +1,7 @@
-// THIS IS A TEMPORARY COPY OF TIDY DEFAULT STYLE THAT HAS NEW TYPE colors SET
+// Based on default tidy style
+
+// Modified to link to official documentation and allow linking to other
+// document content.
 
 #import "@preview/tidy:0.2.0": utilities, show-example as show-ex
 
@@ -42,6 +45,36 @@
   "signature-func-name": rgb("#4b69c6"),
 )
 
+// Links to official type documentation
+#let documentation = (
+  "content": "https://typst.app/docs/reference/foundations/content/",
+  "string": "https://typst.app/docs/reference/foundations/str/",
+  "str": "https://typst.app/docs/reference/foundations/str/",
+  "none": "https://typst.app/docs/reference/foundations/none/",
+  "auto": "https://typst.app/docs/reference/foundations/auto/",
+  "boolean": "https://typst.app/docs/reference/foundations/bool/",
+  "bool": "https://typst.app/docs/reference/foundations/bool/",
+  "integer": "https://typst.app/docs/reference/foundations/int/",
+  "int": "https://typst.app/docs/reference/foundations/int/",
+  "float": "https://typst.app/docs/reference/foundations/float/",
+  "ratio": "https://typst.app/docs/reference/foundations/ratio/",
+  "length": "https://typst.app/docs/reference/foundations/length/",
+  "angle": "https://typst.app/docs/reference/foundations/angle/",
+  "relative-length": "https://typst.app/docs/reference/foundations/array/",
+  "relative length": "https://typst.app/docs/reference/foundations/array/",
+  "relative": "https://typst.app/docs/reference/layout/relative/",
+  "fraction": "https://typst.app/docs/reference/layout/fraction/",
+  "symbol": "https://typst.app/docs/reference/symbols/symbol/",
+  "array": "https://typst.app/docs/reference/foundations/array/",
+  "dictionary": "https://typst.app/docs/reference/foundations/dictionary/",
+  "arguments": "https://typst.app/docs/reference/foundations/arguments/",
+  "selector": "https://typst.app/docs/reference/foundations/selector/",
+  "module": "https://typst.app/docs/reference/foundations/module/",
+  "stroke": "https://typst.app/docs/reference/visualize/stroke/",
+  "function": "https://typst.app/docs/reference/foundations/function/",
+  "color": "https://typst.app/docs/reference/visualize/color/",
+  "gradient": "https://typst.app/docs/reference/visualize/gradient/",
+)
 
 #let colors-dark = {
   let k = (:)
@@ -72,10 +105,16 @@
 }
 
 // Create beautiful, colored type box
-#let show-type(type, style-args: (:)) = { 
+#let show-type(type, style-args: (:), docs: (:)) = { 
   h(2pt)
   let clr = style-args.colors.at(type, default: style-args.colors.at("default", default: default-type-color))
-  box(outset: 2pt, fill: clr, radius: 2pt, raw(type))
+  let dest = (documentation + docs).at(type, default: none)
+  let c = box(outset: 2pt, fill: clr, radius: 2pt, raw(type))
+  if dest != none {
+    link(dest, c)
+  } else {
+    c
+  }
   h(2pt)
 }
 

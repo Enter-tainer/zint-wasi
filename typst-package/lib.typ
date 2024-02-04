@@ -1,192 +1,8 @@
 #let zint-wasm = plugin("./zint_typst_plugin.wasm")
 
-/// Builds `output_options` value from boolean values.
-///
-/// Note that this function is automatically used for mapping if a #typst-type("dictionary") is stored in `options.output_options`.
-///
-/// - barcode-bind-top (bool): Boundary bar _above_ the symbol and between rows if stacking multiple symbols.
-/// - barcode-bind (bool): Boundary bars _above_ and _below_ the symbol and between rows if stacking multiple symbols.
-/// - barcode-box (bool): Add a box surrounding the symbol and whitespace.
-/// - small-text (bool): Use a smaller font for the Human Readable Text.
-/// - bold-text (bool): Embolden the Human Readable Text.
-/// - cmyk-colour (bool): Select the CMYK colour space option for Encapsulated PostScript and TIF files.
-/// - barcode-dotty-mode (bool): Plot a matrix symbol using dots rather than squares.
-/// - gs1-gs-separator (bool): Use GS instead of FNC1 as GS1 separator (Data Matrix only).
-/// - barcode-quiet-zones (bool): Add compliant quiet zones (additional to any specified whitespace).
-/// - barcode-no-quiet-zones (bool): Disable quiet zones, notably those with defaults.
-/// - compliant-height (bool): Warn if height not compliant and use standard height (if any) as default.
-///
-/// -> int
-#let output-options(
-  barcode-bind-top: false,
-  barcode-bind: false,
-  barcode-box: false,
-  small-text: false,
-  bold-text: false,
-  cmyk-colour: false,
-  barcode-dotty-mode: false,
-  gs1-gs-separator: false,
-  barcode-quiet-zones: false,
-  barcode-no-quiet-zones: false,
-  compliant-height: false,
-  eanupc-guard-whitespace: false,
-  embed-vector-font: false,
-) = {
-  let BARCODE_BIND_TOP = int(1);
-  let BARCODE_BIND = int(2);
-  let BARCODE_BOX = int(4);
-  let SMALL_TEXT = int(32);
-  let BOLD_TEXT = int(64);
-  let CMYK_COLOUR = int(128);
-  let BARCODE_DOTTY_MODE = int(256);
-  let GS1_GS_SEPARATOR = int(512);
-  let OUT_BUFFER_INTERMEDIATE = int(1024); // Doesn't make sense in context of tiaoma
-  let BARCODE_QUIET_ZONES = int(2048);
-  let BARCODE_NO_QUIET_ZONES = int(4096);
-  let COMPLIANT_HEIGHT = int(8192);
-  let EANUPC_GUARD_WHITESPACE = int(16384); // TODO: Missing documentation
-  let EMBED_VECTOR_FONT = int(32768); // TODO: Missing documentation
-
-  // TODO: Replace addition with int.bit-or once it's released
-  let result = int(0)
-  if barcode-bind-top {
-    result += BARCODE_BIND_TOP
-  }
-  if barcode-bind {
-    result += BARCODE_BIND
-  }
-  if barcode-box {
-    result += BARCODE_BOX
-  }
-  if small-text {
-    result += SMALL_TEXT
-  }
-  if bold-text {
-    result += BOLD_TEXT
-  }
-  if cmyk-colour {
-    result += CMYK_COLOUR
-  }
-  if barcode-dotty-mode {
-    result += BARCODE_DOTTY_MODE
-  }
-  if gs1-gs-separator {
-    result += GS1_GS_SEPARATOR
-  }
-  if out-buffer-intermediate {
-    result += OUT_BUFFER_INTERMEDIATE
-  }
-  if barcode-quiet-zones {
-    result += BARCODE_QUIET_ZONES
-  }
-  if barcode-no-quiet-zones {
-    result += BARCODE_NO_QUIET_ZONES
-  }
-  if compliant-height {
-    result += COMPLIANT_HEIGHT
-  }
-  if eanupc-guard-whitespace {
-    result += EANUPC_GUARD_WHITESPACE
-  }
-  if embed-vector-font {
-    result += EMBED_VECTOR_FONT
-  }
-  return result
-}
-
-/// Builds `input_mode` value from boolean values.
-///
-/// Note that this function is automatically used for mapping if a #typst-type("dictionary") is stored in `options.input_mode`.
-///
-/// Options `data-mode`, `unicode-mode`, `gs1-mode` are _mutually exclusive_ and only one must be set. Default is `data-mode`.
-///
-/// - data-mode (bool): Uses full 8-bit range interpreted as binary data.
-/// - unicode-mode (bool): Uses UTF-8 input.
-/// - gs1-mode (bool): Encodes GS1 data using FNC1 characters.
-///
-/// - escape-mode (bool): Process input data for escape sequences.
-/// - gs1parens-mode (bool): Parentheses (round brackets) used in GS1 data instead of square brackets to delimit Application Identifiers (parentheses must not otherwise occur in the data).
-/// - gs1nocheck-mode (bool): Do not check GS1 data for validity, i.e. suppress checks for valid AIs and data lengths. Invalid characters (e.g. control characters, extended ASCII characters) are still checked for.
-/// - heightperrow-mode (bool): Interpret the `height` variable as per-row rather than as overall height.
-/// - fast-mode (bool): Use faster if less optimal encodation for symbologies that support it (currently Data Matrix only).
-/// -> int
-#let input-mode(
-  data-mode: false,
-  unicode-mode: false,
-  gs1-mode: false,
-  escape-mode: false,
-  gs1parens-mode: false,
-  gs1nocheck-mode: false,
-  heightperrow-mode: false,
-  fast-mode: false,
-  extra-escape-mode: false,
-) = {
-  let DATA_MODE = int(0);
-  let UNICODE_MODE = int(1);
-  let GS1_MODE = int(2);
-  let ESCAPE_MODE = int(8);
-  let GS1PARENS_MODE = int(16);
-  let GS1NOCHECK_MODE = int(32);
-  let HEIGHTPERROW_MODE = int(64);
-  let FAST_MODE = int(128);
-  let EXTRA_ESCAPE_MODE = int(256); // TODO: Missing documentation
-
-  // TODO: Replace addition with int.bit-or once it's released
-  let result = int(0)
-  if data-mode {
-    // pass (0 is default)
-  } else if unicode-mode {
-    result += UNICODE_MODE
-  } else if gs1-mode {
-    result += GS1_MODE
-  }
-
-  if escape-mode {
-    result += ESCAPE_MODE
-  }
-  if gs1parens-mode {
-    result += GS1PARENS_MODE
-  }
-  if gs1nocheck-mode {
-    result += GS1NOCHECK_MODE
-  }
-  if heightperrow-mode {
-    result += HEIGHTPERROW_MODE
-  }
-  if fast-mode {
-    result += FAST_MODE
-  }
-  if extra-escape-mode {
-    result += EXTRA_ESCAPE_MODE
-  }
-  return result
-}
-
 // handles option conversion
-#let _cleanup_options(options) = {
+#let _proc_options(options) = {
   let result = options
-
-  let output_options = result.at("output_options", default: none)
-  if output_options != none {
-    if type(output_options) == dictionary {
-      result.insert("output_options", output-options(..output_options))
-    } else if type(output_options) == int {
-      // pass
-    } else {
-      panic("output_options must be a dictionary or int; found: " + type(output_options))
-    }
-  }
-
-  let input_mode = result.at("input_mode", default: none)
-  if input_mode != none {
-    if type(input_mode) == dictionary {
-      result.insert("input_mode", input-mode(..input_mode))
-    } else if type(input_mode) == int {
-      // pass
-    } else {
-      panic("input_mode must be a dictionary or int; found: " + type(input_mode))
-    }
-  }
 
   let proc_color(opt, name) = {
     let c = opt.at(name, default: none)
@@ -194,7 +10,7 @@
       if type(c) == color {
         return c.to-hex().slice(1)
       } else if type(c) == str {
-        color.rgb("#" + c) // error: not a HEX valid color
+        color.rgb("#" + c) // error: not a valid HEX color
         return c
       } else {
         panic(name + " must be a color or HEX color str; found: " + type(c))
@@ -203,45 +19,65 @@
     return none
   }
 
-  let fg_color = proc_color(result, "fg_color")
-  if fg_color != none {
-    result.insert("fg_color", fg_color)
+  let fg-color = proc_color(result, "fg-color")
+  if fg-color != none {
+    result.insert("fg-color", fg-color)
   }
-  let bg_color = proc_color(result, "bg_color")
-  if bg_color != none {
-    result.insert("bg_color", bg_color)
+  let bg-color = proc_color(result, "bg-color")
+  if bg-color != none {
+    result.insert("bg-color", bg-color)
   }
 
   return result 
 }
 
-/// Draw a barcode SVG of any supported `type`.
+/// Draw a barcode SVG of any supported `symbology`.
 ///
 /// *Example:*
-/// #example(`tiaoma.barcode("12345678", "AusPost")`)
+/// #example(
+/// `
+/// tiaoma.barcode("12345678", "QRCode", options: (
+///   scale: 2.0,
+///   fg-color: blue,
+///   bg-color: green.lighten(70%),
+///   output-options: (
+///     barcode-dotty-mode: true
+///   ),
+///   dot-size: 1.2,
+/// ))
+/// `)
 ///
 /// - data (str): Data to encode in the 
-/// - type (str): Symbology type name; must be one of #link("https://github.com/Enter-tainer/zint-wasi/blob/master/zint-wasm-rs/src/options/symbology.rs")[supported types].
+/// - symbology (str): Symbology type name; must be one of #l(<symbology>)[supported types].
 ///
-///     Example values: `"Code11"`, `"C25Standard"`, ...
-/// - options (dictionary): Any additional options to pass to Zint.
+///     Example values: #typst-val("\"Code11\""), #typst-val("\"C25Standard\""), ...
+/// - options (dictionary): Additional options to pass to Zint.
 ///     
-///     See #link("https://zint.org.uk/manual/chapter/5")[Zint manual: Using API] for details on available options and how to use them.
-/// - ..args (any): Any additional arguments to forward to #link("https://typst.app/docs/reference/visualize/image/#definitions-decode", raw("image.decode", lang: "typ")) function.
+///     See the #l(<options>)[configuration section] for details on available options and how to use them.
+/// - ..args (any): Any additional arguments to forward to #l("https://typst.app/docs/reference/visualize/image/#definitions-decode", raw("image.decode", lang: "typ")) function.
 /// -> content
-#let barcode(data, type, options: (:), ..args) = image.decode(
-  zint-wasm.gen_with_options(
-    cbor.encode(
-      (symbology: type, .._cleanup_options(options))
-    ), bytes(data)
-  ),
-  format: "svg",
-  ..args
-)
+#let barcode(data, symbology, options: (:), ..args) = {
+  let data = data
+  if type(data) == str {
+    data = bytes(data)
+  } else if type(data) == array {
+    data = bytes(data)
+  }
 
-/// Returns option value for given Data Matrix _width_ and _height_.
+  image.decode(
+    zint-wasm.gen_with_options(
+      cbor.encode(
+        (symbology: symbology, .._proc_options(options))
+      ), data
+    ),
+    format: "svg",
+    ..args
+  )
+}
+
+/// Returns #typst-type("int") option value for given Data Matrix _width_ and _height_.
 ///
-/// Zint allows square and rectangular values to be enforced with `DM_SQUARE` and `DM_DMRE` (respectively); see Zint manual for details.
+/// Zint allows square and rectangular values to be enforced with `DM_SQUARE` and `DM_DMRE` #l(<opt_3>, "Option 3") values.
 ///
 /// - width (int): Data Matrix width
 /// - height (int): Data Matrix height

@@ -2,7 +2,7 @@
 name = "tiaoma"
 version = "0.1.0"
 entrypoint = "lib.typ"
-authors = ["Wenzhuo Liu"]
+authors = ["Wenzhuo Liu", "Tin Švagelj"]
 license = "MIT"
 description = "Barcode and QRCode generator for Typst using Zint."
 
@@ -16,6 +16,7 @@ keywords = [
     "qrcode",
 ]
 exclude = [
+  "tidy_style.typ",
   "manual.typ",
   "manual.pdf",
   "example.typ",

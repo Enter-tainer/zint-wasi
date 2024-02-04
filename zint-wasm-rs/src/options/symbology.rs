@@ -1,8 +1,8 @@
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use zint_wasm_sys::*;
 
 #[allow(clippy::upper_case_acronyms)]
-#[derive(Debug, Default, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, Deserialize)]
 #[serde(tag = "symbology", rename_all = "PascalCase")]
 #[non_exhaustive]
 #[repr(i32)]

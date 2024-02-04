@@ -1,10 +1,18 @@
 [package]
 name = "zint-wasm-rs"
-version = "0.1.0"
+version = "0.2.0"
 edition.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[features]
+default = []
+typst = []
+
 [dependencies]
-thiserror = "1.0"
 zint-wasm-sys = { path = "../zint-wasm-sys" }
+
 serde = { version = "1", features = ["derive"] }
 hex = "0.4"
+
+bitflags = "2.4"
+thiserror = "1.0"
