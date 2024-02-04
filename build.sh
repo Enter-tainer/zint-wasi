@@ -7,4 +7,6 @@ wasm-opt typst-package/zint_typst_plugin.wasm -O3 --enable-bulk-memory -o typst-
 cp LICENSE typst-package/LICENSE
 typst compile typst-package/manual.typ typst-package/manual.pdf
 typst compile typst-package/example.typ typst-package/example.svg
-typst compile typst-package/manual.typ 'assets/doc-{n}.svg'
+# We're only showing the first page
+# rm assets/*.svg
+# typst compile typst-package/manual.typ 'assets/doc-{n}.svg'

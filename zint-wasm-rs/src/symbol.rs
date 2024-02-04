@@ -93,8 +93,8 @@ impl Symbol {
             result.text_gap = text_gap;
         }
 
-        if let Some(guard_decent) = options.guard_decent {
-            result.guard_descent = guard_decent;
+        if let Some(guard_descent) = options.guard_descent {
+            result.guard_descent = guard_descent;
         }
 
         result

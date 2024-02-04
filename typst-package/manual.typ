@@ -9,7 +9,7 @@
   margin: (
     y: 1em,
     x: 2em,
-  )
+  ),
 )
 
 // shortcut for underlined links
@@ -144,7 +144,7 @@ The following values are valid for the `options` dictionary:
   [eci], typst-type("int"), [Extended Channel Interpretation.], typst-val("0"),
   [dot-size], typst-type("float"), [Size of dots used in BARCODE_DOTTY_MODE.], typst-val("4.0 / 5.0"),
   [text-gap], typst-type("float"), [Gap between barcode and text (HRT) in X-dimensions.], typst-val("1.0"),
-  [guard-decent], typst-type("float"), [Height in X-dimensions that EAN/UPC guard bars descend.], typst-val("5.0"),
+  [guard-descent], typst-type("float"), [Height in X-dimensions that EAN/UPC guard bars descend.], typst-val("5.0"),
 )
 
 #pagebreak()

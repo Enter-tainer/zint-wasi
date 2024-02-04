@@ -3,6 +3,7 @@ name = "zint-wasm-sys"
 version = "0.1.0"
 edition = "2021"
 description = "Rust bindings for Wasm build of zint"
+license = "MIT"
 categories = ["external-ffi-bindings"]
 
 [build-dependencies]

@@ -58,7 +58,7 @@ pub struct Options {
     /// Gap between barcode and text (HRT) in X-dimensions.
     pub text_gap: Option<f32>,
     /// Height in X-dimensions that EAN/UPC guard bars descend.
-    pub guard_decent: Option<f32>,
+    pub guard_descent: Option<f32>,
 }
 
 impl Options {
