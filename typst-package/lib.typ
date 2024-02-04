@@ -10,7 +10,11 @@
       if type(c) == color {
         return c.to-hex().slice(1)
       } else if type(c) == str {
-        color.rgb("#" + c) // error: not a valid HEX color
+        if c.at(0) == "#" {
+          color.rgb(c) // error: not a valid HEX color
+        } else {
+          color.rgb("#" + c) // error: not a valid HEX color
+        }
         return c
       } else {
         panic(name + " must be a color or HEX color str; found: " + type(c))

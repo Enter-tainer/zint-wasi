@@ -48,7 +48,7 @@ Some generators require additional configuration (such as composite codes), this
 }
 
 #let typst-val(v, ty: none) = {
-  let content = [$mono(#v)$]
+  let content = raw(v)
   let fg = black
 
   let ty = ty
@@ -161,9 +161,9 @@ The following options are supported:
   ..reference-table-style(head-rows: 2),
   colspanx(4, cellx(align: center)[*Input format (mutually exclusive)*]),(),(),(),
   [*Constant*], typst-type("int"), typst-type("str"), [*Description*],
-  [$mono("DATA_MODE")$], typst-val("0"), typst-val("\"data\""), [Use full 8-bit range interpreted as binary data.],
-  [$mono("UNICODE_MODE")$], typst-val("1"), typst-val("\"unicode\""), [Use UTF-8 input.],
-  [$mono("GS1_MODE")$], typst-val("2"), typst-val("\"gs1\""), [Encode GS1 data using FNC1 characters.],
+  raw("DATA_MODE"), typst-val("0"), typst-val("\"data\""), [Use full 8-bit range interpreted as binary data.],
+  raw("UNICODE_MODE"), typst-val("1"), typst-val("\"unicode\""), [Use UTF-8 input.],
+  raw("GS1_MODE"), typst-val("2"), typst-val("\"gs1\""), [Encode GS1 data using FNC1 characters.],
 )
 
 #tablex(
@@ -172,12 +172,12 @@ The following options are supported:
   ..reference-table-style(head-rows: 2),
   colspanx(4, cellx(align: center)[*Behavior customization*]),(),(),(),
   [*Constant*], typst-type("int"), typst-type("str"), [*Description*],
-  [$mono("ESCAPE_MODE")$], typst-val("8"), typst-val("\"escape\""), [Process input data for escape sequences.],
-  [$mono("GS1PARENS_MODE")$], typst-val("16"), typst-val("\"gs1-parentheses\""), [Parentheses (round brackets) used in GS1 data instead of square brackets to delimit Application Identifiers (parentheses must not otherwise occur in the data).],
-  [$mono("GS1NOCHECK_MODE")$], typst-val("32"), typst-val("\"gs1-no-check\""), [Do not check GS1 data for validity, i.e. suppress checks for valid AIs and data lengths. Invalid characters (e.g. control characters, extended ASCII characters) are still checked for.],
-  [$mono("HEIGHTPERROW_MODE")$], typst-val("64"), typst-val("\"height-per-row\""), [Interpret the `height` variable as per-row rather than as overall height.],
-  [$mono("FAST_MODE")$], typst-val("128"), typst-val("\"fast\""), [Use faster if less optimal encodation for symbologies that support it (currently Data Matrix only).],
-  [$mono("EXTRA_ESCAPE_MODE")$], typst-val("256"), typst-val("\"extra-escape\""), [Undocumented.],
+  raw("ESCAPE_MODE"), typst-val("8"), typst-val("\"escape\""), [Process input data for escape sequences.],
+  raw("GS1PARENS_MODE"), typst-val("16"), typst-val("\"gs1-parentheses\""), [Parentheses (round brackets) used in GS1 data instead of square brackets to delimit Application Identifiers (parentheses must not otherwise occur in the data).],
+  raw("GS1NOCHECK_MODE"), typst-val("32"), typst-val("\"gs1-no-check\""), [Do not check GS1 data for validity, i.e. suppress checks for valid AIs and data lengths. Invalid characters (e.g. control characters, extended ASCII characters) are still checked for.],
+  raw("HEIGHTPERROW_MODE"), typst-val("64"), typst-val("\"height-per-row\""), [Interpret the `height` variable as per-row rather than as overall height.],
+  raw("FAST_MODE"), typst-val("128"), typst-val("\"fast\""), [Use faster if less optimal encodation for symbologies that support it (currently Data Matrix only).],
+  raw("EXTRA_ESCAPE_MODE"), typst-val("256"), typst-val("\"extra-escape\""), [Undocumented.],
 )
 
 
@@ -220,22 +220,22 @@ Output options allow specifying how `Zint` should generate the barcode/symbol.
   align: (left + horizon, center + horizon, center + horizon, left + horizon),
   ..reference-table-style(),
   [*Constant*], typst-type("int"), typst-type("str"), [*Description*],
-  [$mono("BARCODE_BIND_TOP")$], typst-val("1"), typst-val("\"barcode-bind-top\""), [Boundary bar _above_ the symbol and between rows if stacking multiple symbols.],
-  [$mono("BARCODE_BIND")$], typst-val("2"), typst-val("\"barcode-bind\""), [Boundary bars _above_ and _below_ the symbol and between rows if stacking multiple symbols.],
-  [$mono("BARCODE_BOX")$], typst-val("4"), typst-val("\"barcode-box\""), [Add a box surrounding the symbol and whitespace.],
+  raw("BARCODE_BIND_TOP"), typst-val("1"), typst-val("\"barcode-bind-top\""), [Boundary bar _above_ the symbol and between rows if stacking multiple symbols.],
+  raw("BARCODE_BIND"), typst-val("2"), typst-val("\"barcode-bind\""), [Boundary bars _above_ and _below_ the symbol and between rows if stacking multiple symbols.],
+  raw("BARCODE_BOX"), typst-val("4"), typst-val("\"barcode-box\""), [Add a box surrounding the symbol and whitespace.],
   //[BARCODE_STDOUT], [8], typst-val("\"barcode-stdout\""), [Output to stdout],
   //[READER_INIT], [16], typst-val("\"reader-init\""), [Reader Initialisation (Programming)],
-  [$mono("SMALL_TEXT")$], typst-val("32"), typst-val("\"small-text\""), [Use a smaller font for the Human Readable Text.],
-  [$mono("BOLD_TEXT")$], typst-val("64"), typst-val("\"bold-text\""), [Embolden the Human Readable Text.],
-  [$mono("CMYK_COLOUR")$], typst-val("128"), typst-val("\"cmyk-color\""), [Select the CMYK colour space option for Encapsulated PostScript and TIF files.],
-  [$mono("BARCODE_DOTTY_MODE")$], typst-val("256"), typst-val("\"barcode-dotty-mode\""), [Plot a matrix symbol using dots rather than squares.],
-  [$mono("GS1_GS_SEPARATOR")$], typst-val("512"), typst-val("\"gs1-gs-separator\""), [Use GS instead of FNC1 as GS1 separator (Data Matrix only).],
+  raw("SMALL_TEXT"), typst-val("32"), typst-val("\"small-text\""), [Use a smaller font for the Human Readable Text.],
+  raw("BOLD_TEXT"), typst-val("64"), typst-val("\"bold-text\""), [Embolden the Human Readable Text.],
+  raw("CMYK_COLOUR"), typst-val("128"), typst-val("\"cmyk-color\""), [Select the CMYK colour space option for Encapsulated PostScript and TIF files.],
+  raw("BARCODE_DOTTY_MODE"), typst-val("256"), typst-val("\"barcode-dotty-mode\""), [Plot a matrix symbol using dots rather than squares.],
+  raw("GS1_GS_SEPARATOR"), typst-val("512"), typst-val("\"gs1-gs-separator\""), [Use GS instead of FNC1 as GS1 separator (Data Matrix only).],
   //[OUT_BUFFER_INTERMEDIATE], [1024], typst-val("\"out-buffer-intermediate\""), [Return ASCII values in bitmap buffer (OUT_BUFFER only)],
-  [$mono("BARCODE_QUIET_ZONES")$], typst-val("2048"), typst-val("\"barcode-quiet-zones\""), [Add compliant quiet zones (additional to any specified whitespace).],
-  [$mono("BARCODE_NO_QUIET_ZONES")$], typst-val("4096"), typst-val("\"barcode-no-quiet-zones\""), [Disable quiet zones, notably those with defaults.],
-  [$mono("COMPLIANT_HEIGHT")$], typst-val("8192"), typst-val("\"compliant-height\""), [Warn if height not compliant and use standard height (if any) as default.],
-  [$mono("EANUPC_GUARD_WHITESPACE")$], typst-val("16384"), typst-val("\"ean-upc-guard-whitespace\""), [Add quiet zone indicators ("<" / ">") to HRT whitespace (EAN/UPC)],
-  [$mono("EMBED_VECTOR_FONT")$], typst-val("32768"), typst-val("\"embed-vector-font\""), [Embed font in vector output.],
+  raw("BARCODE_QUIET_ZONES"), typst-val("2048"), typst-val("\"barcode-quiet-zones\""), [Add compliant quiet zones (additional to any specified whitespace).],
+  raw("BARCODE_NO_QUIET_ZONES"), typst-val("4096"), typst-val("\"barcode-no-quiet-zones\""), [Disable quiet zones, notably those with defaults.],
+  raw("COMPLIANT_HEIGHT"), typst-val("8192"), typst-val("\"compliant-height\""), [Warn if height not compliant and use standard height (if any) as default.],
+  raw("EANUPC_GUARD_WHITESPACE"), typst-val("16384"), typst-val("\"ean-upc-guard-whitespace\""), [Add quiet zone indicators ("<" / ">") to HRT whitespace (EAN/UPC)],
+  raw("EMBED_VECTOR_FONT"), typst-val("32768"), typst-val("\"embed-vector-font\""), [Embed font in vector output.],
 )
 
 ==== Array Value <output_options_arr>
@@ -258,11 +258,11 @@ The following table documents supported values and their #typst-type("str") repr
   align: (left + horizon, center + horizon, center + horizon, left + horizon),
   ..reference-table-style(),
   [*Constant*], [#typst-type("int")], [#typst-type("str")], [*Description*],
-  [$mono("DM_SQUARE")$], typst-val("100"), typst-val("\"square\""), [Only consider square versions on automatic symbol size selection],
-  [$mono("DM_DMRE")$], typst-val("101"), typst-val("\"rect\""), [Consider DMRE versions on automatic symbol size selection],
-  [$mono("DM_ISO_144")$], typst-val("128"), typst-val("\"iso-144\""), [Use ISO instead of "de facto" format for 144x144 (i.e. don't skew ECC)],
-  [$mono("ZINT_FULL_MULTIBYTE")$], typst-val("200"), typst-val("\"full-multibyte\""), [Enable Kanji/Hanzi compression for Latin-1 & binary data],
-  [$mono("ULTRA_COMPRESSION")$], typst-val("128"), typst-val("\"compression\""), [Enable Ultracode compression *(experimental)*],
+  raw("DM_SQUARE"), typst-val("100"), typst-val("\"square\""), [Only consider square versions on automatic symbol size selection],
+  raw("DM_DMRE"), typst-val("101"), typst-val("\"rect\""), [Consider DMRE versions on automatic symbol size selection],
+  raw("DM_ISO_144"), typst-val("128"), typst-val("\"iso-144\""), [Use ISO instead of "de facto" format for 144x144 (i.e. don't skew ECC)],
+  raw("ZINT_FULL_MULTIBYTE"), typst-val("200"), typst-val("\"full-multibyte\""), [Enable Kanji/Hanzi compression for Latin-1 & binary data],
+  raw("ULTRA_COMPRESSION"), typst-val("128"), typst-val("\"compression\""), [Enable Ultracode compression *(experimental)*],
 )
 
 #pagebreak()
