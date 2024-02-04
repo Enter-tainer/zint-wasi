@@ -10,7 +10,15 @@ This package only uses the Zint library but not any of its frontends. So it is M
 
 Checkout examples and `typst-package/manual.typ` for more information.
 
-![doc-1](assets/doc-1.svg)
-![doc-1](assets/doc-2.svg)
-![doc-1](assets/doc-3.svg)
-![doc-1](assets/doc-4.svg)
+## Manual
+
+_(click on the image to open)_
+
+<a aria-label="Link to manual" href="https://raw.githubusercontent.com/Enter-tainer/zint-wasi/master/typst-package/manual.pdf" target="_blank">
+  <img src="/assets/manual-preview.svg">
+</a>
+
+## License
+
+This package is licensed under MIT license.
+A copy of the license can be found in the [LICENSE](./LICENSE) file.

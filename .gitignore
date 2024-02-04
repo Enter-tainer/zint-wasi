@@ -68,3 +68,5 @@ dkms.conf
 license.html
 *.wasm
 *.pdf
+
+!typst-package/manual.pdf
