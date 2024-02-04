@@ -47,7 +47,7 @@
 /// ))
 /// `)
 ///
-/// - data (str): Data to encode in the 
+/// - data (str): Data to encode.
 /// - symbology (str): Symbology type name; must be one of #l(<symbology>)[supported types].
 ///
 ///     Example values: #typst-val("\"Code11\""), #typst-val("\"C25Standard\""), ...

@@ -271,7 +271,7 @@ The following table documents supported values and their #typst-type("str") repr
 #let entry-height = 4.5em
 #let entry-gutter = 1em
 
-#let example-entry(name, code-block, preview, ..extra) = block(breakable: false,
+#let example-entry(name, code-block, preview, ..extra) = block(breakable: true,
 inset: 5pt,
     fill: gray.lighten(90%),
     radius: 5pt,)[
