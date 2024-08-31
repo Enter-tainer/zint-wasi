@@ -41,6 +41,7 @@ impl TryFrom<u32> for DataMatrixOption {
 #[derive(Debug, Clone, Copy, Deserialize)]
 #[serde(untagged, try_from = "u32")]
 #[repr(u32)]
+#[non_exhaustive]
 pub enum QRMatrixOption {
     /// Enable Kanji/Hanzi compression for Latin-1 & binary data
     FullMultibyte = ZINT_FULL_MULTIBYTE,
@@ -53,10 +54,16 @@ impl TryFrom<u32> for QRMatrixOption {
         Ok(match value {
             ZINT_FULL_MULTIBYTE => Self::FullMultibyte,
             other => {
-                return Err(Error::UnknownOption {
-                    which: "option_3",
-                    value: Box::new(other),
-                })
+                if (other >> 8).saturating_sub(1) <= 7 && (other & 0xFF == ZINT_FULL_MULTIBYTE
+                    || other & 0xFF == 0)
+                {
+                    unsafe { std::mem::transmute::<u32, Self>(other) }
+                } else {
+                    return Err(Error::UnknownOption {
+                        which: "option_3",
+                        value: Box::new(other),
+                    });
+                }
             }
         })
     }
