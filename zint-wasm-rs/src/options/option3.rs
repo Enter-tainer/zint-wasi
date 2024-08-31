@@ -1,4 +1,4 @@
-use std::{fmt::Debug, mem::transmute};
+use std::fmt::Debug;
 
 use serde::Deserialize;
 use zint_wasm_sys::*;
@@ -53,14 +53,17 @@ impl TryFrom<u32> for QRMatrixOption {
     fn try_from(value: u32) -> Result<Self, Self::Error> {
         Ok(match value {
             ZINT_FULL_MULTIBYTE => Self::FullMultibyte,
-            other if (other >> 8).saturating_sub(1) < 7 => unsafe {
-                std::mem::transmute::<u32, Self>(other)
-            }
             other => {
-                return Err(Error::UnknownOption {
-                    which: "option_3",
-                    value: Box::new(other),
-                })
+                if (other >> 8).saturating_sub(1) <= 7 && (other & 0xFF == ZINT_FULL_MULTIBYTE
+                    || other & 0xFF == 0)
+                {
+                    unsafe { std::mem::transmute::<u32, Self>(other) }
+                } else {
+                    return Err(Error::UnknownOption {
+                        which: "option_3",
+                        value: Box::new(other),
+                    });
+                }
             }
         })
     }
