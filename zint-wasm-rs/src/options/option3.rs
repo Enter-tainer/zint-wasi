@@ -1,4 +1,4 @@
-use std::fmt::Debug;
+use std::{fmt::Debug, mem::transmute};
 
 use serde::Deserialize;
 use zint_wasm_sys::*;
@@ -41,6 +41,7 @@ impl TryFrom<u32> for DataMatrixOption {
 #[derive(Debug, Clone, Copy, Deserialize)]
 #[serde(untagged, try_from = "u32")]
 #[repr(u32)]
+#[non_exhaustive]
 pub enum QRMatrixOption {
     /// Enable Kanji/Hanzi compression for Latin-1 & binary data
     FullMultibyte = ZINT_FULL_MULTIBYTE,
@@ -52,6 +53,9 @@ impl TryFrom<u32> for QRMatrixOption {
     fn try_from(value: u32) -> Result<Self, Self::Error> {
         Ok(match value {
             ZINT_FULL_MULTIBYTE => Self::FullMultibyte,
+            other if (other >> 8).saturating_sub(1) < 7 => unsafe {
+                std::mem::transmute::<u32, Self>(other)
+            }
             other => {
                 return Err(Error::UnknownOption {
                     which: "option_3",
