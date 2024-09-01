@@ -54,6 +54,9 @@ impl TryFrom<u32> for QRMatrixOption {
         if (value >> 8).saturating_sub(1) <= 7
             && (value & 0xFF == ZINT_FULL_MULTIBYTE || value & 0xFF == 0)
         {
+            if value == ZINT_FULL_MULTIBYTE {
+                return Ok(Self::FullMultibyte);
+            }
             return Ok(unsafe { std::mem::transmute(value) });
         } else {
             return Err(Error::UnknownOption {
