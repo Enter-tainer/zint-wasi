@@ -51,18 +51,17 @@ impl TryFrom<u32> for QRMatrixOption {
     type Error = Error;
 
     fn try_from(value: u32) -> Result<Self, Self::Error> {
-        if (value >> 8).saturating_sub(1) <= 7
-            && (value & 0xFF == ZINT_FULL_MULTIBYTE || value & 0xFF == 0)
-        {
-            if value == ZINT_FULL_MULTIBYTE {
-                return Ok(Self::FullMultibyte);
+        match value {
+            ZINT_FULL_MULTIBYTE => Ok(Self::FullMultibyte),
+            mask if (mask >> 8) <= 7
+                && (mask & 0xFF == ZINT_FULL_MULTIBYTE || mask & 0xFF == 0) =>
+            {
+                Ok(unsafe { std::mem::transmute::<u32, QRMatrixOption>(mask) })
             }
-            return Ok(unsafe { std::mem::transmute(value) });
-        } else {
-            return Err(Error::UnknownOption {
+            _ => Err(Error::UnknownOption {
                 which: "option_3",
                 value: Box::new(value),
-            });
+            }),
         }
     }
 }
