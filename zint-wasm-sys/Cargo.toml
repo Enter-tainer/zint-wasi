@@ -8,17 +8,8 @@ categories = ["external-ffi-bindings"]
 
 [build-dependencies]
 cc = "1.0"
-bindgen = "0.69.1"
+bindgen = "0.70.1"
 walkdir = "2"
 anyhow = "1"
-tokio = { version = "1.33", default-features = false, features = [
-  "rt",
-  "macros",
-] }
-hyper = { version = "0.14.27", features = ["client", "http1"] }
-hyper-tls = "0.5.0"
 
 [dev-dependencies]
-image = "0.24.6"
-blake3 = "1.4.1"
-libc = "0.2.147"
