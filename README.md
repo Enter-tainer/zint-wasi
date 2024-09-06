@@ -18,6 +18,15 @@ _(click on the image to open)_
   <img src="/assets/manual-preview.svg">
 </a>
 
+## Build
+
+Install wasi-sdk. Put them at `/opt/wasi-sdk`. Then run:
+
+
+```
+./build.sh
+```
+
 ## License
 
 This package is licensed under MIT license.
