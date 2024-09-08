@@ -92,7 +92,7 @@ There are other barcode/qrcode packages for typst such as:
 - https://github.com/jneug/typst-codetastic
 - https://github.com/Midbin/cades
 
-Different packages will differ in provided customization of generated barcodes. This package is limited by functionality offered by zint, which focuses more on coverage than customization (e.g. inserting graphics into QR codes). Patching upstream zint code is (currently) outside of the scope of this package - if it doesn't provide functionality you need, check the rest of the typst ecosystem to see if it's available elsewhere or request it [upstream](https://github.com/zint/zint) and notify us when it's been merged.
+Packages differ in provided customization options for generated barcodes. This package is limited by zint functionality, which focuses more on coverage than customization (e.g. inserting graphics into QR codes). Patching upstream zint code is (currently) outside of the scope of this package - if it doesn't provide functionality you need, check the rest of the typst ecosystem to see if it's available elsewhere or request it [upstream](https://github.com/zint/zint) and [notify us](https://github.com/Enter-tainer/zint-wasi/issues) when it's been merged.
 
 ### Pros
 
