@@ -116,7 +116,7 @@ impl Symbol {
 
     pub fn encode_svg(self, data: &str, length: i32, rotate_angle: i32) -> Result<String, Error> {
         let c_str_data = CString::new(data).expect("CString::new failed");
-        let result = ZintResult::from_code(unsafe {
+        let result = ZintResult::from(unsafe {
             ZBarcode_Encode_and_Buffer_Vector(
                 self.inner,
                 c_str_data.as_bytes_with_nul().as_ptr(),
@@ -135,7 +135,7 @@ impl Symbol {
                 .map_err(Error::InvalidResultSVG)?
                 .to_string();
             free_svg_plot_string(svg_cstr);
-            (ZintResult::from_code(result as u32), svg)
+            (ZintResult::from(result as u32), svg)
         };
 
         match result.as_error() {
