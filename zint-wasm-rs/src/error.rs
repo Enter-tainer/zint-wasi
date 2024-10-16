@@ -1,13 +1,54 @@
-use std::{fmt::Display, str::Utf8Error};
+use std::{fmt::Display, str::Utf8Error, mem::MaybeUninit};
 
 use serde::Deserialize;
 use zint_wasm_sys::*;
 
+macro_rules! in_range_or_other {
+    ($owner: ident, $repr: ty) => {
+        impl From<$repr> for $owner {
+            /// Returns a warning value from warning code.
+            fn from(code: $repr) -> Self {
+                if (Self::FIRST..=Self::LAST).contains(&code) {
+                    unsafe {
+                        // Safety: disciminant is first, explicitly declared as $repr
+                        // padding bytes don't have to be set to 0, so setting the
+                        // discriminant byte to one of supported error codes and keeping
+                        // garbage after is fine.
+                        let mut result = MaybeUninit::uninit();
+                        let discriminant = result.as_mut_ptr() as *mut $repr;
+                        discriminant.write(code);
+                        // result is now safe to read and valid
+                        result.assume_init()
+                    }
+                } else {
+                    Self::Other(code)
+                }
+            }
+        }
+        impl From<$owner> for $repr {
+            /// Returns warning code from warning value.
+            fn from(error: $owner) -> Self {
+                match error {
+                    $owner::Other(code) => code,
+                    known => unsafe {
+                        // Safety: discriminant IS the code and is the first $repr
+                        let data = std::ptr::addr_of!(known) as *const $repr;
+                        data.read()
+                    }
+                }
+            }
+        }
+    };
+}
+
 /// Warning conditions (API return values)
 #[derive(thiserror::Error, Debug, Clone, Copy, PartialEq, Eq)]
-#[repr(u32)]
+#[repr(u32, C)]
 #[non_exhaustive]
 pub enum ZintWarning {
+    /// Unknown warning
+    #[error("unknown zint warning: #{0}")]
+    Other(u32),
     /// Human Readable Text was truncated (max 199 bytes)
     #[error("Human Readable Text was truncated (max 199 bytes)")]
     HRTTruncated = ZINT_WARN_HRT_TRUNCATED,
@@ -23,19 +64,19 @@ pub enum ZintWarning {
 }
 
 impl ZintWarning {
+    const FIRST: u32 = ZINT_WARN_HRT_TRUNCATED;
     const LAST: u32 = ZINT_WARN_NONCOMPLIANT;
-
-    /// This function isn't unsafe because `ZintWarning` is `non_exhaustive`.
-    pub fn from_code(code: u32) -> Self {
-        unsafe { std::mem::transmute(code) }
-    }
 }
+in_range_or_other!(ZintWarning, u32);
 
 /// Error conditions (API return values)
 #[derive(thiserror::Error, Debug, Clone, Copy, PartialEq, Eq)]
-#[repr(u32)]
+#[repr(u32, C)]
 #[non_exhaustive]
 pub enum ZintError {
+    /// Unknown error
+    #[error("unknown zint error: #{0}")]
+    Other(u32) = 0,
     /// Input data wrong length
     #[error("input data wrong length")]
     TooLong = ZINT_ERROR_TOO_LONG,
@@ -74,13 +115,10 @@ pub enum ZintError {
 }
 
 impl ZintError {
+    const FIRST: u32 = ZintWarning::LAST + 1;
     const LAST: u32 = ZINT_ERROR_HRT_TRUNCATED;
-
-    /// This function isn't unsafe because `ZintError` is `non_exhaustive`.
-    pub fn from_code(code: u32) -> Self {
-        unsafe { std::mem::transmute(code) }
-    }
 }
+in_range_or_other!(ZintError, u32);
 
 #[derive(Debug, Clone, Copy)]
 #[repr(u32)]
@@ -93,54 +131,59 @@ pub enum ZintOk {
 ///
 /// All variants are `u32`.
 #[derive(Clone, Copy)]
-pub union ZintResult {
-    any: u32,
-    #[allow(dead_code)]
-    ok: ZintOk,
-    warning: ZintWarning,
-    error: ZintError,
-}
-
+pub struct ZintResult(u32);
 impl ZintResult {
-    pub fn from_code(code: u32) -> Self {
-        ZintResult { any: code }
-    }
     pub fn is_ok(&self) -> bool {
-        unsafe {
-            // Safety: any is always valid
-            self.any == 0
-        }
+        self.0 == 0
     }
     pub fn is_warning(&self) -> bool {
-        unsafe {
-            // Safety: any is always valid
-            self.any != 0 && self.any <= ZintWarning::LAST
-        }
+        (ZintWarning::FIRST..=ZintWarning::LAST).contains(&self.0)
     }
     pub fn is_error(&self) -> bool {
-        unsafe {
-            // Safety: any is always valid
-            self.any > ZintWarning::LAST && self.any <= ZintError::LAST
-        }
+        (ZintError::FIRST..).contains(&self.0)
     }
-
     pub fn as_warning(&self) -> Option<ZintWarning> {
         if !self.is_warning() {
             return None;
         }
-        Some(unsafe {
-            // Safety: variant checked
-            self.warning
-        })
+        Some(ZintWarning::from(self.0))
     }
     pub fn as_error(&self) -> Option<ZintError> {
         if !self.is_error() {
             return None;
         }
-        Some(unsafe {
-            // Safety: variant checked
-            self.error
-        })
+        Some(ZintError::from(self.0))
+    }
+}
+impl From<u32> for ZintResult {
+    #[inline]
+    fn from(value: u32) -> Self {
+        ZintResult(value)
+    }
+}
+impl From<ZintResult> for u32 {
+    #[inline]
+    fn from(value: ZintResult) -> Self {
+        value.0
+    }
+}
+
+impl From<ZintOk> for ZintResult {
+    #[inline]
+    fn from(_: ZintOk) -> Self {
+        ZintResult(0)
+    }
+}
+impl From<ZintWarning> for ZintResult {
+    #[inline]
+    fn from(warning: ZintWarning) -> Self {
+        ZintResult(warning.into())
+    }
+}
+impl From<ZintError> for ZintResult {
+    #[inline]
+    fn from(error: ZintError) -> Self {
+        ZintResult(error.into())
     }
 }
 

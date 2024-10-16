@@ -37,31 +37,105 @@ impl TryFrom<u32> for DataMatrixOption {
     }
 }
 
-/// QR, Han Xin, Grid Matrix specific options
-#[derive(Debug, Clone, Copy, Deserialize)]
-#[serde(untagged, try_from = "u32")]
+/// QR mask used to minimize unwanted patterns.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u32)]
-#[non_exhaustive]
-pub enum QRMatrixOption {
-    /// Enable Kanji/Hanzi compression for Latin-1 & binary data
-    FullMultibyte = ZINT_FULL_MULTIBYTE,
+pub enum QRMask {
+    #[doc = include_str!("../../../assets/masks/mask000.svg")]
+    ///
+    /// Applies a mask where modules alternate between dark and light every
+    /// other module in both rows and columns.
+    ///
+    /// Formula: `(i + j) % 2 = 0`
+    Mask0 = 0b000,
+    #[doc = include_str!("../../../assets/masks/mask001.svg")]
+    ///
+    /// Modules alternate every other column.
+    ///
+    /// Formula: `i % 2 = 0`
+    Mask1 = 0b001,
+    #[doc = include_str!("../../../assets/masks/mask010.svg")]
+    ///
+    /// Alternates every other row.
+    ///
+    /// Formula: `j % 3 = 0`
+    Mask2 = 0b010,
+    #[doc = include_str!("../../../assets/masks/mask011.svg")]
+    ///
+    /// Alternates based on a combination of both rows and columns but with a
+    /// more complex formula.
+    ///
+    /// Formula: `(i + j) % 3 = 0`
+    Mask3 = 0b011,
+    #[doc = include_str!("../../../assets/masks/mask100.svg")]
+    ///
+    /// Modules change depending on their diagonal position.
+    ///
+    /// Formula: `(i/2 + j/3) % 2 = 0`
+    Mask4 = 0b100,
+    #[doc = include_str!("../../../assets/masks/mask101.svg")]
+    ///
+    /// A specific rule based on the sum of the row and column indices.
+    ///
+    /// Formula: `(i*j) % 2 + (i*j) % 3 = 0`
+    Mask5 = 0b101,
+    #[doc = include_str!("../../../assets/masks/mask110.svg")]
+    ///
+    /// Modules change based on the parity of the row and column.
+    ///
+    /// Formula: `((i*j) % 3 + (i*j)) % 2 = 0`
+    Mask6 = 0b110,
+    #[doc = include_str!("../../../assets/masks/mask111.svg")]
+    ///
+    /// Mask based on position and binary sum of the module's row and column
+    /// indices.
+    ///
+    /// Formula: `((i*j) % 3 + i + j) % 2 = 0`
+    Mask7 = 0b111,
 }
 
+bitflags::bitflags! {
+    /// QR, Han Xin, Grid Matrix specific options
+    #[derive(Debug, Clone, Copy, Deserialize)]
+    #[serde(transparent)]
+    pub struct QRMatrixOption: u32 {
+        /// Increase non-ASCII data density
+        const FULL_MULITIBYTE = ZINT_FULL_MULTIBYTE;
+
+        /// [Mask 0](QRMask::Mask0) option
+        const MASK_0 = (QRMask::Mask0 as u32 + 1) << 8;
+        /// [Mask 1](QRMask::Mask1) option
+        const MASK_1 = (QRMask::Mask1 as u32 + 1) << 8;
+        /// [Mask 2](QRMask::Mask2) option
+        const MASK_2 = (QRMask::Mask2 as u32 + 1) << 8;
+        /// [Mask 3](QRMask::Mask3) option
+        const MASK_3 = (QRMask::Mask3 as u32 + 1) << 8;
+        /// [Mask 4](QRMask::Mask4) option
+        const MASK_4 = (QRMask::Mask4 as u32 + 1) << 8;
+        /// [Mask 5](QRMask::Mask5) option
+        const MASK_5 = (QRMask::Mask5 as u32 + 1) << 8;
+        /// [Mask 6](QRMask::Mask6) option
+        const MASK_6 = (QRMask::Mask6 as u32 + 1) << 8;
+        /// [Mask 7](QRMask::Mask7) option
+        const MASK_7 = (QRMask::Mask7 as u32 + 1) << 8;
+    }
+}
+
+impl From<QRMask> for QRMatrixOption {
+    fn from(mask: QRMask) -> Self {
+        QRMatrixOption::from_bits_retain((mask as u32 + 1) << 8)
+    }
+}
 impl TryFrom<u32> for QRMatrixOption {
     type Error = Error;
-
     fn try_from(value: u32) -> Result<Self, Self::Error> {
-        match value {
-            ZINT_FULL_MULTIBYTE => Ok(Self::FullMultibyte),
-            mask if (mask >> 8) <= 7
-                && (mask & 0xFF == ZINT_FULL_MULTIBYTE || mask & 0xFF == 0) =>
-            {
-                Ok(unsafe { std::mem::transmute::<u32, QRMatrixOption>(mask) })
-            }
-            _ => Err(Error::UnknownOption {
+        let mask = QRMatrixOption::from_bits_truncate(value);
+        match mask {
+            invalid if invalid.bits() != value => Err(Error::UnknownOption {
                 which: "option_3",
                 value: Box::new(value),
             }),
+            valid => Ok(valid),
         }
     }
 }
@@ -215,7 +289,7 @@ impl<'de> Deserialize<'de> for Option3 {
                     "dm-dmre" | "dmre" | "rect" => Option3::from(DataMatrixOption::DMRE),
                     "dm-iso-144" | "iso-144" => Option3::from(DataMatrixOption::ISO144),
                     "zint-full-multibyte" | "full-multibyte" => {
-                        Option3::from(QRMatrixOption::FullMultibyte)
+                        Option3::from(QRMatrixOption::FULL_MULITIBYTE)
                     }
                     "ultra-compression" | "compression" => {
                         Option3::from(UltracodeOption::Compression)
