@@ -1,4 +1,4 @@
-use std::{fmt::Display, str::Utf8Error};
+use std::{fmt::Display, str::Utf8Error, mem::MaybeUninit};
 
 use serde::Deserialize;
 use zint_wasm_sys::*;
@@ -33,9 +33,12 @@ impl ZintWarning {
 
 /// Error conditions (API return values)
 #[derive(thiserror::Error, Debug, Clone, Copy, PartialEq, Eq)]
-#[repr(u32)]
+#[repr(u32, C)]
 #[non_exhaustive]
 pub enum ZintError {
+    /// Unknown error
+    #[error("unknown zint error: #{0}")]
+    Other(u32) = 0,
     /// Input data wrong length
     #[error("input data wrong length")]
     TooLong = ZINT_ERROR_TOO_LONG,
@@ -74,11 +77,41 @@ pub enum ZintError {
 }
 
 impl ZintError {
+    const FIRST: u32 = ZINT_ERROR_TOO_LONG;
     const LAST: u32 = ZINT_ERROR_HRT_TRUNCATED;
+}
 
-    /// This function isn't unsafe because `ZintError` is `non_exhaustive`.
-    pub fn from_code(code: u32) -> Self {
-        unsafe { std::mem::transmute(code) }
+impl From<u32> for ZintError {
+    /// Returns an error value from error code.
+    fn from(code: u32) -> Self {
+        if (Self::FIRST..=Self::LAST).contains(&code) {
+            unsafe {
+                // Safety: disciminant is first, explicitly declared as u32
+                // padding bytes don't have to be set to 0, so setting the
+                // discriminant byte to one of supported error codes and keeping
+                // garbage after is fine.
+                let mut result = MaybeUninit::uninit();
+                let discriminant = result.as_mut_ptr() as *mut u32;
+                discriminant.write(code);
+                // result is now safe to read and valid
+                result.assume_init()
+            }
+        } else {
+            Self::Other(code)
+        }
+    }
+}
+impl From<ZintError> for u32 {
+    /// Returns error code from error value.
+    fn from(error: ZintError) -> Self {
+        match error {
+            ZintError::Other(code) => code,
+            known => unsafe {
+                // Safety: discriminant IS the error code and is the first u32
+                let data = std::ptr::addr_of!(known) as *const u32;
+                data.read()
+            }
+        }
     }
 }
 
