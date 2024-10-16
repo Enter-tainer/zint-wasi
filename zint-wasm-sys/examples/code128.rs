@@ -1,17 +1,17 @@
-use std::ffi::{CStr, CString};
+use std::{ffi::CString, ptr::slice_from_raw_parts};
 
-use libc::strlen;
 use zint_wasm_sys::*;
 
 pub fn main() {
     let encoded_text = CString::new("A12345B").expect("CString::new failed");
     let fg_color = CString::new("000000").expect("CString::new failed");
     let bg_color = CString::new("FFFFFF").expect("CString::new failed");
-
+    let filename = CString::new("res.svg").expect("CString::new failed");
     // Barcode configs
     let symbol = unsafe { ZBarcode_Create().as_mut().unwrap() };
     symbol.symbology = BARCODE_CODE128 as i32;
-    symbol.output_options |= BARCODE_QUIET_ZONES as i32 | BARCODE_BIND as i32;
+    symbol.output_options |=
+        BARCODE_QUIET_ZONES as i32 | BARCODE_BIND as i32 | BARCODE_MEMORY_FILE as i32;
     symbol.height = 50.0;
     symbol.show_hrt = 1;
     symbol.border_width = 5;
@@ -22,22 +22,25 @@ pub fn main() {
     unsafe {
         symbol
             .fgcolor
-            .copy_from(fg_color.as_ptr(), strlen(fg_color.as_ptr()));
+            .copy_from(fg_color.as_ptr(), fg_color.as_bytes().len());
         symbol
             .bgcolor
-            .copy_from(bg_color.as_ptr(), strlen(bg_color.as_ptr()));
+            .copy_from(bg_color.as_ptr(), bg_color.as_bytes().len());
+        symbol
+            .outfile
+            .as_mut_ptr()
+            .copy_from(filename.as_ptr(), filename.as_bytes().len());
 
-        ZBarcode_Encode_and_Buffer_Vector(symbol, encoded_text.as_ptr() as *const u8, 0, 0);
+        let err_code: i32 =
+            ZBarcode_Encode_and_Print(symbol, encoded_text.as_ptr() as *const u8, 0, 0);
+        assert_eq!(err_code, 0);
     }
-    let mut err_code: i32 = 0;
     let res = unsafe {
-        let err_code_ptr = &mut err_code as *mut i32;
-        let svg_cstr = svg_plot_string(symbol, err_code_ptr);
-        let svg_str = CStr::from_ptr(svg_cstr).to_string_lossy().into_owned();
-        free_svg_plot_string(svg_cstr);
+        println!("memfile_size: {}", symbol.memfile_size);
+        let memfile = &*slice_from_raw_parts(symbol.memfile, symbol.memfile_size as usize);
+        let svg_str = String::from_utf8_lossy(memfile);
         svg_str
     };
-    assert_eq!(err_code, 0);
     println!("{}", res);
     // Free memory
     unsafe { ZBarcode_Delete(symbol) }
