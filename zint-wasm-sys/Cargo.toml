@@ -13,3 +13,4 @@ walkdir = "2"
 anyhow = "1"
 
 [dev-dependencies]
+libc = "0.2"
