@@ -42,54 +42,54 @@ impl TryFrom<u32> for DataMatrixOption {
 #[repr(u32)]
 pub enum QRMask {
     #[doc = include_str!("../../../assets/masks/mask000.svg")]
-    /// 
+    ///
     /// Applies a mask where modules alternate between dark and light every
     /// other module in both rows and columns.
-    /// 
+    ///
     /// Formula: `(i + j) % 2 = 0`
     Mask0 = 0b000,
     #[doc = include_str!("../../../assets/masks/mask001.svg")]
-    /// 
+    ///
     /// Modules alternate every other column.
-    /// 
+    ///
     /// Formula: `i % 2 = 0`
     Mask1 = 0b001,
     #[doc = include_str!("../../../assets/masks/mask010.svg")]
-    /// 
+    ///
     /// Alternates every other row.
-    /// 
+    ///
     /// Formula: `j % 3 = 0`
     Mask2 = 0b010,
     #[doc = include_str!("../../../assets/masks/mask011.svg")]
-    /// 
+    ///
     /// Alternates based on a combination of both rows and columns but with a
     /// more complex formula.
-    /// 
+    ///
     /// Formula: `(i + j) % 3 = 0`
     Mask3 = 0b011,
     #[doc = include_str!("../../../assets/masks/mask100.svg")]
-    /// 
+    ///
     /// Modules change depending on their diagonal position.
-    /// 
+    ///
     /// Formula: `(i/2 + j/3) % 2 = 0`
     Mask4 = 0b100,
     #[doc = include_str!("../../../assets/masks/mask101.svg")]
-    /// 
+    ///
     /// A specific rule based on the sum of the row and column indices.
-    /// 
+    ///
     /// Formula: `(i*j) % 2 + (i*j) % 3 = 0`
     Mask5 = 0b101,
     #[doc = include_str!("../../../assets/masks/mask110.svg")]
-    /// 
+    ///
     /// Modules change based on the parity of the row and column.
-    /// 
+    ///
     /// Formula: `((i*j) % 3 + (i*j)) % 2 = 0`
     Mask6 = 0b110,
     #[doc = include_str!("../../../assets/masks/mask111.svg")]
-    /// 
+    ///
     /// Mask based on position and binary sum of the module's row and column
     /// indices.
-    /// 
+    ///
     /// Formula: `((i*j) % 3 + i + j) % 2 = 0`
     Mask7 = 0b111,
 }
@@ -135,7 +135,7 @@ impl TryFrom<u32> for QRMatrixOption {
                 which: "option_3",
                 value: Box::new(value),
             }),
-            valid => Ok(valid)
+            valid => Ok(valid),
         }
     }
 }

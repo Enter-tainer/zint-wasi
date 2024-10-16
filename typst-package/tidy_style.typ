@@ -7,7 +7,12 @@
 
 // Color to highlight function names in
 #let function-name-color = rgb("#4b69c6")
-#let rainbow-map = ((rgb("#7cd5ff"), 0%), (rgb("#a6fbca"), 33%),(rgb("#fff37c"), 66%), (rgb("#ffa49d"), 100%))
+#let rainbow-map = (
+  (rgb("#7cd5ff"), 0%),
+  (rgb("#a6fbca"), 33%),
+  (rgb("#fff37c"), 66%),
+  (rgb("#ffa49d"), 100%),
+)
 #let gradient-for-color-types = gradient.linear(angle: 7deg, ..rainbow-map)
 
 #let default-type-color = rgb("#eff0f3")
@@ -95,19 +100,32 @@
 #let show-outline(module-doc, style-args: (:)) = {
   let prefix = module-doc.label-prefix
   if module-doc.functions.len() > 0 {
-    list(..module-doc.functions.map(fn => link(label(prefix + fn.name + "()"), fn.name + "()")))
+    list(
+      ..module-doc.functions.map(fn => link(
+        label(prefix + fn.name + "()"),
+        fn.name + "()",
+      )),
+    )
   }
-    
+
   if module-doc.variables.len() > 0 {
     text([Variables:], weight: "bold")
-    list(..module-doc.variables.map(var => link(label(prefix + var.name + ""), var.name + "()")))
+    list(
+      ..module-doc.variables.map(var => link(
+        label(prefix + var.name + ""),
+        var.name + "()",
+      )),
+    )
   }
 }
 
 // Create beautiful, colored type box
-#let show-type(type, style-args: (:), docs: (:)) = { 
+#let show-type(type, style-args: (:), docs: (:)) = {
   h(2pt)
-  let clr = style-args.colors.at(type, default: style-args.colors.at("default", default: default-type-color))
+  let clr = style-args.colors.at(
+    type,
+    default: style-args.colors.at("default", default: default-type-color),
+  )
   let dest = (documentation + docs).at(type, default: none)
   let c = box(outset: 2pt, fill: clr, radius: 2pt, raw(type))
   if dest != none {
@@ -119,73 +137,111 @@
 }
 
 #let show-parameter-list(fn, style-args: (:)) = {
-  pad(x: 10pt, {
-    set text(font: "Cascadia Mono", size: 0.85em, weight: 340)
-    text(fn.name, fill: style-args.colors.at("signature-func-name", default: rgb("#4b69c6")))
-    "("
-    let inline-args = fn.args.len() < 2
-    if not inline-args { "\n  " }
-    let items = ()
-    for (arg-name, info) in fn.args {
-      let types 
-      if "types" in info {
-        types = ": " + info.types.map(x => show-type(x, style-args: style-args)).join(" ")
+  pad(
+    x: 10pt,
+    {
+      set text(font: "Cascadia Mono", size: 0.85em, weight: 340)
+      text(
+        fn.name,
+        fill: style-args.colors.at(
+          "signature-func-name",
+          default: rgb("#4b69c6"),
+        ),
+      )
+      "("
+      let inline-args = fn.args.len() < 2
+      if not inline-args {
+        "\n  "
       }
-      items.push(arg-name + types)
-    }
-    items.join( if inline-args {", "} else { ",\n  "})
-    if not inline-args { "\n" } + ")"
-    if fn.return-types != none {
-      " -> " 
-      fn.return-types.map(x => show-type(x, style-args: style-args)).join(" ")
-    }
-  })
+      let items = ()
+      for (arg-name, info) in fn.args {
+        let types
+        if "types" in info {
+          types = ": " + info
+            .types
+            .map(x => show-type(x, style-args: style-args))
+            .join(" ")
+        }
+        items.push(arg-name + types)
+      }
+      items.join(if inline-args {
+        ", "
+      } else {
+        ",\n  "
+      })
+      if not inline-args {
+        "\n"
+      } + ")"
+      if fn.return-types != none {
+        " -> "
+        fn.return-types.map(x => show-type(x, style-args: style-args)).join(" ")
+      }
+    },
+  )
 }
 
-// Create a parameter description block, containing name, type, description and optionally the default value. 
+// Create a parameter description block, containing name, type, description and optionally the default value.
 #let show-parameter-block(
-  name, types, content, style-args,
-  show-default: false, 
-  default: none, 
+  name,
+  types,
+  content,
+  style-args,
+  show-default: false,
+  default: none,
 ) = block(
-  inset: 10pt, fill: rgb("ddd3"), width: 100%,
+  inset: 10pt,
+  fill: rgb("ddd3"),
+  width: 100%,
   breakable: style-args.break-param-descriptions,
   [
     #box(heading(level: style-args.first-heading-level + 3, name))
-    #h(1.2em) 
-    #types.map(x => (style-args.style.show-type)(x, style-args: style-args)).join([ #text("or",size:.6em) ])
-  
+    #h(1.2em)
+    #types.map(x => (style-args.style.show-type)(
+      x,
+      style-args: style-args,
+    )).join([ #text("or", size: .6em) ])
+
     #content
     #if show-default [ #parbreak() Default: #raw(lang: "typc", default) ]
-  ]
+  ],
 )
 
 #let show-function(
-  fn, style-args,
+  fn,
+  style-args,
 ) = {
 
-  if style-args.colors == auto { style-args.colors = colors }
+  if style-args.colors == auto {
+    style-args.colors = colors
+  }
 
   [
     #heading(fn.name, level: style-args.first-heading-level + 1)
     #label(style-args.label-prefix + fn.name + "()")
   ]
-  
+
   utilities.eval-docstring(fn.description, style-args)
 
-  block(breakable: style-args.break-param-descriptions, {
-    heading("Parameters", level: style-args.first-heading-level + 2)
-    (style-args.style.show-parameter-list)(fn, style-args: style-args)
-  })
+  block(
+    breakable: style-args.break-param-descriptions,
+    {
+      heading("Parameters", level: style-args.first-heading-level + 2)
+      (style-args.style.show-parameter-list)(fn, style-args: style-args)
+    },
+  )
 
   for (name, info) in fn.args {
     let types = info.at("types", default: ())
     let description = info.at("description", default: "")
-    if description == "" and style-args.omit-empty-param-descriptions { continue }
+    if description == "" and style-args.omit-empty-param-descriptions {
+      continue
+    }
     (style-args.style.show-parameter-block)(
-      name, types, utilities.eval-docstring(description, style-args), 
+      name,
+      types,
+      utilities.eval-docstring(description, style-args),
       style-args,
-      show-default: "default" in info, 
+      show-default: "default" in info,
       default: info.at("default", default: none),
     )
   }
@@ -193,20 +249,28 @@
 }
 
 #let show-variable(
-  var, style-args,
+  var,
+  style-args,
 ) = {
-  if style-args.colors == auto { style-args.colors = colors }
-  let type = if "type" not in var { none } 
-      else { show-type(var.type, style-args: style-args) }
+  if style-args.colors == auto {
+    style-args.colors = colors
+  }
+  let type = if "type" not in var {
+    none
+  } else {
+    show-type(var.type, style-args: style-args)
+  }
 
-  stack(dir: ltr, spacing: 1.2em,
+  stack(
+    dir: ltr,
+    spacing: 1.2em,
     [
       #heading(var.name, level: style-args.first-heading-level + 1)
       #label(style-args.label-prefix + var.name)
     ],
-    type
+    type,
   )
-  
+
   utilities.eval-docstring(var.description, style-args)
   v(4.8em, weak: true)
 }
@@ -217,13 +281,13 @@
 }
 
 #let show-example(
-  ..args
+  ..args,
 ) = {
-  
+
   show-ex.show-example(
     ..args,
     code-block: block.with(radius: 3pt, stroke: .5pt + luma(200)),
     preview-block: block.with(radius: 3pt, fill: rgb("#e4e5ea")),
-    col-spacing: 5pt
+    col-spacing: 5pt,
   )
 }
