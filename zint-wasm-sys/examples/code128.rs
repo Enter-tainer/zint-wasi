@@ -1,12 +1,16 @@
-use std::{ffi::CString, ptr::slice_from_raw_parts};
+use std::ffi::CStr;
 
 use zint_wasm_sys::*;
 
 pub fn main() {
-    let encoded_text = CString::new("A12345B").expect("CString::new failed");
-    let fg_color = CString::new("000000").expect("CString::new failed");
-    let bg_color = CString::new("FFFFFF").expect("CString::new failed");
-    let filename = CString::new("res.svg").expect("CString::new failed");
+    let encoded_text =
+        CStr::from_bytes_with_nul(b"123456\0").expect("CStr::from_bytes_with_nul failed");
+    let fg_color =
+        CStr::from_bytes_with_nul(b"000000\0").expect("CStr::from_bytes_with_nul failed");
+    let bg_color =
+        CStr::from_bytes_with_nul(b"FFFFFF\0").expect("CStr::from_bytes_with_nul failed");
+    let filename =
+        CStr::from_bytes_with_nul(b"res.svg\0").expect("CStr::from_bytes_with_nul failed");
     // Barcode configs
     let symbol = unsafe { ZBarcode_Create().as_mut().unwrap() };
     symbol.symbology = BARCODE_CODE128 as i32;
@@ -22,14 +26,14 @@ pub fn main() {
     unsafe {
         symbol
             .fgcolor
-            .copy_from(fg_color.as_ptr(), fg_color.as_bytes().len());
+            .copy_from(fg_color.as_ptr(), fg_color.to_bytes().len());
         symbol
             .bgcolor
-            .copy_from(bg_color.as_ptr(), bg_color.as_bytes().len());
+            .copy_from(bg_color.as_ptr(), bg_color.to_bytes().len());
         symbol
             .outfile
             .as_mut_ptr()
-            .copy_from(filename.as_ptr(), filename.as_bytes().len());
+            .copy_from(filename.as_ptr(), filename.to_bytes().len());
 
         let err_code: i32 =
             ZBarcode_Encode_and_Print(symbol, encoded_text.as_ptr() as *const u8, 0, 0);
@@ -37,7 +41,7 @@ pub fn main() {
     }
     let res = unsafe {
         println!("memfile_size: {}", symbol.memfile_size);
-        let memfile = &*slice_from_raw_parts(symbol.memfile, symbol.memfile_size as usize);
+        let memfile = std::slice::from_raw_parts(symbol.memfile, symbol.memfile_size as usize);
         let svg_str = String::from_utf8_lossy(memfile);
         svg_str
     };
