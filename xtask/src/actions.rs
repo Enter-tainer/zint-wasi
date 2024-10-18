@@ -113,13 +113,14 @@ pub fn action_prepare_wasm_opt() -> ActionResult {
                 &binaryen_tar
             ));
         }
+        action_expect!(std::fs::create_dir_all(&wasm_opt_dir));
         action_expect!(untar(
             binaryen_tar,
             wasm_opt_dir,
             [
-                "--strip-components".to_string(),
+                "--strip-components=2".to_string(),
                 format!(
-                    "/binaryen-version_{}/bin/{WASM_OPT}",
+                    "binaryen-version_{}/bin/{WASM_OPT}",
                     state!(BINARYEN_VERSION, default: "119")
                 )
             ]
