@@ -1,6 +1,7 @@
 use std::{
     ffi::OsStr,
-    path::{Path, PathBuf}, process::Output, os::unix::ffi::OsStringExt,
+    os::unix::ffi::OsStringExt,
+    path::{Path, PathBuf}
 };
 
 use crate::action::macros::*;
@@ -170,11 +171,13 @@ pub fn action_make_3rdparty_license_list() -> ActionResult {
     let output = cargo([
         OsStr::new("about"),
         OsStr::new("generate"),
-        about_input.as_os_str()
+        about_input.as_os_str(),
     ]);
     let output = action_expect!(action_expect!(output).output());
-    let generated = std::ffi::OsString::from_vec(output.stdout).to_string_lossy().to_string();
-    
+    let generated = std::ffi::OsString::from_vec(output.stdout)
+        .to_string_lossy()
+        .to_string();
+
     let about_output_file = state_path!(TYPST_PKG).join("3rdparty_license.html");
     action_expect!(std::fs::write(about_output_file, generated));
     action_ok!();
@@ -184,5 +187,83 @@ pub fn action_copy_license() -> ActionResult {
     let source_path = state_path!(LICENSE_FILE, default: "./LICENSE");
     let target_path = Path::new(state!(TYPST_PKG)).join("LICENSE");
     action_expect!(std::fs::copy(source_path, target_path));
+    action_ok!();
+}
+
+#[allow(unreachable_code)]
+fn typst_url(version: impl AsRef<str>) -> (String, &'static str, &'static str) {
+    let version = version.as_ref();
+    #[cfg(all(target_os = "linux", target_arch = "aarch64"))]
+    return (format!("https://github.com/typst/typst/releases/download/v{version}/typst-aarch64-unknown-linux-musl.tar.xz"), "typst-aarch64-unknown-linux-musl", "tar.xz");
+    #[cfg(all(target_os = "linux", target_arch = "arm"))]
+    return (format!("https://github.com/typst/typst/releases/download/v{version}/typst-armv7-unknown-linux-musleabi.tar.xz"), "typst-armv7-unknown-linux-musleabi", "tar.xz");
+    #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+    return (format!("https://github.com/typst/typst/releases/download/v{version}/typst-x86_64-unknown-linux-musl.tar.xz "), "typst-x86_64-unknown-linux-musl", "tar.xz");
+    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+    return (format!("https://github.com/typst/typst/releases/download/v{version}/typst-aarch64-apple-darwin.tar.xz"), "typst-aarch64-apple-darwin", "tar.xz");
+    #[cfg(all(target_os = "macos", target_arch = "x86_64"))]
+    return (format!("https://github.com/typst/typst/releases/download/v{version}/typst-x86_64-apple-darwin.tar.xz"), "typst-x86_64-apple-darwin", "tar.xz");
+    #[cfg(all(target_os = "windows", target_arch = "x86_64"))]
+    return (format!("https://github.com/typst/typst/releases/download/v{version}/typst-x86_64-pc-windows-msvc.zip"), "typst-x86_64-pc-windows-msvc", "zip");
+    panic!("no prebuild binaryen available for current platform")
+}
+
+// should be only used for CI
+pub fn action_install_typst() -> ActionResult {
+    if has_command(TYPST) {
+        action_ok!();
+    }
+
+    let (url, base_dir, ext) = typst_url(state!(TYPST_VERSION));
+    let work_dir = state_path!(WORK_DIR);
+    let typst_archive = work_dir.join(format!("typst.{ext}"));
+    let typst_dir = work_dir.join("tools");
+    let typst_bin = typst_dir.join(WASM_OPT);
+
+    if !exists(typst_bin) {
+        if !exists(&typst_archive) {
+            action_expect!(download(url, &typst_archive));
+        }
+        action_expect!(std::fs::create_dir_all(&typst_dir));
+        action_expect!(untar(
+            typst_archive,
+            typst_dir,
+            [
+                "--strip-components=1".to_string(),
+                format!(
+                    "{base_dir}/{TYPST}",
+                )
+            ]
+        ));
+    }
+
+    action_ok!();
+}
+
+// should be only used for CI
+pub fn action_install_typst_test() -> ActionResult {
+    let (url, base_dir, ext) = typst_url(state!(TYPST_VERSION, default: "0.11.1"));
+    let work_dir = state_path!(WORK_DIR);
+    let typst_archive = work_dir.join(format!("typst.{ext}"));
+    let typst_dir = work_dir.join("tools");
+    let typst_bin = typst_dir.join(TYPST);
+
+    if !exists(typst_bin) {
+        if !exists(&typst_archive) {
+            action_expect!(download(url, &typst_archive));
+        }
+        action_expect!(std::fs::create_dir_all(&typst_dir));
+        action_expect!(untar(
+            typst_archive,
+            typst_dir,
+            [
+                "--strip-components=1".to_string(),
+                format!(
+                    "{base_dir}/{TYPST}",
+                )
+            ]
+        ));
+    }
+
     action_ok!();
 }

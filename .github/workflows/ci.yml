@@ -1,12 +1,11 @@
 name: CI
 on: [push, pull_request]
 
+
 jobs:
   test:
     name: Build Typst Plugin
     runs-on: ubuntu-latest
-    container:
-      image: ghcr.io/typst/typst:latest
     steps:
       - uses: actions/checkout@v4
         with:
@@ -15,3 +14,5 @@ jobs:
         with:
             targets: wasm32-wasip1
       - run: cargo xtask ci
+        env:
+            XTASK_TYPST_VERSION: 0.11.1

@@ -67,15 +67,25 @@ declare_actions![
         require: [],
         run: Some(crate::actions::action_make_3rdparty_license_list)
     },
-    RunCI: {
-        arg: "ci", name: "",
-        require: [PackagePlugin, CompileManual],
-        run: None
-    },
     Package: {
         arg: "package", name: "package",
         require: [PackagePlugin, CompileManual, CompileExample, CopyLicense, ThirdPartyLicense],
         run: None
+    },
+    InstallTypst: {
+        arg: "", name: "",
+        require: [],
+        run: Some(crate::actions::action_install_typst)
+    },
+    RunCI: {
+        arg: "ci", name: "",
+        require: [PackagePlugin, InstallTypst, CompileManual],
+        run: None
+    },
+    Testing: {
+        arg: "wut", name: "",
+        require: [],
+        run: Some(crate::actions::action_install_typst_test)
     },
     All: { // alias for package
         arg: "all", name: "",

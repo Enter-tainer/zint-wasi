@@ -3,15 +3,19 @@ use std::{
     fmt::{Debug, Display},
     io,
     os::unix::ffi::OsStringExt,
-    path::Path,
+    path::{Path, PathBuf},
     process as proc,
-    sync::OnceLock,
+    sync::OnceLock, str::FromStr,
 };
 
 use crate::state_path;
 
 pub fn exists(path: impl AsRef<Path>) -> bool {
     std::fs::exists(path.as_ref()).ok().unwrap_or_default()
+}
+
+fn local_tool_path(name: impl AsRef<Path>) -> PathBuf {
+    state_path!(WORK_DIR).join("tools").join(name)
 }
 
 pub fn cmd<S: AsRef<OsStr>>(
@@ -161,10 +165,30 @@ fn download_curl(url: &str, path: &Path) -> Result<(), DownloadError> {
     }
 }
 
+macro_rules! make_runner {
+    (
+        Fn($($arg: ident: $arg_ty: ty),*) -> Result<(), $error: ty> $init: block
+    ) => {
+        {
+            type Runner =
+                Box<dyn Fn($($arg_ty),*) -> Result<(), $error> + Send + Sync + 'static>;
+            static RUNNER: OnceLock<Runner> = OnceLock::new();
+            RUNNER.get_or_init(|| $init)
+        }
+    };
+    (
+        fn($($arg: ident: $arg_ty: ty),*) -> Result<(), $error: ty> $init: block
+    ) => {
+        {
+            type Runner = fn($($arg_ty),*) -> Result<(), $error>;
+            static RUNNER: OnceLock<Runner> = OnceLock::new();
+            RUNNER.get_or_init(|| $init)
+        }
+    };
+}
+
 pub fn download(url: impl AsRef<str>, target: impl AsRef<Path>) -> Result<(), DownloadError> {
-    #[allow(clippy::type_complexity)]
-    static EXECUTOR: OnceLock<fn(&str, &Path) -> Result<(), DownloadError>> = OnceLock::new();
-    let runner = EXECUTOR.get_or_init(|| {
+    let runner = make_runner!(fn(url: &str, target: &Path) -> Result<(), DownloadError> {
         if has_command(WGET) {
             return download_wget;
         }
@@ -243,7 +267,7 @@ where
         archive.as_ref().display(),
         target.as_ref().display()
     );
-    let status = cmd(
+    cmd(
         TAR,
         [
             OsStr::new("-xsf"),
@@ -255,46 +279,36 @@ where
         .map(|it| it.to_os_string())
         .chain(args.into_iter().map(|it| it.as_ref().to_os_string())),
     )
-    .status();
-    let status = match status {
-        Ok(it) => it,
-        Err(_) => panic!("unable to run {TAR}"),
-    };
-    CommandError::from_exit(status)
+    .program_status(TAR)
 }
 
-type WasiStubRunner = Box<dyn Fn(&Path, &Path) -> Result<(), CommandError> + Send + Sync + 'static>;
 const WASI_STUB: &str = "wasi-stub";
-#[inline(always)]
-fn wasi_stub_runner(executable: impl AsRef<OsStr>) -> WasiStubRunner {
-    let executable = Box::leak(Box::new(executable.as_ref().to_os_string()));
-    Box::new(move |file: &Path, output: &Path| {
-        let status = cmd(
-            executable.as_os_str(),
-            [
-                OsStr::new("-r"),
-                OsStr::new("0"),
-                file.as_os_str(),
-                OsStr::new("-o"),
-                output.as_os_str(),
-            ],
-        )
-        .status();
-        let status = match status {
-            Ok(it) => it,
-            Err(_) => panic!("unable to run {WASI_STUB}"),
-        };
-        CommandError::from_exit(status)
-    })
-}
-
 /// Tries running wasi-stub from PATH, then from `./target/release` dir, then
 /// from `./target/debug`, if all else fails, builds it with cargo.
 pub fn wasi_stub(input: impl AsRef<Path>, output: impl AsRef<Path>) -> Result<(), CommandError> {
-    static RUNNER: OnceLock<WasiStubRunner> = OnceLock::new();
-    let runner = RUNNER.get_or_init(|| {
+    if !exists(&input) {
+        return Err(CommandError::file_not_found("input", &input).program(WASI_STUB));
+    }
+    let runner = make_runner!(Fn(input: &Path, output: &Path) -> Result<(), CommandError> {
+        let runner = |executable: &OsStr| {
+            let executable = executable.to_owned();
+            Box::new(move |file: &Path, output: &Path| {
+                cmd(
+                    executable.as_os_str(),
+                    [
+                        OsStr::new("-r"),
+                        OsStr::new("0"),
+                        file.as_os_str(),
+                        OsStr::new("-o"),
+                        output.as_os_str(),
+                    ],
+                )
+                .program_status(WASI_STUB)
+            })
+        };
+        
         if has_command(WASI_STUB) {
-            return wasi_stub_runner(WASI_STUB);
+            return runner(OsStr::new(WASI_STUB));
         }
 
         let work_dir = state_path!(WORK_DIR);
@@ -306,7 +320,7 @@ pub fn wasi_stub(input: impl AsRef<Path>, output: impl AsRef<Path>) -> Result<()
             let executable_path = executable_path
                 .canonicalize()
                 .expect("unable to canonicalize path that exists");
-            return Some(wasi_stub_runner(executable_path));
+            return Some(runner(executable_path.as_os_str()));
         };
         if let Some(it) = try_prebuilt("release") {
             return it;
@@ -317,7 +331,7 @@ pub fn wasi_stub(input: impl AsRef<Path>, output: impl AsRef<Path>) -> Result<()
 
         Box::new(move |file: &Path, output: &Path| {
             let min_proto_path = state_path!(WASM_MIN_PROTOCOL_DIR, default: "./zint-typst-plugin/vendor/wasm-minimal-protocol").join("Cargo.toml");
-            let status = cargo([
+            cargo([
                 OsStr::new("run"),
                 OsStr::new("--manifest-path"),
                 min_proto_path.as_os_str(),
@@ -329,34 +343,27 @@ pub fn wasi_stub(input: impl AsRef<Path>, output: impl AsRef<Path>) -> Result<()
                 file.as_os_str(),
                 OsStr::new("-o"),
                 output.as_os_str(),
-            ])?.status();
-            let status = match status {
-                Ok(it) => it,
-                Err(_) => panic!("unable to run {WASI_STUB}"),
-            };
-            CommandError::from_exit(status)
+            ])?.program_status(WASI_STUB)
         })
     });
-
-    if !exists(&input) {
-        return Err(CommandError::file_not_found("input", &input).program(WASI_STUB));
-    }
-
     (runner)(input.as_ref(), output.as_ref()).map_err(|err| err.program(WASI_STUB))
 }
 
 pub const WASM_OPT: &str = "wasm-opt";
 pub fn wasm_opt(input: impl AsRef<Path>, output: impl AsRef<Path>) -> Result<(), CommandError> {
-    type WasmOptRunner =
-        Box<dyn Fn(&Path, &Path) -> Result<(), CommandError> + Send + Sync + 'static>;
-    static RUNNER: OnceLock<WasmOptRunner> = OnceLock::new();
-
-    let runner = RUNNER.get_or_init(|| {
-        let runner = |program: &OsStr| {
-            let program = OsString::from(program);
-            Box::new(move |file: &Path, output: &Path| {
-                let status = cmd(
-                    &program,
+    let runner = make_runner!(Fn(input: &Path, output: &Path) -> Result<(), CommandError> {
+        let tool_path = local_tool_path(WASM_OPT);
+        let command = if has_command(WASM_OPT) {
+            Some(OsString::from_str(WASM_OPT).unwrap())
+        } else if exists(&tool_path) {
+            Some(tool_path.as_os_str().to_owned())
+        } else {
+            None
+        };
+        if let Some(command) = command {
+            return Box::new(move |file: &Path, output: &Path| {
+                cmd(
+                    &command,
                     [
                         file.as_os_str(),
                         OsStr::new("-O3"),
@@ -365,25 +372,11 @@ pub fn wasm_opt(input: impl AsRef<Path>, output: impl AsRef<Path>) -> Result<(),
                         output.as_os_str(),
                     ],
                 )
-                .status();
-                let status = match status {
-                    Ok(it) => it,
-                    Err(_) => panic!("unable to run {WASM_OPT}"),
-                };
-                CommandError::from_exit(status)
+                .program_status(WASM_OPT)
             })
-        };
-
-        if has_command(WASM_OPT) {
-            return runner(OsStr::new(WASM_OPT));
         }
 
-        let tool_path = state_path!(WORK_DIR).join("tools").join(WASM_OPT);
-        if exists(&tool_path) {
-            return runner(tool_path.as_os_str());
-        }
-
-        Box::new(|_input, _output| {
+        return Box::new(|_input, _output| {
             Err(CommandError::missing_tool(
                 "wasm-opt",
                 Some("https://github.com/WebAssembly/binaryen/releases"),
@@ -398,35 +391,73 @@ pub fn wasm_opt(input: impl AsRef<Path>, output: impl AsRef<Path>) -> Result<(),
     (runner)(input.as_ref(), output.as_ref()).map_err(|err| err.program(WASM_OPT))
 }
 
-const TYPST: &str = "typst";
+pub const TYPST: &str = "typst";
 pub fn typst_compile(
     input: impl AsRef<Path>,
     output: impl AsRef<Path>,
 ) -> Result<(), CommandError> {
-    if !has_command(TYPST) {
-        return Err(CommandError::missing_tool(
-            TYPST,
-            Some("https://github.com/typst/typst/releases"),
-        ));
-    }
+    let runner = make_runner!(fn(input: &Path, output: &Path) -> Result<(), CommandError> {
+        if has_command(TYPST) {
+            return |input, output| {
+                cmd(
+                    TYPST,
+                    [
+                        OsStr::new("compile"),
+                        input.as_os_str(),
+                        output.as_os_str(),
+                    ],
+                )
+                .program_status(TYPST)
+            }
+        }
+
+        if exists(local_tool_path(TYPST)) {
+            return |input, output| {
+                cmd(
+                    local_tool_path(TYPST),
+                    [
+                        OsStr::new("compile"),
+                        input.as_os_str(),
+                        output.as_os_str(),
+                    ],
+                )
+                .program_status(TYPST)
+            }
+        }
+
+        |_input, _output| {
+            Err(CommandError::missing_tool(
+                TYPST,
+                Some("https://github.com/typst/typst/releases"),
+            ))
+        }
+    });
+
     if !exists(&input) {
         return Err(CommandError::file_not_found("input", &input).program(TYPST));
     }
 
-    let status = cmd(
-        TYPST,
-        [
-            OsStr::new("compile"),
-            input.as_ref().as_os_str(),
-            output.as_ref().as_os_str(),
-        ],
-    )
-    .status();
-    let status = match status {
-        Ok(it) => it,
-        Err(_) => panic!("unable to run {TYPST}"),
-    };
-    CommandError::from_exit(status)
+    (runner)(input.as_ref(), output.as_ref())
+}
+
+#[allow(dead_code)]
+trait ProgramExt {
+    fn program_status(self, program: impl AsRef<str>) -> Result<(), CommandError>;
+    fn program_output(self, program: impl AsRef<str>) -> proc::Output;
+}
+impl ProgramExt for proc::Command {
+    fn program_status(mut self, program: impl AsRef<str>) -> Result<(), CommandError> {
+        match self.status() {
+            Ok(it) => CommandError::from_exit(it),
+            Err(_) => panic!("unable to run {}", program.as_ref()),
+        }
+    }
+    fn program_output(mut self, program: impl AsRef<str>) -> proc::Output {
+        match self.output() {
+            Ok(it) => it,
+            Err(_) => panic!("unable to run {}", program.as_ref()),
+        }
+    }
 }
 
 pub enum CommandError {

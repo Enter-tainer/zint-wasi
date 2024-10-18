@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use std::{collections::HashMap, sync::{RwLock, TryLockError}};
 use std::io::{self, BufRead as _, Write as _};
 use std::path::{Path, PathBuf};
