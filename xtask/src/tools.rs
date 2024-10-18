@@ -2,9 +2,10 @@ use std::{
     ffi::{OsStr, OsString},
     fmt::{Debug, Display},
     io,
+    os::unix::ffi::OsStringExt,
     path::Path,
     process as proc,
-    sync::{Once, OnceLock},
+    sync::OnceLock,
 };
 
 use crate::state_path;
@@ -22,17 +23,13 @@ pub fn cmd<S: AsRef<OsStr>>(
     result
 }
 
-/* USE: path.canonicalize()
-pub fn realpath(path: impl AsRef<Path>) -> io::Result<PathBuf> {
-    cmd("realpath", [path.as_ref()]).output().map(|it| PathBuf::from(OsString::from_vec(it.stdout)))
-}
-*/
-
 pub fn has_command(name: impl AsRef<OsStr>) -> bool {
     let which = if cfg!(target_os = "windows") {
         "where"
-    } else {
+    } else if cfg!(unix) {
         "which"
+    } else {
+        panic!("no known alternative for UNIX 'which' command on current platform")
     };
     let output = match cmd(which, [name]).output() {
         Ok(it) => it,
@@ -41,10 +38,37 @@ pub fn has_command(name: impl AsRef<OsStr>) -> bool {
     output.status.success() && !output.stdout.is_empty()
 }
 
-pub fn cargo<S: AsRef<OsStr>>(args: impl IntoIterator<Item = S>) -> io::Result<proc::ExitStatus> {
-    cmd("cargo", args)
-        //.env("WASI_SDK_PATH", "./target/wasi_sdk")
-        .status()
+const CARGO: &str = "cargo";
+pub fn cargo<S: AsRef<OsStr>>(args: impl IntoIterator<Item = S>) -> Result<proc::Command, CommandError> {
+    if !has_command(CARGO) {
+        return Err(CommandError::missing_tool(
+            CARGO,
+            Some("https://rustup.rs/"),
+        ));
+    }
+    Ok(cmd(CARGO, args))
+}
+
+pub fn cargo_has_tool(tool: impl AsRef<str>) -> bool {
+    if !has_command(CARGO) {
+        return false;
+    }
+
+    let mut install_list = cmd(CARGO, ["install", "--list"]);
+    let install_list = match install_list.output() {
+        Ok(it) => OsString::from_vec(it.stdout).to_string_lossy().into_owned(),
+        Err(_) => panic!("can't query installed crates from {CARGO}"),
+    };
+
+    install_list
+        .lines()
+        .filter(|it| {
+            it.chars()
+                .next()
+                .map(|it| it.is_whitespace())
+                .unwrap_or_default()
+        })
+        .any(|it| it.trim() == tool.as_ref())
 }
 
 #[cfg(target_os = "windows")]
@@ -140,7 +164,7 @@ fn download_curl(url: &str, path: &Path) -> Result<(), DownloadError> {
 pub fn download(url: impl AsRef<str>, target: impl AsRef<Path>) -> Result<(), DownloadError> {
     #[allow(clippy::type_complexity)]
     static EXECUTOR: OnceLock<fn(&str, &Path) -> Result<(), DownloadError>> = OnceLock::new();
-    let run = EXECUTOR.get_or_init(|| {
+    let runner = EXECUTOR.get_or_init(|| {
         if has_command(WGET) {
             return download_wget;
         }
@@ -157,14 +181,20 @@ pub fn download(url: impl AsRef<str>, target: impl AsRef<Path>) -> Result<(), Do
                 ])
             };
         }
-        panic!("no supported program that can download files is present")
+
+        |_url, _target| {
+            Err(DownloadError::CommandError(CommandError::missing_tool(
+                "wget",
+                Some("https://www.gnu.org/software/wget/"),
+            )))
+        }
     });
     println!(
         "\t- downloading '{}' to '{}'",
         url.as_ref(),
         target.as_ref().display()
     );
-    run(url.as_ref(), target.as_ref())
+    (runner)(url.as_ref(), target.as_ref())
 }
 
 #[derive(Debug)]
@@ -197,16 +227,16 @@ pub fn untar<S>(
     archive: impl AsRef<Path>,
     target: impl AsRef<Path>,
     args: impl IntoIterator<Item = S>,
-) -> io::Result<()>
+) -> Result<(), CommandError>
 where
     S: AsRef<OsStr>,
 {
-    static CHECK: Once = Once::new();
-    CHECK.call_once(|| {
-        if !has_command(TAR) {
-            panic!("missing `tar` command in path")
-        }
-    });
+    if !has_command(TAR) {
+        return Err(CommandError::missing_tool(
+            TAR,
+            Some("https://www.gnu.org/software/tar/"),
+        ));
+    }
 
     println!(
         "\t- extracting '{}' into '{}'",
@@ -225,45 +255,39 @@ where
         .map(|it| it.to_os_string())
         .chain(args.into_iter().map(|it| it.as_ref().to_os_string())),
     )
-    .status()?;
-
-    match status.code() {
-        Some(0) => Ok(()),
-        None => Err(io::Error::new(
-            io::ErrorKind::Interrupted,
-            "tar process interrupted",
-        )),
-        Some(other) => Err(io::Error::new(
-            io::ErrorKind::Other,
-            format!("tar exited with code #{other}"),
-        )),
-    }
+    .status();
+    let status = match status {
+        Ok(it) => it,
+        Err(_) => panic!("unable to run {TAR}"),
+    };
+    CommandError::from_exit(status)
 }
 
-type WasiStubRunner =
-    Box<dyn Fn(&Path, &Path) -> io::Result<proc::ExitStatus> + Send + Sync + 'static>;
+type WasiStubRunner = Box<dyn Fn(&Path, &Path) -> Result<(), CommandError> + Send + Sync + 'static>;
+const WASI_STUB: &str = "wasi-stub";
 #[inline(always)]
 fn wasi_stub_runner(executable: impl AsRef<OsStr>) -> WasiStubRunner {
     let executable = Box::leak(Box::new(executable.as_ref().to_os_string()));
     Box::new(move |file: &Path, output: &Path| {
-        let r = OsString::from("-r");
-        let zero = OsString::from("0");
-        let o = OsString::from("-o");
-        cmd(
+        let status = cmd(
             executable.as_os_str(),
             [
-                r.as_os_str(),
-                zero.as_os_str(),
+                OsStr::new("-r"),
+                OsStr::new("0"),
                 file.as_os_str(),
-                o.as_os_str(),
+                OsStr::new("-o"),
                 output.as_os_str(),
             ],
         )
-        .status()
+        .status();
+        let status = match status {
+            Ok(it) => it,
+            Err(_) => panic!("unable to run {WASI_STUB}"),
+        };
+        CommandError::from_exit(status)
     })
 }
 
-const WASI_STUB: &str = "wasi-stub";
 /// Tries running wasi-stub from PATH, then from `./target/release` dir, then
 /// from `./target/debug`, if all else fails, builds it with cargo.
 pub fn wasi_stub(input: impl AsRef<Path>, output: impl AsRef<Path>) -> Result<(), CommandError> {
@@ -291,63 +315,59 @@ pub fn wasi_stub(input: impl AsRef<Path>, output: impl AsRef<Path>) -> Result<()
             return it;
         }
 
-        return Box::new(move |file: &Path, output: &Path| {
-            let run = OsString::from("run");
-            let release = OsString::from("--release");
-            let bin = OsString::from("--bin=wasi-stub");
-            let pass = OsString::from("--");
-            let r = OsString::from("-r");
-            let zero = OsString::from("0");
-            let o = OsString::from("-o");
-            cargo([
-                run.as_os_str(),
-                release.as_os_str(),
-                bin.as_os_str(),
-                pass.as_os_str(),
-                r.as_os_str(),
-                zero.as_os_str(),
+        Box::new(move |file: &Path, output: &Path| {
+            let status = cargo([
+                OsStr::new("run"),
+                OsStr::new("--release"),
+                OsStr::new("--bin=wasi-stub"),
+                OsStr::new("--"),
+                OsStr::new("-r"),
+                OsStr::new("0"),
                 file.as_os_str(),
-                o.as_os_str(),
+                OsStr::new("-o"),
                 output.as_os_str(),
-            ])
-        });
+            ])?.status();
+            let status = match status {
+                Ok(it) => it,
+                Err(_) => panic!("unable to run {WASI_STUB}"),
+            };
+            CommandError::from_exit(status)
+        })
     });
 
     if !exists(&input) {
         return Err(CommandError::file_not_found("input", &input).program(WASI_STUB));
     }
 
-    CommandError::from_exit(match (runner)(input.as_ref(), output.as_ref()) {
-        Ok(it) => it,
-        Err(_) => panic!("unable to run {WASI_STUB}"),
-    })
-    .map_err(|err| err.program(WASI_STUB))
+    (runner)(input.as_ref(), output.as_ref()).map_err(|err| err.program(WASI_STUB))
 }
 
 pub const WASM_OPT: &str = "wasm-opt";
 pub fn wasm_opt(input: impl AsRef<Path>, output: impl AsRef<Path>) -> Result<(), CommandError> {
-    static RUNNER: OnceLock<WasmOptRunner> = OnceLock::new();
     type WasmOptRunner =
-        Box<dyn Fn(&Path, &Path) -> io::Result<proc::ExitStatus> + Send + Sync + 'static>;
+        Box<dyn Fn(&Path, &Path) -> Result<(), CommandError> + Send + Sync + 'static>;
+    static RUNNER: OnceLock<WasmOptRunner> = OnceLock::new();
 
     let runner = RUNNER.get_or_init(|| {
         let runner = |program: &OsStr| {
             let program = OsString::from(program);
             Box::new(move |file: &Path, output: &Path| {
-                let opt = OsString::from("-O3");
-                let bulk_mem = OsString::from("--enable-bulk-memory");
-                let o = OsString::from("-o");
-                cmd(
+                let status = cmd(
                     &program,
                     [
                         file.as_os_str(),
-                        opt.as_os_str(),
-                        bulk_mem.as_os_str(),
-                        o.as_os_str(),
+                        OsStr::new("-O3"),
+                        OsStr::new("--enable-bulk-memory"),
+                        OsStr::new("-o"),
                         output.as_os_str(),
                     ],
                 )
-                .status()
+                .status();
+                let status = match status {
+                    Ok(it) => it,
+                    Err(_) => panic!("unable to run {WASM_OPT}"),
+                };
+                CommandError::from_exit(status)
             })
         };
 
@@ -360,38 +380,48 @@ pub fn wasm_opt(input: impl AsRef<Path>, output: impl AsRef<Path>) -> Result<(),
             return runner(tool_path.as_os_str());
         }
 
-        // not really, checked more places, but this is easier to explain
-        panic!("unable to find {WASM_OPT} in PATH")
+        Box::new(|_input, _output| {
+            Err(CommandError::missing_tool(
+                "wasm-opt",
+                Some("https://github.com/WebAssembly/binaryen/releases"),
+            ))
+        })
     });
 
     if !exists(&input) {
         return Err(CommandError::file_not_found("input", &input).program(WASM_OPT));
     }
 
-    CommandError::from_exit(match (runner)(input.as_ref(), output.as_ref()) {
-        Ok(it) => it,
-        Err(_) => panic!("unable to run {WASM_OPT}"),
-    })
-    .map_err(|err| err.program(WASM_OPT))
+    (runner)(input.as_ref(), output.as_ref()).map_err(|err| err.program(WASM_OPT))
 }
 
 const TYPST: &str = "typst";
-pub fn typst_compile(input: impl AsRef<Path>, output: impl AsRef<Path>) -> Result<(), CommandError> {
+pub fn typst_compile(
+    input: impl AsRef<Path>,
+    output: impl AsRef<Path>,
+) -> Result<(), CommandError> {
     if !has_command(TYPST) {
-        return Err(CommandError::missing_tool(TYPST, Some("https://github.com/typst/typst/releases")));
+        return Err(CommandError::missing_tool(
+            TYPST,
+            Some("https://github.com/typst/typst/releases"),
+        ));
     }
     if !exists(&input) {
         return Err(CommandError::file_not_found("input", &input).program(TYPST));
     }
 
-    let status = cmd(TYPST, [
-        OsStr::new("compile"),
-        input.as_ref().as_os_str(),
-        output.as_ref().as_os_str(),
-    ]).status();
+    let status = cmd(
+        TYPST,
+        [
+            OsStr::new("compile"),
+            input.as_ref().as_os_str(),
+            output.as_ref().as_os_str(),
+        ],
+    )
+    .status();
     let status = match status {
         Ok(it) => it,
-        Err(_) => panic!("unable to run {TYPST}")
+        Err(_) => panic!("unable to run {TYPST}"),
     };
     CommandError::from_exit(status)
 }
@@ -532,7 +562,7 @@ impl Display for CommandError {
                 program,
                 install_from,
             } => {
-                write!(f, "{program} is not installed, and it's required for running requested tasks. Install it using {} or from",
+                write!(f, "{program} is not in PATH, and it's required for running requested tasks. Install it using {} or from",
                     if cfg!(target_os = "macos") {
                         "brew"
                     } else if cfg!(target_os = "windows") {

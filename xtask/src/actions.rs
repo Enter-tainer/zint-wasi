@@ -1,4 +1,7 @@
-use std::path::{Path, PathBuf};
+use std::{
+    ffi::OsStr,
+    path::{Path, PathBuf}, process::Output, os::unix::ffi::OsStringExt,
+};
 
 use crate::action::macros::*;
 use crate::action::ActionResult;
@@ -66,7 +69,7 @@ pub fn action_ensure_wasi_sdk() -> ActionResult {
 }
 
 pub fn action_build_plugin() -> ActionResult {
-    action_expect_0!(cargo(["build", "--release", "--target", state!(TARGET)]));
+    action_expect!(cargo(["build", "--release", "--target", state!(TARGET)]));
     action_ok!();
 }
 
@@ -128,7 +131,8 @@ pub fn action_prepare_wasm_opt() -> ActionResult {
 pub fn action_opt_plugin() -> ActionResult {
     let base_path = state_path!(WORK_DIR).join(state!(TARGET)).join("release");
     let stub_path = base_path.join(state!(PLUGIN_STUB_WASM, default: "plugin_stub.wasm"));
-    let stub_opt_path = base_path.join(state!(PLUGIN_STUB_OPT_WASM, default: "plugin_stub_opt.wasm"));
+    let stub_opt_path =
+        base_path.join(state!(PLUGIN_STUB_OPT_WASM, default: "plugin_stub_opt.wasm"));
     action_expect!(wasm_opt(stub_path, &stub_opt_path));
     let target_path = state_path!(TYPST_PKG).join(state!(PLUGIN_WASM_OUT, default: "plugin.wasm"));
     action_expect!(std::fs::copy(stub_opt_path, target_path));
@@ -150,6 +154,28 @@ pub fn action_build_example() -> ActionResult {
     });
     let example_target = state_path!(TYPST_PKG).join("example.svg");
     action_expect!(typst_compile(example_source, example_target));
+    action_ok!();
+}
+
+pub fn action_ensure_cargo_about() -> ActionResult {
+    if !cargo_has_tool("cargo-about") {
+        action_expect!(cargo(["install", "cargo-about"]));
+    }
+    action_ok!();
+}
+
+pub fn action_make_3rdparty_license_list() -> ActionResult {
+    let about_input = state_path!(THIRDPARTY_LICENSE_PATH, default: "./dist/3rdparty_license.hbs");
+    let output = cargo([
+        OsStr::new("about"),
+        OsStr::new("generate"),
+        about_input.as_os_str()
+    ]);
+    let output = action_expect!(action_expect!(output).output());
+    let generated = std::ffi::OsString::from_vec(output.stdout).to_string_lossy().to_string();
+    
+    let about_output_file = state_path!(TYPST_PKG).join("3rdparty_license.html");
+    action_expect!(std::fs::write(about_output_file, generated));
     action_ok!();
 }
 

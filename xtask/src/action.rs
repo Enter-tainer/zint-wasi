@@ -57,9 +57,19 @@ declare_actions![
         require: [],
         run: Some(crate::actions::action_copy_license)
     },
+    EnsureCargoAbout: {
+        arg: "", name: "",
+        require: [],
+        run: Some(crate::actions::action_ensure_cargo_about)
+    },
+    ThirdPartyLicense: {
+        arg: "", name: "generate 3rd-party license list",
+        require: [],
+        run: Some(crate::actions::action_make_3rdparty_license_list)
+    },
     Package: {
         arg: "package", name: "package",
-        require: [PackagePlugin, CompileManual, CompileExample, CopyLicense],
+        require: [PackagePlugin, CompileManual, CompileExample, CopyLicense, ThirdPartyLicense],
         run: None
     },
     All: { // alias for package
@@ -193,6 +203,17 @@ pub mod macros {
     }
     #[macro_export]
     macro_rules! action_expect {
+        (cargo([$($args: expr),*])) => {{
+            let status = match cargo([$($args),*]) {
+                Ok(it) => it,
+                Err(error) => $crate::action_error!(error),
+            }.status();
+            let status = match status {
+                Ok(it) => it,
+                Err(_) => panic!("can't run cargo"),
+            };
+            action_expect!(CommandError::from_exit(status))
+        }};
         ($stmt: expr) => {{
             match $stmt {
                 Ok(it) => it,
