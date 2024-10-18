@@ -1,12 +1,21 @@
 [workspace]
 package.edition = "2021"
+package.license = "MIT"
 resolver = "2"
 members = [
     "zint-wasm-sys",
     "zint-wasm-rs",
-    "zint-typst-plugin"
+    "zint-typst-plugin",
+    "zint-typst-plugin/vendor/wasm-minimal-protocol/crates/macro",
+    "zint-typst-plugin/vendor/wasm-minimal-protocol/crates/wasi-stub",
+    "xtask"
 ]
-package.license = "MIT"
+default-members = [
+    "zint-wasm-sys",
+    "zint-wasm-rs",
+    "zint-typst-plugin",
+]
+
 [profile.release]
 lto = true          # Enable link-time optimization
 strip = true        # Strip symbols from binary*

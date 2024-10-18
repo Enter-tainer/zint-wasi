@@ -1,0 +1,6 @@
+WORK_DIR=./target
+TYPST_PKG=./typst-package
+PLUGIN_WASM=zint_typst_plugin.wasm
+PLUGIN_STUB_WASM=zint_typst_plugin_stub.wasm
+PLUGIN_STUB_OPT_WASM=zint_typst_plugin_stub_opt.wasm
+PLUGIN_WASM_OUT=zint_typst_plugin.wasm

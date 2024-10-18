@@ -5,7 +5,7 @@
 
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 
-#[cfg(test)]
+#[cfg(all(test, any(unix, target_os = "windows")))]
 mod tests {
     use super::*;
     use libc::strlen;

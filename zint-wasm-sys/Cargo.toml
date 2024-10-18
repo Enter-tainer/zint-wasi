@@ -6,6 +6,9 @@ description = "Rust bindings for Wasm build of zint"
 license = "MIT"
 categories = ["external-ffi-bindings"]
 
+[target.'cfg(any(unix, target_os = "windows"))'.dependencies]
+libc = "0.2"
+
 [build-dependencies]
 cc = "1.0"
 bindgen = "0.70.1"
