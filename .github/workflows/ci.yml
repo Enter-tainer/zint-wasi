@@ -1,6 +1,16 @@
 name: CI
-on: [push, pull_request]
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
 
+env:
+  XTASK_WASI_SDK_VERSION: 24
+  XTASK_BINARYEN_VERSION: 119
+  XTASK_TYPST_VERSION: 0.11.1
 
 jobs:
   test:
@@ -13,6 +23,45 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
             targets: wasm32-wasip1
-      - run: cargo xtask ci
-        env:
-            XTASK_TYPST_VERSION: 0.11.1
+      - name: Restore WASI SDK
+        uses: actions/cache/restore@v4
+        with:
+          path: target/wasi_sdk
+          key: tools-wasi-${{ env.XTASK_WASI_SDK_VERSION }}
+      - name: Restore wasm-opt
+        uses: actions/cache/restore@v4
+        with:
+          path: target/tools/wasm-opt
+          key: tools-binaryen-${{ env.XTASK_BINARYEN_VERSION }}
+      - name: Restore typst
+        uses: actions/cache/restore@v4
+        with:
+          path: target/tools/typst
+          key: tools-typst-${{ env.XTASK_TYPST_VERSION }}
+      - name: Run CI xtask
+        run: cargo xtask ci
+      - name: Cache WASI SDK
+        uses: actions/cache/save@v4
+        with:
+          path: target/wasi_sdk
+          key: tools-wasi-${{ env.XTASK_WASI_SDK_VERSION }}
+      - name: Cache wasm-opt
+        uses: actions/cache/save@v4
+        with:
+          path: target/tools/wasm-opt
+          key: tools-binaryen-${{ env.XTASK_BINARYEN_VERSION }}
+      - name: Cache typst
+        uses: actions/cache/save@v4
+        with:
+          path: target/tools/typst
+          key: tools-typst-${{ env.XTASK_TYPST_VERSION }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: plugin-wasm
+          path: ./typst-package/zint_typst_plugin.wasm
+          retention-days: 7
+      - uses: actions/upload-artifact@v4
+        with:
+          name: manual
+          path: ./typst-package/manual.pdf
+          retention-days: 7
