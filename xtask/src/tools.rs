@@ -316,8 +316,11 @@ pub fn wasi_stub(input: impl AsRef<Path>, output: impl AsRef<Path>) -> Result<()
         }
 
         Box::new(move |file: &Path, output: &Path| {
+            let min_proto_path = state_path!(WASM_MIN_PROTOCOL_DIR, default: "./zint-typst-plugin/vendor/wasm-minimal-protocol").join("Cargo.toml");
             let status = cargo([
                 OsStr::new("run"),
+                OsStr::new("--manifest-path"),
+                min_proto_path.as_os_str(),
                 OsStr::new("--release"),
                 OsStr::new("--bin=wasi-stub"),
                 OsStr::new("--"),
