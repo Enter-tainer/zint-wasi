@@ -5,6 +5,8 @@ jobs:
   test:
     name: Build Typst Plugin
     runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/typst/typst:latest
     steps:
       - uses: actions/checkout@v4
         with:
