@@ -17,4 +17,4 @@ ciborium = "0.2.1"
 
 thiserror = "1.0"
 
-wasm-minimal-protocol = { git = "https://github.com/astrale-sharp/wasm-minimal-protocol" }
+wasm-minimal-protocol = { path = "./vendor/wasm-minimal-protocol/crates/macro" }
