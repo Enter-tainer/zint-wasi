@@ -1,6 +1,6 @@
 use crate::*;
-use std::{collections::HashSet, fmt::Display};
 use std::io;
+use std::{collections::HashSet, fmt::Display};
 
 /*
 OptPlugin, // wasm-opt typst-package/zint_typst_plugin.wasm -O3 --enable-bulk-memory -o typst-package/zint_typst_plugin.wasm
@@ -82,22 +82,26 @@ impl Action {
         }
 
         let result = if let Some(runner) = self.runner() {
-            if let Some(name) = self.name() {
-                println!("[TASK]: {name}")
-            }
+            let has_name = if let Some(name) = self.name() {
+                println!("[TASK]: {name}");
+                true
+            } else {
+                false
+            };
             let result = (runner)();
             match &result {
-                ActionResult::Ok => println!("[OK]"),
-                ActionResult::Skip { reason: None } => println!("[SKIPPED]"),
+                ActionResult::Ok if has_name => println!("[OK]"),
+                ActionResult::Skip { reason: None } if has_name => println!("[SKIPPED]"),
                 ActionResult::Skip {
                     reason: Some(reason),
-                } => {
+                } if has_name => {
                     println!("[SKIPPED]: {reason}");
                 }
                 ActionResult::Error(error) => {
                     println!("[ERROR]: {error}");
                     std::process::exit(1);
                 }
+                _ => {}
             }
             result
         } else {
