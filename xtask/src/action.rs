@@ -42,6 +42,16 @@ declare_actions![
         require: [StubPlugin, OptPlugin],
         run: None
     },
+    CompileManual: {
+        arg: "build-manual", name: "compile manual",
+        require: [PackagePlugin],
+        run: Some(crate::actions::action_build_manual)
+    },
+    CompileExample: {
+        arg: "", name: "compile example",
+        require: [PackagePlugin],
+        run: Some(crate::actions::action_build_example)
+    },
     CopyLicense: {
         arg: "", name: "",
         require: [],
@@ -49,10 +59,10 @@ declare_actions![
     },
     Package: {
         arg: "package", name: "package",
-        require: [PackagePlugin, CopyLicense],
+        require: [PackagePlugin, CompileManual, CompileExample, CopyLicense],
         run: None
     },
-    All: {
+    All: { // alias for package
         arg: "all", name: "",
         require: [Package],
         run: None
@@ -71,10 +81,11 @@ impl Action {
             let names = names.join(">");
             unreachable!("action dependency cycle in path: {}", names)
         }
-        running.push(self);
 
         if executed.contains(&self) {
             action_skip!("already executed");
+        } else {
+            running.push(self);
         }
 
         for dep in self.dependencies() {

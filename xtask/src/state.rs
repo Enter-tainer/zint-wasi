@@ -161,9 +161,10 @@ macro_rules! state {
             .get(stringify!($key))
             .unwrap_or($default)
     };
-    ($key: literal, default: || $else: block) => {
+    ($key: tt, default: || $else: block) => {
         $crate::state::State::global_read()
             .get(stringify!($key))
+            .map(|it| it.to_string())
             .unwrap_or_else(|| $else)
     };
 }
@@ -175,7 +176,7 @@ macro_rules! state_path {
     ($key: tt, default: $default: literal) => {
         std::path::PathBuf::from($crate::state!($key, default: $default))
     };
-    ($key: literal, default: || $else: block) => {
+    ($key: tt, default: || $else: block) => {
         std::path::PathBuf::from($crate::state!($key, default: || $else))
     };
 }

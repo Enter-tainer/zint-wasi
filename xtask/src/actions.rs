@@ -130,8 +130,26 @@ pub fn action_opt_plugin() -> ActionResult {
     let stub_path = base_path.join(state!(PLUGIN_STUB_WASM, default: "plugin_stub.wasm"));
     let stub_opt_path = base_path.join(state!(PLUGIN_STUB_OPT_WASM, default: "plugin_stub_opt.wasm"));
     action_expect!(wasm_opt(stub_path, &stub_opt_path));
-    let target_path = Path::new(state!(TYPST_PKG)).join(state!(PLUGIN_WASM_OUT, default: "plugin.wasm"));
+    let target_path = state_path!(TYPST_PKG).join(state!(PLUGIN_WASM_OUT, default: "plugin.wasm"));
     action_expect!(std::fs::copy(stub_opt_path, target_path));
+    action_ok!();
+}
+
+pub fn action_build_manual() -> ActionResult {
+    let manual_source = state_path!(MANUAL_SOURCE, default: || {
+        state_path!(TYPST_PKG).join("manual.typ").to_string_lossy().to_string()
+    });
+    let manual_target = state_path!(TYPST_PKG).join("manual.pdf");
+    action_expect!(typst_compile(manual_source, manual_target));
+    action_ok!();
+}
+
+pub fn action_build_example() -> ActionResult {
+    let example_source = state_path!(MANUAL_SOURCE, default: || {
+        state_path!(TYPST_PKG).join("example.typ").to_string_lossy().to_string()
+    });
+    let example_target = state_path!(TYPST_PKG).join("example.svg");
+    action_expect!(typst_compile(example_source, example_target));
     action_ok!();
 }
 

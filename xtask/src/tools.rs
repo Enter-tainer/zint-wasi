@@ -266,7 +266,7 @@ fn wasi_stub_runner(executable: impl AsRef<OsStr>) -> WasiStubRunner {
 const WASI_STUB: &str = "wasi-stub";
 /// Tries running wasi-stub from PATH, then from `./target/release` dir, then
 /// from `./target/debug`, if all else fails, builds it with cargo.
-pub fn wasi_stub(file: impl AsRef<Path>, output: impl AsRef<Path>) -> Result<(), CommandError> {
+pub fn wasi_stub(input: impl AsRef<Path>, output: impl AsRef<Path>) -> Result<(), CommandError> {
     static RUNNER: OnceLock<WasiStubRunner> = OnceLock::new();
     let runner = RUNNER.get_or_init(|| {
         if has_command(WASI_STUB) {
@@ -313,11 +313,11 @@ pub fn wasi_stub(file: impl AsRef<Path>, output: impl AsRef<Path>) -> Result<(),
         });
     });
 
-    if !exists(&file) {
-        return Err(CommandError::file_not_found("input", &file).program(WASI_STUB));
+    if !exists(&input) {
+        return Err(CommandError::file_not_found("input", &input).program(WASI_STUB));
     }
 
-    CommandError::from_exit(match (runner)(file.as_ref(), output.as_ref()) {
+    CommandError::from_exit(match (runner)(input.as_ref(), output.as_ref()) {
         Ok(it) => it,
         Err(_) => panic!("unable to run {WASI_STUB}"),
     })
@@ -325,7 +325,7 @@ pub fn wasi_stub(file: impl AsRef<Path>, output: impl AsRef<Path>) -> Result<(),
 }
 
 pub const WASM_OPT: &str = "wasm-opt";
-pub fn wasm_opt(file: impl AsRef<Path>, output: impl AsRef<Path>) -> Result<(), CommandError> {
+pub fn wasm_opt(input: impl AsRef<Path>, output: impl AsRef<Path>) -> Result<(), CommandError> {
     static RUNNER: OnceLock<WasmOptRunner> = OnceLock::new();
     type WasmOptRunner =
         Box<dyn Fn(&Path, &Path) -> io::Result<proc::ExitStatus> + Send + Sync + 'static>;
@@ -364,18 +364,43 @@ pub fn wasm_opt(file: impl AsRef<Path>, output: impl AsRef<Path>) -> Result<(), 
         panic!("unable to find {WASM_OPT} in PATH")
     });
 
-    if !exists(&file) {
-        return Err(CommandError::file_not_found("input", &file).program(WASM_OPT));
+    if !exists(&input) {
+        return Err(CommandError::file_not_found("input", &input).program(WASM_OPT));
     }
 
-    CommandError::from_exit(match (runner)(file.as_ref(), output.as_ref()) {
+    CommandError::from_exit(match (runner)(input.as_ref(), output.as_ref()) {
         Ok(it) => it,
         Err(_) => panic!("unable to run {WASM_OPT}"),
     })
     .map_err(|err| err.program(WASM_OPT))
 }
 
+const TYPST: &str = "typst";
+pub fn typst_compile(input: impl AsRef<Path>, output: impl AsRef<Path>) -> Result<(), CommandError> {
+    if !has_command(TYPST) {
+        return Err(CommandError::missing_tool(TYPST, Some("https://github.com/typst/typst/releases")));
+    }
+    if !exists(&input) {
+        return Err(CommandError::file_not_found("input", &input).program(TYPST));
+    }
+
+    let status = cmd(TYPST, [
+        OsStr::new("compile"),
+        input.as_ref().as_os_str(),
+        output.as_ref().as_os_str(),
+    ]).status();
+    let status = match status {
+        Ok(it) => it,
+        Err(_) => panic!("unable to run {TYPST}")
+    };
+    CommandError::from_exit(status)
+}
+
 pub enum CommandError {
+    MissingTool {
+        program: &'static str,
+        install_from: Option<&'static str>,
+    },
     ExitError {
         program: Option<&'static str>,
         code: std::num::NonZeroI32,
@@ -408,6 +433,12 @@ impl CommandError {
             interrupt,
         }
     }
+    pub fn missing_tool(name: &'static str, source: Option<&'static str>) -> Self {
+        Self::MissingTool {
+            program: name,
+            install_from: source,
+        }
+    }
     pub fn file_not_found(argument: &'static str, file: impl AsRef<Path>) -> Self {
         Self::BadArgument {
             program: None,
@@ -425,6 +456,7 @@ impl CommandError {
 
     pub fn program(mut self, name: &'static str) -> Self {
         match &mut self {
+            CommandError::MissingTool { program, .. } => *program = name,
             CommandError::ExitError { program, .. } => *program = Some(name),
             CommandError::Interrupted { program, .. } => *program = Some(name),
             CommandError::BadArgument { program, .. } => *program = Some(name),
@@ -456,11 +488,15 @@ impl From<proc::ExitStatus> for CommandError {
 impl Debug for CommandError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut result = f.debug_struct(match self {
+            CommandError::MissingTool { .. } => "CommandError::MissingTool",
             CommandError::ExitError { .. } => "CommandError::ExitError",
             CommandError::Interrupted { .. } => "CommandError::Interrupted",
             CommandError::BadArgument { .. } => "CommandError::BadArgument",
         });
         match self {
+            CommandError::MissingTool { program, .. } => {
+                result.field("program", program);
+            }
             CommandError::ExitError { program, code } => {
                 result.field("program", program);
                 result.field("code", code);
@@ -492,6 +528,25 @@ impl Debug for CommandError {
 impl Display for CommandError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            CommandError::MissingTool {
+                program,
+                install_from,
+            } => {
+                write!(f, "{program} is not installed, and it's required for running requested tasks. Install it using {} or from",
+                    if cfg!(target_os = "macos") {
+                        "brew"
+                    } else if cfg!(target_os = "windows") {
+                        "win-get"
+                    } else {
+                        "a package manager"
+                    }
+                )?;
+                if let Some(from) = install_from {
+                    write!(f, ": '{from}'")
+                } else {
+                    write!(f, " a credible source.")
+                }
+            }
             CommandError::ExitError { program, code } => {
                 write!(
                     f,
