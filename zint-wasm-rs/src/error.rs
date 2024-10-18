@@ -1,4 +1,4 @@
-use std::{fmt::Display, str::Utf8Error, mem::MaybeUninit};
+use std::{fmt::Display, mem::MaybeUninit, str::Utf8Error};
 
 use serde::Deserialize;
 use zint_wasm_sys::*;
@@ -34,7 +34,7 @@ macro_rules! in_range_or_other {
                         // Safety: discriminant IS the code and is the first $repr
                         let data = std::ptr::addr_of!(known) as *const $repr;
                         data.read()
-                    }
+                    },
                 }
             }
         }

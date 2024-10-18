@@ -1,15 +1,13 @@
 use std::{
-    ffi::{CStr, CString},
+    ffi::CString,
     ops::{Deref, DerefMut},
 };
 
-use zint_wasm_sys::{
-    free_svg_plot_string, svg_plot_string, zint_symbol, ZBarcode_Encode_and_Buffer_Vector,
-};
+use zint_wasm_sys::{zint_symbol, ZBarcode_Encode_and_Print};
 
 use crate::{
     error::{Error, ZintResult},
-    options::{color::Color, Options},
+    options::{color::Color, output_options, Options},
 };
 
 #[repr(transparent)]
@@ -21,6 +19,7 @@ impl Symbol {
     #[allow(clippy::field_reassign_with_default)]
     pub fn new(options: &Options) -> Self {
         let mut result = Self::default();
+        let filename = "res.svg";
 
         result.symbology = options.symbology as i32;
 
@@ -43,6 +42,8 @@ impl Symbol {
         if let Some(output_options) = options.output_options {
             result.output_options = output_options.as_i32();
         }
+        // Always write to memory file
+        result.output_options |= output_options::OutputOptions::BARCODE_MEMORY_FILE.as_i32();
 
         crate::util::copy_into_cstr(
             options.fg_color.unwrap_or(Color::BLACK).to_hex_string(),
@@ -56,6 +57,8 @@ impl Symbol {
                 .to_hex_string(),
             &mut result.bgcolour,
         );
+
+        crate::util::copy_into_cstr(filename, &mut result.outfile);
 
         if let Some(ref primary) = options.primary {
             crate::util::copy_into_cstr(primary, &mut result.primary);
@@ -117,7 +120,7 @@ impl Symbol {
     pub fn encode_svg(self, data: &str, length: i32, rotate_angle: i32) -> Result<String, Error> {
         let c_str_data = CString::new(data).expect("CString::new failed");
         let result = ZintResult::from(unsafe {
-            ZBarcode_Encode_and_Buffer_Vector(
+            ZBarcode_Encode_and_Print(
                 self.inner,
                 c_str_data.as_bytes_with_nul().as_ptr(),
                 length,
@@ -127,16 +130,11 @@ impl Symbol {
         if let Some(err) = result.as_error() {
             return Err(Error::Zint(err));
         }
-        let (result, svg) = unsafe {
-            let mut result: i32 = 0;
-            let svg_cstr = svg_plot_string(self.inner, &mut result);
-            let svg = CStr::from_ptr(svg_cstr)
-                .to_str()
-                .map_err(Error::InvalidResultSVG)?
-                .to_string();
-            free_svg_plot_string(svg_cstr);
-            (ZintResult::from(result as u32), svg)
+        let svg = unsafe {
+            let memfile = std::slice::from_raw_parts(self.memfile, self.memfile_size as usize);
+            memfile
         };
+        let svg = String::from_utf8_lossy(svg).to_string();
 
         match result.as_error() {
             Some(err) => Err(Error::Zint(err)),
