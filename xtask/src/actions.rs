@@ -66,12 +66,12 @@ pub fn action_ensure_wasi_sdk() -> ActionResult {
 }
 
 pub fn action_build_plugin() -> ActionResult {
-    action_expect_0!(cargo(["build", "--release", "--target", "wasm32-wasip1"]));
+    action_expect_0!(cargo(["build", "--release", "--target", state!(TARGET)]));
     action_ok!();
 }
 
 pub fn action_stub_plugin() -> ActionResult {
-    let base_path = state_path!(WORK_DIR).join("release");
+    let base_path = state_path!(WORK_DIR).join(state!(TARGET)).join("release");
     let release = base_path.join(state!(PLUGIN_WASM));
     let stubbed = base_path.join(state!(PLUGIN_STUB_WASM, default: "plugin_stub.wasm"));
     action_expect!(wasi_stub(release, stubbed));
@@ -126,7 +126,7 @@ pub fn action_prepare_wasm_opt() -> ActionResult {
 }
 
 pub fn action_opt_plugin() -> ActionResult {
-    let base_path = state_path!(WORK_DIR).join("release");
+    let base_path = state_path!(WORK_DIR).join(state!(TARGET)).join("release");
     let stub_path = base_path.join(state!(PLUGIN_STUB_WASM, default: "plugin_stub.wasm"));
     let stub_opt_path = base_path.join(state!(PLUGIN_STUB_OPT_WASM, default: "plugin_stub_opt.wasm"));
     action_expect!(wasm_opt(stub_path, &stub_opt_path));

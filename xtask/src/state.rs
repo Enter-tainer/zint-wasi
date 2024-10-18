@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::{RwLock, TryLockError}};
 use std::io::{self, BufRead as _, Write as _};
 use std::path::{Path, PathBuf};
 
@@ -9,13 +9,12 @@ pub struct State {
     environment: HashMap<String, String>,
 }
 impl State {
-    pub fn global() -> StateAccess {
-        use std::sync::{Mutex, OnceLock};
+    fn global() -> &'static RwLock<State> {
+        use std::sync::{RwLock, OnceLock};
 
         const STATE_PATH: &str = "./xtask/state";
-        static STATE: OnceLock<Mutex<State>> = OnceLock::new();
-
-        let mutex = STATE.get_or_init(|| {
+        static STATE: OnceLock<RwLock<State>> = OnceLock::new();
+        STATE.get_or_init(|| {
             let value = match State::load(STATE_PATH) {
                 Ok(it) => it,
                 Err(not_found) if not_found.kind() == io::ErrorKind::NotFound => State::new(),
@@ -25,17 +24,24 @@ impl State {
                 }
             };
 
-            Mutex::new(value)
-        });
-
-        let mutex = match mutex.try_lock() {
-            Ok(it) => it,
-            Err(std::sync::TryLockError::WouldBlock) => panic!("global state already locked"),
-            Err(std::sync::TryLockError::Poisoned(_)) => panic!("global state poisoned"),
-        };
-
-        StateAccess { mutex }
+            RwLock::new(value)
+        })
     }
+    pub fn global_read() -> StateRead {
+        match Self::global().try_read() {
+            Ok(read) => StateRead { read },
+            Err(TryLockError::WouldBlock) => panic!("state mutably borrowed"),
+            Err(TryLockError::Poisoned(_)) => panic!("state poisoned"),
+        }
+    }
+    pub fn global_write() -> StateWrite {
+        match Self::global().try_write() {
+            Ok(write) => StateWrite { write },
+            Err(TryLockError::WouldBlock) => panic!("state already borrowed"),
+            Err(TryLockError::Poisoned(_)) => panic!("state poisoned"),
+        }
+    }
+
     pub fn new() -> Self {
         Self::default()
     }
@@ -146,17 +152,17 @@ where
 #[macro_export]
 macro_rules! state {
     ($key: tt) => {
-        $crate::state::State::global()
+        $crate::state::State::global_read()
             .get(stringify!($key))
             .expect(concat!["state is missing '", stringify!($key), "' key"])
     };
     ($key: tt, default: $default: literal) => {
-        $crate::state::State::global()
+        $crate::state::State::global_read()
             .get(stringify!($key))
             .unwrap_or($default)
     };
     ($key: literal, default: || $else: block) => {
-        $crate::state::State::global()
+        $crate::state::State::global_read()
             .get(stringify!($key))
             .unwrap_or_else(|| $else)
     };
@@ -176,21 +182,32 @@ macro_rules! state_path {
 
 mod _impl {
     use super::*;
-    use std::sync::MutexGuard;
+    use std::sync::{RwLockReadGuard, RwLockWriteGuard};
 
-    pub struct StateAccess {
-        pub(super) mutex: MutexGuard<'static, State>,
+    pub struct StateRead {
+        pub(super) read: RwLockReadGuard<'static, State>,
     }
-    impl std::ops::Deref for StateAccess {
+    impl std::ops::Deref for StateRead {
         type Target = State;
 
         fn deref(&self) -> &Self::Target {
-            &self.mutex
+            &self.read
         }
     }
-    impl std::ops::DerefMut for StateAccess {
+
+    pub struct StateWrite {
+        pub(super) write: RwLockWriteGuard<'static, State>,
+    }
+    impl std::ops::Deref for StateWrite {
+        type Target = State;
+
+        fn deref(&self) -> &Self::Target {
+            &self.write
+        }
+    }
+    impl std::ops::DerefMut for StateWrite {
         fn deref_mut(&mut self) -> &mut Self::Target {
-            &mut self.mutex
+            &mut self.write
         }
     }
 }
