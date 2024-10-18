@@ -7,5 +7,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+            submodules: true
       - uses: dtolnay/rust-toolchain@stable
+        with:
+            targets: wasm32-wasip1
       - run: cargo xtask ci
