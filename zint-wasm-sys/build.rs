@@ -11,7 +11,7 @@ fn main() -> Result<()> {
         "zint/backend/auspost.c",
         "zint/backend/aztec.c",
         "zint/backend/bc412.c",
-        "zint/backend/bmp.c",
+        // "zint/backend/bmp.c",
         "zint/backend/codablock.c",
         "zint/backend/code128.c",
         "zint/backend/code16k.c",
@@ -24,9 +24,10 @@ fn main() -> Result<()> {
         "zint/backend/dmatrix.c",
         "zint/backend/dotcode.c",
         "zint/backend/eci.c",
-        "zint/backend/emf.c",
+        // "zint/backend/emf.c",
+        "zint/backend/filemem.c",
         "zint/backend/general_field.c",
-        "zint/backend/gif.c",
+        // "zint/backend/gif.c",
         "zint/backend/gridmtx.c",
         "zint/backend/gs1.c",
         "zint/backend/hanxin.c",
@@ -37,24 +38,23 @@ fn main() -> Result<()> {
         "zint/backend/maxicode.c",
         "zint/backend/medical.c",
         "zint/backend/output.c",
-        "zint/backend/pcx.c",
+        // "zint/backend/pcx.c",
         "zint/backend/pdf417.c",
         "zint/backend/plessey.c",
         // "zint/backend/png.c",
         "zint/backend/postal.c",
-        "zint/backend/ps.c",
+        // "zint/backend/ps.c",
         "zint/backend/qr.c",
-        "zint/backend/raster.c",
+        // "zint/backend/raster.c",
         "zint/backend/reedsol.c",
         "zint/backend/rss.c",
         "zint/backend/svg.c",
         "zint/backend/telepen.c",
-        "zint/backend/tif.c",
+        // "zint/backend/tif.c",
         "zint/backend/ultra.c",
         "zint/backend/upcean.c",
         "zint/backend/vector.c",
-        "extension/sds.c",
-        "extension/svg.c",
+        "patch/patch.c",
     ];
     // Build quickjs as a static library.
     cc::Build::new()
@@ -77,13 +77,13 @@ fn main() -> Result<()> {
         .flag_if_supported("-Wno-enum-conversion")
         .flag_if_supported("-Wno-implicit-function-declaration")
         .flag_if_supported("-Wno-implicit-const-int-float-conversion")
-        .target("wasm32-wasi")
+        .target("wasm32-wasip1")
         .opt_level(2)
         .compile("zint");
 
     // Generate bindings for quickjs
     let bindings = bindgen::Builder::default()
-        .header("wrapper.h")
+        .header("zint/backend/zint.h")
         .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
         .clang_args(&["-fvisibility=hidden", "--target=wasm32-wasip1"])
         .size_t_is_usize(false)
@@ -95,7 +95,7 @@ fn main() -> Result<()> {
         println!("cargo:rerun-if-changed={}", entry?.path().display());
     }
 
-    for entry in WalkDir::new("extension") {
+    for entry in WalkDir::new("patch") {
         println!("cargo:rerun-if-changed={}", entry?.path().display());
     }
 

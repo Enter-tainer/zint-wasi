@@ -37,6 +37,8 @@ bitflags::bitflags! {
         const EAN_UPC_GUARD_WHITESPACE = zint_wasm_sys::EANUPC_GUARD_WHITESPACE;
         /// Embed font in vector output - currently only for SVG output
         const EMBED_VECTOR_FONT = zint_wasm_sys::EMBED_VECTOR_FONT;
+        /// Write output to in-memory buffer `memfile` instead of to `outfile`
+        const BARCODE_MEMORY_FILE = zint_wasm_sys::BARCODE_MEMORY_FILE;
     }
 }
 
