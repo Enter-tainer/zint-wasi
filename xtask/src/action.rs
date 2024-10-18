@@ -29,7 +29,7 @@ declare_actions![
     },
     OptPlugin: {
         arg: "", name: "optimize wasm",
-        require: [StubPlugin],
+        require: [EnsureWasmOpt, StubPlugin],
         run: Some(crate::actions::action_opt_plugin)
     },
     BuildPlugin: {
