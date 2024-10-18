@@ -107,8 +107,6 @@ fn main() -> Result<()> {
         .flag_if_supported("-Wno-shift-op-parentheses");
     
     build.target("wasm32-wasip1");
-    #[cfg(target = "wasm32-wasip2")]
-    build.target("wasm32-wasip2");
 
     build.opt_level(2)
         .compile("zint");
@@ -122,8 +120,6 @@ fn main() -> Result<()> {
 
     let bindings = if true {
         bindings.clang_arg("--target=wasm32-wasip1")
-    } else if cfg!(target = "wasm32-wasip2") {
-        bindings.clang_arg("--target=wasm32-wasip2")
     } else {
         bindings
     };
