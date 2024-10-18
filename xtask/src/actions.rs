@@ -8,6 +8,7 @@ use crate::action::macros::*;
 use crate::action::ActionResult;
 use crate::tools::*;
 use crate::{state, state_path};
+use crate::log::*;
 
 const WASI_PATH_VAR: &str = "WASI_SDK_PATH";
 
@@ -78,7 +79,9 @@ pub fn action_stub_plugin() -> ActionResult {
     let base_path = state_path!(WORK_DIR).join(state!(TARGET)).join("release");
     let release = base_path.join(state!(PLUGIN_WASM));
     let stubbed = base_path.join(state!(PLUGIN_STUB_WASM, default: "plugin_stub.wasm"));
+    group!("Subbing {}", release.display());
     action_expect!(wasi_stub(release, stubbed));
+    end_group!();
     action_ok!();
 }
 
@@ -215,34 +218,6 @@ pub fn action_install_typst() -> ActionResult {
     }
 
     let (url, base_dir, ext) = typst_url(state!(TYPST_VERSION));
-    let work_dir = state_path!(WORK_DIR);
-    let typst_archive = work_dir.join(format!("typst.{ext}"));
-    let typst_dir = work_dir.join("tools");
-    let typst_bin = typst_dir.join(WASM_OPT);
-
-    if !exists(typst_bin) {
-        if !exists(&typst_archive) {
-            action_expect!(download(url, &typst_archive));
-        }
-        action_expect!(std::fs::create_dir_all(&typst_dir));
-        action_expect!(untar(
-            typst_archive,
-            typst_dir,
-            [
-                "--strip-components=1".to_string(),
-                format!(
-                    "{base_dir}/{TYPST}",
-                )
-            ]
-        ));
-    }
-
-    action_ok!();
-}
-
-// should be only used for CI
-pub fn action_install_typst_test() -> ActionResult {
-    let (url, base_dir, ext) = typst_url(state!(TYPST_VERSION, default: "0.11.1"));
     let work_dir = state_path!(WORK_DIR);
     let typst_archive = work_dir.join(format!("typst.{ext}"));
     let typst_dir = work_dir.join("tools");

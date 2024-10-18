@@ -3,6 +3,7 @@
 use std::{collections::HashMap, sync::{RwLock, TryLockError}};
 use std::io::{self, BufRead as _, Write as _};
 use std::path::{Path, PathBuf};
+use crate::log::*;
 
 #[derive(Default)]
 pub struct State {
@@ -21,7 +22,7 @@ impl State {
                 Ok(it) => it,
                 Err(not_found) if not_found.kind() == io::ErrorKind::NotFound => State::new(),
                 Err(other) => {
-                    eprintln!("{other}");
+                    error!(other);
                     std::process::abort()
                 }
             };
@@ -132,7 +133,7 @@ impl Drop for State {
     fn drop(&mut self) {
         if let Some(source) = &self.source {
             if self.save(source).is_err() {
-                eprintln!("unable to update xtask state file: {}", source.display())
+                error!("unable to update xtask state file: {}", source.display())
             }
         }
     }

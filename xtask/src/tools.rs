@@ -9,12 +9,13 @@ use std::{
 };
 
 use crate::state_path;
+use crate::log::*;
 
 pub fn exists(path: impl AsRef<Path>) -> bool {
     std::fs::exists(path.as_ref()).ok().unwrap_or_default()
 }
 
-fn local_tool_path(name: impl AsRef<Path>) -> PathBuf {
+pub fn local_tool_path(name: impl AsRef<Path>) -> PathBuf {
     state_path!(WORK_DIR).join("tools").join(name)
 }
 
@@ -213,12 +214,15 @@ pub fn download(url: impl AsRef<str>, target: impl AsRef<Path>) -> Result<(), Do
             )))
         }
     });
-    println!(
+    group!("Download: {}", target.as_ref().display());
+    info!(
         "\t- downloading '{}' to '{}'",
         url.as_ref(),
         target.as_ref().display()
     );
-    (runner)(url.as_ref(), target.as_ref())
+    let result = (runner)(url.as_ref(), target.as_ref());
+    end_group!();
+    result
 }
 
 #[derive(Debug)]
@@ -262,15 +266,16 @@ where
         ));
     }
 
-    println!(
+    group!("Extract: {}", archive.as_ref().display());
+    info!(
         "\t- extracting '{}' into '{}'",
         archive.as_ref().display(),
         target.as_ref().display()
     );
-    cmd(
+    let result = cmd(
         TAR,
         [
-            OsStr::new("-xsf"),
+            OsStr::new("-xvsf"),
             OsStr::new(archive.as_ref().as_os_str()),
             OsStr::new("-C"),
             OsStr::new(target.as_ref().as_os_str()),
@@ -279,7 +284,9 @@ where
         .map(|it| it.to_os_string())
         .chain(args.into_iter().map(|it| it.as_ref().to_os_string())),
     )
-    .program_status(TAR)
+    .program_status(TAR);
+    end_group!();
+    result
 }
 
 const WASI_STUB: &str = "wasi-stub";

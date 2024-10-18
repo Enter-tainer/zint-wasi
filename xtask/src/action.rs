@@ -82,11 +82,6 @@ declare_actions![
         require: [PackagePlugin, InstallTypst, CompileManual],
         run: None
     },
-    Testing: {
-        arg: "wut", name: "",
-        require: [],
-        run: Some(crate::actions::action_install_typst_test)
-    },
     All: { // alias for package
         arg: "all", name: "",
         require: [Package],
@@ -119,22 +114,22 @@ impl Action {
 
         let result = if let Some(runner) = self.runner() {
             let has_name = if let Some(name) = self.name() {
-                println!("[TASK]: {name}");
+                info!("[TASK]: {}", name);
                 true
             } else {
                 false
             };
             let result = (runner)();
             match &result {
-                ActionResult::Ok if has_name => println!("[OK]"),
-                ActionResult::Skip { reason: None } if has_name => println!("[SKIPPED]"),
+                ActionResult::Ok if has_name => info!("[OK]"),
+                ActionResult::Skip { reason: None } if has_name => info!("[SKIPPED]"),
                 ActionResult::Skip {
                     reason: Some(reason),
                 } if has_name => {
-                    println!("[SKIPPED]: {reason}");
+                    info!("[SKIPPED]: {}", reason);
                 }
-                ActionResult::Error(error) => {
-                    println!("[ERROR]: {error}");
+                ActionResult::Error(err) => {
+                    error!(err);
                     std::process::exit(1);
                 }
                 _ => {}
