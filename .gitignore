@@ -75,4 +75,6 @@ dkms.conf
 
 # Typst Package
 typst-package/3rdparty_license.html
+typst-package/LICENSE
+typst-package/example.svg
 !typst-package/manual.pdf
