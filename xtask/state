@@ -1,4 +1,4 @@
-MANUAL_SHA1=305adb89b9aa1ecc5c40ffeac4ce5cf5b10b0c10
+MANUAL_SHA1=5120910681427171402
 PLUGIN_STUB_OPT_WASM=zint_typst_plugin_stub_opt.wasm
 PLUGIN_STUB_WASM=zint_typst_plugin_stub.wasm
 PLUGIN_WASM=zint_typst_plugin.wasm

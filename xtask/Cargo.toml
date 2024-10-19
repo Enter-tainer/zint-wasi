@@ -7,3 +7,5 @@ license.workspace = true
 [dependencies]
 # should be as minimal as possible with as few transient dependencies as
 # possible, prefer using system tools instead
+
+ahash = "0.8"

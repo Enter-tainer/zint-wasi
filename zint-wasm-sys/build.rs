@@ -4,7 +4,12 @@ use std::{env, path::PathBuf};
 use walkdir::WalkDir;
 
 fn main() -> Result<()> {
-    {
+    #[allow(non_snake_case)]
+    let WASM = env::var("CARGO_CFG_TARGET_FAMILY").map(|it| it == "wasm").unwrap_or_default();
+    #[allow(non_snake_case)]
+    let WASM32_WASIP1 = WASM && env::var("TARGET").map(|it| it == "wasm32-wasip1").unwrap_or_default();
+
+    if WASM32_WASIP1 {
         let sdk_path = match env::var("WASI_SDK_PATH") {
             Ok(it) => PathBuf::from(it),
             Err(_) => PathBuf::from("/opt/wasi-sdk"),
@@ -108,7 +113,9 @@ fn main() -> Result<()> {
         .flag_if_supported("-Wno-shift-op-parentheses")
         .opt_level(2);
 
-    build.target("wasm32-wasip1");
+    if WASM32_WASIP1 {
+        build.target("wasm32-wasip1");
+    }
     build.compile("zint");
 
     // Generate bindings for quickjs
@@ -118,7 +125,7 @@ fn main() -> Result<()> {
         .clang_arg("-fvisibility=hidden")
         .size_t_is_usize(false);
 
-    let bindings = if true {
+    let bindings = if WASM32_WASIP1 {
         bindings.clang_arg("--target=wasm32-wasip1")
     } else {
         bindings

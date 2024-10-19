@@ -153,7 +153,9 @@ pub fn action_build_manual() -> ActionResult {
 
     #[cfg(not(ci))]
     {
-        let manual_sha = action_expect!(file_sha1(manual_source));
+        let manual_sha = hash_files(
+            [manual_source]
+        ).to_string();
         if manual_sha == state!(MANUAL_SHA1, default: "") {
             cmd("git", [
                 OsStr::new("update-index"),

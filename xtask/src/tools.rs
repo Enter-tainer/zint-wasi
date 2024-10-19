@@ -1,13 +1,14 @@
 use std::{
-    collections::HashMap,
+    collections::{BTreeSet, HashMap},
     ffi::{OsStr, OsString},
     fmt::{Debug, Display},
-    io,
+    hash::{Hasher, Hash},
+    io::{self, Read},
     os::unix::ffi::OsStringExt,
     path::{Path, PathBuf},
     process as proc,
     str::FromStr,
-    sync::OnceLock,
+    sync::OnceLock, mem::MaybeUninit,
 };
 
 use crate::log::*;
@@ -467,40 +468,119 @@ pub fn typst_compile(
     (runner)(input.as_ref(), output.as_ref())
 }
 
-pub fn file_sha1(file: impl AsRef<Path>) -> Result<String, CommandError> {
-    let sha = if cfg!(target_os = "windows") {
-        if !has_command("certutil") {
-            return Err(CommandError::missing_tool("certutil", None));
-        }
+fn walk_dir(root: impl AsRef<Path>, follow_symlinks: bool) -> io::Result<BTreeSet<PathBuf>> {
+    let root = root.as_ref();
+    let mut result = BTreeSet::new();
+    let mut first_done = false;
 
-        let file_path = OsString::from_str(&format!("\"{}\"", file.as_ref().display())).unwrap();
-        let output = cmd(
-            "certutil",
-            [
-                OsStr::new("-hashfile"),
-                file_path.as_os_str(),
-                OsStr::new("SHA1"),
-            ],
-        )
-        .program_output("certutil");
-        CommandError::from_exit(output.status)?;
-        OsString::from_vec(output.stdout)
-            .to_string_lossy()
-            .to_string()
-    } else {
-        if !has_command("sha1sum") {
-            return Err(CommandError::missing_tool("sha1sum", None));
-        }
+    let mut queue = vec![root.to_path_buf()];
+    while let Some(current) = queue.pop() {
+        let dir = match std::fs::read_dir(&current) {
+            Ok(it) => it,
+            Err(err) => {
+                // we don't have access to root or it doesn't exist
+                if !first_done {
+                    // or it's a file...
+                    if root.is_file() {
+                        return Ok(BTreeSet::from_iter([root.to_path_buf()]));
+                    }
+                    // if not a file, root access error should be handled
+                    return Err(err);
+                }
+                // in case it's a subdirectory, we skip
+                continue;
+            }
+        };
+        first_done = true;
 
-        let output = cmd("sha1sum", [file.as_ref().as_os_str()]).program_output("sha1sum");
-        CommandError::from_exit(output.status)?;
-        OsString::from_vec(output.stdout)
-            .to_string_lossy()
-            .chars()
-            .take_while(|it| !it.is_ascii_whitespace())
-            .collect()
-    };
-    Ok(sha)
+        for dir_item in dir {
+            let dir_item = dir_item?;
+            let path = current.join(dir_item.file_name());
+            let ty = dir_item.file_type()?;
+            if ty.is_file() {
+                result.insert(path);
+                continue;
+            } else if ty.is_dir() {
+                queue.push(path);
+                continue;
+            } else if !follow_symlinks || !ty.is_symlink() {
+                continue;
+            }
+
+            let mut outer = path;
+            loop {
+                let Ok(inner) = std::fs::read_link(outer) else {
+                    break; // can't read link?
+                };
+                let Ok(ty) = inner.metadata() else {
+                    break; // can't read link target?
+                };
+
+                if ty.is_file() {
+                    result.insert(inner);
+                    break;
+                } else if ty.is_dir() {
+                    queue.push(inner);
+                    break;
+                } else if ty.is_symlink() {
+                    outer = inner;
+                } else {
+                    break;
+                }
+            }
+        }
+    }
+
+    Ok(result)
+}
+
+fn hash_single_file<H>(path: impl AsRef<Path>, state: &mut H) -> io::Result<()>
+where
+    H: std::hash::Hasher,
+{
+    let file = std::fs::File::open(path)?;
+    let mut file = std::io::BufReader::new(file);
+    let mut buffer: MaybeUninit<[u8; 1024]> = MaybeUninit::uninit();
+    unsafe {
+        let buffer = buffer.as_mut_ptr().as_mut().unwrap_unchecked();
+        loop {
+            let count = file.read(buffer)?;
+            if count == 0 {
+                break;
+            }
+            buffer[..count].hash(state)
+        }
+    }
+    Ok(())
+}
+
+pub fn hash_files<P>(files: impl IntoIterator<Item = P>) -> u64
+where
+    P: AsRef<Path>,
+{
+    let mut state = ahash::AHasher::default();
+
+    // We need to discover files separately because listing a directory doesn't
+    // need to return files in the same order every time.
+    let mut discovered = BTreeSet::new();
+    for root in files {
+        let root = root.as_ref();
+        if root.is_file() {
+            discovered.insert(root.to_path_buf());
+            continue;
+        } else if let Ok(children) = walk_dir(root, false) {
+            for child in children {
+                discovered.insert(child);
+            }
+        }
+    }
+
+    // Once we have a sorted list of discovered files, we can hash them.
+    for file in discovered {
+        let _ = hash_single_file(file, &mut state);
+    }
+
+    state.finish()
 }
 
 #[allow(dead_code)]
