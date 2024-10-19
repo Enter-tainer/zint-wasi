@@ -3,7 +3,7 @@ use std::{
     ffi::{OsStr, OsString},
     fmt::{Debug, Display},
     hash::{Hash, Hasher},
-    io::{self, Read},
+    io::{self, Read, Seek},
     mem::MaybeUninit,
     os::unix::ffi::OsStringExt,
     path::{Path, PathBuf},
@@ -190,20 +190,20 @@ fn download_curl(url: &str, path: &Path) -> Result<(), DownloadError> {
 
 macro_rules! make_runner {
     (
-        Fn($($arg: ident: $arg_ty: ty),*) -> Result<(), $error: ty> $init: block
+        Fn($($arg: ident: $arg_ty: ty),*) -> Result<$returned: ty, $error: ty> $init: block
     ) => {
         {
             type Runner =
-                Box<dyn Fn($($arg_ty),*) -> Result<(), $error> + Send + Sync + 'static>;
+                Box<dyn Fn($($arg_ty),*) -> Result<$returned, $error> + Send + Sync + 'static>;
             static RUNNER: OnceLock<Runner> = OnceLock::new();
             RUNNER.get_or_init(|| $init)
         }
     };
     (
-        fn($($arg: ident: $arg_ty: ty),*) -> Result<(), $error: ty> $init: block
+        fn($($arg: ident: $arg_ty: ty),*) -> Result<$returned: ty, $error: ty> $init: block
     ) => {
         {
-            type Runner = fn($($arg_ty),*) -> Result<(), $error>;
+            type Runner = fn($($arg_ty),*) -> Result<$returned, $error>;
             static RUNNER: OnceLock<Runner> = OnceLock::new();
             RUNNER.get_or_init(|| $init)
         }
@@ -424,11 +424,12 @@ pub const TYPST: &str = "typst";
 pub fn typst_compile(
     input: impl AsRef<Path>,
     output: impl AsRef<Path>,
-) -> Result<(), CommandError> {
-    let runner = make_runner!(fn(input: &Path, output: &Path) -> Result<(), CommandError> {
+) -> Result<std::time::Duration, CommandError> {
+    let runner = make_runner!(fn(input: &Path, output: &Path) -> Result<std::time::Duration, CommandError> {
         if has_command(TYPST) {
             return |input, output| {
-                cmd(
+                let begin = std::time::Instant::now();
+                let result = cmd(
                     TYPST,
                     [
                         OsStr::new("compile"),
@@ -436,13 +437,16 @@ pub fn typst_compile(
                         output.as_os_str(),
                     ],
                 )
-                .program_status(TYPST)
+                .program_status(TYPST);
+                let duration = std::time::Instant::now() - begin;
+                result.map(|_| duration)
             }
         }
 
         if exists(local_tool_path(TYPST)) {
             return |input, output| {
-                cmd(
+                let begin = std::time::Instant::now();
+                let result = cmd(
                     local_tool_path(TYPST),
                     [
                         OsStr::new("compile"),
@@ -450,7 +454,9 @@ pub fn typst_compile(
                         output.as_os_str(),
                     ],
                 )
-                .program_status(TYPST)
+                .program_status(TYPST);
+                let duration = std::time::Instant::now() - begin;
+                result.map(|_| duration)
             }
         }
 
@@ -582,6 +588,54 @@ where
     }
 
     state.finish()
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct FileSize(u64);
+impl FileSize {
+    pub fn of(file: impl AsRef<Path>) -> Result<Self, CommandError> {
+        let file = file.as_ref();
+        if !exists(file) {
+            return Err(CommandError::file_not_found("file", file).program("FileSize"));
+        }
+    
+        let mut file = match std::fs::File::open(file) {
+            Ok(it) => it,
+            Err(_) => return Ok(FileSize(0)),
+        };
+        Ok(FileSize(file.seek(io::SeekFrom::End(0)).unwrap_or_default()))
+    }
+}
+impl From<u64> for FileSize {
+    fn from(value: u64) -> Self {
+        FileSize(value)
+    }
+}
+impl From<FileSize> for u64 {
+    fn from(value: FileSize) -> Self {
+        value.0
+    }
+}
+impl From<FileSize> for usize {
+    fn from(value: FileSize) -> Self {
+        value.0 as usize
+    }
+}
+impl Display for FileSize {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        const BYTES_PER_KIB: u64 = 1024;
+        const BYTES_PER_MIB: u64 = BYTES_PER_KIB * 1024;
+        const BYTES_PER_GIB: u64 = BYTES_PER_MIB * 1024;
+        if self.0 / BYTES_PER_GIB >= 1 {
+            write!(f, "{:.3} GiB", self.0 as f32 / BYTES_PER_GIB as f32)
+        } else if self.0 / BYTES_PER_MIB >= 1 {
+            write!(f, "{:.3} MiB", self.0 as f32 / BYTES_PER_MIB as f32)
+        } else if self.0 / BYTES_PER_KIB >= 1 {
+            write!(f, "{:.3} KiB", self.0 as f32 / BYTES_PER_KIB as f32)
+        } else {
+            write!(f, "{} B", self.0)
+        }
+    }
 }
 
 #[allow(dead_code)]

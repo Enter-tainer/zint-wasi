@@ -1,8 +1,4 @@
-use std::{
-    ffi::OsStr,
-    os::unix::ffi::OsStringExt,
-    path::PathBuf,
-};
+use std::{ffi::OsStr, os::unix::ffi::OsStringExt, path::PathBuf};
 
 use crate::action::ActionResult;
 use crate::log::*;
@@ -77,6 +73,12 @@ pub fn action_build_plugin(_args: &[String]) -> ActionResult {
         "--target".to_string(),
         state!(TARGET)
     ]));
+    let base_path = state_path!(WORK_DIR).join(state!(TARGET)).join("release");
+    let release = base_path.join(state!(PLUGIN_WASM));
+    summary!(
+        "- Compiled WASM size: {}",
+        action_expect!(FileSize::of(release))
+    );
     action_ok!();
 }
 
@@ -145,7 +147,11 @@ pub fn action_opt_plugin(_args: &[String]) -> ActionResult {
         base_path.join(state!(PLUGIN_STUB_OPT_WASM, default: "plugin_stub_opt.wasm"));
     action_expect!(wasm_opt(stub_path, &stub_opt_path));
     let target_path = state_path!(TYPST_PKG).join(state!(PLUGIN_WASM_OUT, default: "plugin.wasm"));
-    action_expect!(std::fs::copy(stub_opt_path, target_path));
+    action_expect!(std::fs::copy(stub_opt_path, &target_path));
+    summary!(
+        "- Optimized WASM size: {}",
+        action_expect!(FileSize::of(target_path))
+    );
     action_ok!();
 }
 
@@ -154,7 +160,14 @@ pub fn action_build_manual(_args: &[String]) -> ActionResult {
         state_path!(TYPST_PKG).join("manual.typ").to_string_lossy().to_string()
     });
     let manual_target = state_path!(TYPST_PKG).join("manual.pdf");
-    action_expect!(typst_compile(&manual_source, &manual_target));
+    let duration = action_expect!(typst_compile(&manual_source, &manual_target));
+    summary!(
+        "- Cold compilation time for 'manual.pdf': {}",
+        DisplayDuration {
+            duration,
+            show_ms: true,
+        }
+    );
 
     #[cfg(not(ci))]
     {
