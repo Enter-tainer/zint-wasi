@@ -1,14 +1,14 @@
 use std::{
     ffi::OsStr,
     os::unix::ffi::OsStringExt,
-    path::{Path, PathBuf}
+    path::PathBuf,
 };
 
-use crate::{action::macros::*, state::State};
 use crate::action::ActionResult;
-use crate::tools::*;
-use crate::{state, state_path};
 use crate::log::*;
+use crate::tools::*;
+use crate::{action::macros::*, state::State};
+use crate::{state, state_path};
 
 const WASI_PATH_VAR: &str = "WASI_SDK_PATH";
 
@@ -35,7 +35,7 @@ fn wasi_url(version: impl AsRef<str>) -> String {
     panic!("no prebuild WASI SDK available for current platform; please build and specify `WASI_SDK_PATH` environment variable manually")
 }
 
-pub fn action_ensure_wasi_sdk() -> ActionResult {
+pub fn action_ensure_wasi_sdk(_args: &[String]) -> ActionResult {
     if has_wasi_sdk() {
         action_skip!("WASI SDK is set with environment variable");
     }
@@ -70,12 +70,17 @@ pub fn action_ensure_wasi_sdk() -> ActionResult {
     action_ok!();
 }
 
-pub fn action_build_plugin() -> ActionResult {
-    action_expect!(cargo(["build", "--release", "--target", state!(TARGET)]));
+pub fn action_build_plugin(_args: &[String]) -> ActionResult {
+    action_expect!(cargo([
+        "build".to_string(),
+        "--release".to_string(),
+        "--target".to_string(),
+        state!(TARGET)
+    ]));
     action_ok!();
 }
 
-pub fn action_stub_plugin() -> ActionResult {
+pub fn action_stub_plugin(_args: &[String]) -> ActionResult {
     let base_path = state_path!(WORK_DIR).join(state!(TARGET)).join("release");
     let release = base_path.join(state!(PLUGIN_WASM));
     let stubbed = base_path.join(state!(PLUGIN_STUB_WASM, default: "plugin_stub.wasm"));
@@ -101,7 +106,7 @@ fn binaryen_url(version: impl AsRef<str>) -> String {
     panic!("no prebuild binaryen available for current platform")
 }
 
-pub fn action_prepare_wasm_opt() -> ActionResult {
+pub fn action_prepare_wasm_opt(_args: &[String]) -> ActionResult {
     if has_command(WASM_OPT) {
         action_ok!();
     }
@@ -133,7 +138,7 @@ pub fn action_prepare_wasm_opt() -> ActionResult {
     action_ok!();
 }
 
-pub fn action_opt_plugin() -> ActionResult {
+pub fn action_opt_plugin(_args: &[String]) -> ActionResult {
     let base_path = state_path!(WORK_DIR).join(state!(TARGET)).join("release");
     let stub_path = base_path.join(state!(PLUGIN_STUB_WASM, default: "plugin_stub.wasm"));
     let stub_opt_path =
@@ -144,7 +149,7 @@ pub fn action_opt_plugin() -> ActionResult {
     action_ok!();
 }
 
-pub fn action_build_manual() -> ActionResult {
+pub fn action_build_manual(_args: &[String]) -> ActionResult {
     let manual_source = state_path!(MANUAL_SOURCE, default: || {
         state_path!(TYPST_PKG).join("manual.typ").to_string_lossy().to_string()
     });
@@ -153,25 +158,26 @@ pub fn action_build_manual() -> ActionResult {
 
     #[cfg(not(ci))]
     {
-        let manual_sha = hash_files(
-            [manual_source]
-        ).to_string();
-        if manual_sha == state!(MANUAL_SHA1, default: "") {
-            cmd("git", [
-                OsStr::new("update-index"),
-                OsStr::new("--assume-unchanged"),
-                manual_target.as_os_str(),
-            ]);
+        let manual_sha = hash_files([manual_source]).to_string();
+        if manual_sha == state!(MANUAL_HASH, default: "") {
+            cmd(
+                "git",
+                [
+                    OsStr::new("update-index"),
+                    OsStr::new("--assume-unchanged"),
+                    manual_target.as_os_str(),
+                ],
+            );
         } else {
             let mut state = State::global_write();
-            state.set("MANUAL_SHA1", manual_sha)
+            state.set("MANUAL_HASH", manual_sha)
         }
     }
-    
+
     action_ok!();
 }
 
-pub fn action_build_example() -> ActionResult {
+pub fn action_build_example(_args: &[String]) -> ActionResult {
     let example_source = state_path!(MANUAL_SOURCE, default: || {
         state_path!(TYPST_PKG).join("example.typ").to_string_lossy().to_string()
     });
@@ -180,15 +186,16 @@ pub fn action_build_example() -> ActionResult {
     action_ok!();
 }
 
-pub fn action_ensure_cargo_about() -> ActionResult {
+pub fn action_ensure_cargo_about(_args: &[String]) -> ActionResult {
     if !cargo_has_tool("cargo-about") {
         action_expect!(cargo(["install", "cargo-about"]));
     }
     action_ok!();
 }
 
-pub fn action_make_3rdparty_license_list() -> ActionResult {
-    let about_input = state_path!(THIRDPARTY_LICENSE_PATH, default: "./dist/3rdparty_license.hbs");
+pub fn action_make_3rdparty_license_list(_args: &[String]) -> ActionResult {
+    let about_input =
+        state_path!(THIRDPARTY_LICENSE_PATH, default: "$<root>/dist/3rdparty_license.hbs");
     let output = cargo([
         OsStr::new("about"),
         OsStr::new("generate"),
@@ -204,9 +211,9 @@ pub fn action_make_3rdparty_license_list() -> ActionResult {
     action_ok!();
 }
 
-pub fn action_copy_license() -> ActionResult {
-    let source_path = state_path!(LICENSE_FILE, default: "./LICENSE");
-    let target_path = Path::new(state!(TYPST_PKG)).join("LICENSE");
+pub fn action_copy_license(_args: &[String]) -> ActionResult {
+    let source_path = state_path!(LICENSE_FILE, default: "$<root>/LICENSE");
+    let target_path = state_path!(TYPST_PKG).join("LICENSE");
     action_expect!(std::fs::copy(source_path, target_path));
     action_ok!();
 }
@@ -230,7 +237,7 @@ fn typst_url(version: impl AsRef<str>) -> (String, &'static str, &'static str) {
 }
 
 // should be only used for CI
-pub fn action_install_typst() -> ActionResult {
+pub fn action_install_typst(_args: &[String]) -> ActionResult {
     if has_command(TYPST) {
         action_ok!();
     }
@@ -251,9 +258,7 @@ pub fn action_install_typst() -> ActionResult {
             typst_dir,
             [
                 "--strip-components=1".to_string(),
-                format!(
-                    "{base_dir}/{TYPST}",
-                )
+                format!("{base_dir}/{TYPST}",)
             ]
         ));
     }

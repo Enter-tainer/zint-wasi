@@ -46,7 +46,7 @@ macro_rules! declare_actions {
             }
 
             /// Provides optionally executed logic by an action.
-            pub fn runner(self) -> Option<fn() -> ActionResult> {
+            pub fn runner(self) -> Option<fn(&[String]) -> ActionResult> {
                 match self {
                     $(Self::$action => $runner,)*
                 }

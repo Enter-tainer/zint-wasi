@@ -2,13 +2,14 @@ use std::{
     collections::{BTreeSet, HashMap},
     ffi::{OsStr, OsString},
     fmt::{Debug, Display},
-    hash::{Hasher, Hash},
+    hash::{Hash, Hasher},
     io::{self, Read},
+    mem::MaybeUninit,
     os::unix::ffi::OsStringExt,
     path::{Path, PathBuf},
     process as proc,
     str::FromStr,
-    sync::OnceLock, mem::MaybeUninit,
+    sync::OnceLock,
 };
 
 use crate::log::*;
@@ -358,7 +359,7 @@ pub fn wasi_stub(input: impl AsRef<Path>, output: impl AsRef<Path>) -> Result<()
         }
 
         Box::new(move |file: &Path, output: &Path| {
-            let min_proto_path = state_path!(WASM_MIN_PROTOCOL_DIR, default: "./zint-typst-plugin/vendor/wasm-minimal-protocol").join("Cargo.toml");
+            let min_proto_path = state_path!(WASM_MIN_PROTOCOL_DIR, default: "$<root>/zint-typst-plugin/vendor/wasm-minimal-protocol").join("Cargo.toml");
             cargo([
                 OsStr::new("run"),
                 OsStr::new("--manifest-path"),
@@ -558,7 +559,7 @@ pub fn hash_files<P>(files: impl IntoIterator<Item = P>) -> u64
 where
     P: AsRef<Path>,
 {
-    let mut state = ahash::AHasher::default();
+    let mut state = xxhash_rust::xxh3::Xxh3::new();
 
     // We need to discover files separately because listing a directory doesn't
     // need to return files in the same order every time.

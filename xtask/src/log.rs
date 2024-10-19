@@ -76,6 +76,7 @@ macro_rules! end_group {
     }};
 }
 
+#[allow(unused_imports)]
 pub use crate::{
     debug, info, warn, error, group, end_group
 };

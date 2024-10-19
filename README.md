@@ -36,6 +36,8 @@ To build the typst package, run:
 cargo xtask package
 ```
 
+See [`xtask` readme](./xtask/README.md) for more information.
+
 ## License
 
 This package is licensed under MIT license.

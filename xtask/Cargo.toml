@@ -8,4 +8,4 @@ license.workspace = true
 # should be as minimal as possible with as few transient dependencies as
 # possible, prefer using system tools instead
 
-ahash = "0.8"
+xxhash-rust = { version = "0.8", features = ["xxh3"] }

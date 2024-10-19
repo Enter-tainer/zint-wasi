@@ -1,5 +1,4 @@
 use crate::*;
-use std::io;
 use std::{collections::HashSet, fmt::Display};
 
 /*
@@ -90,8 +89,15 @@ declare_actions![
 ];
 use Action::*;
 
+#[allow(clippy::derivable_impls)]
+impl Default for Action {
+    fn default() -> Self {
+        All
+    }
+}
+
 impl Action {
-    fn run_impl(self, executed: &mut HashSet<Self>, running: &mut Vec<Self>) -> ActionResult {
+    fn run_impl(self, executed: &mut HashSet<Self>, running: &mut Vec<Self>, args: impl AsRef<[String]>) -> ActionResult {
         if running.contains(&self) {
             let names: Vec<_> = running
                 .iter()
@@ -109,7 +115,7 @@ impl Action {
         }
 
         for dep in self.dependencies() {
-            action_try!(dep.run_impl(executed, running));
+            action_try!(dep.run_impl(executed, running, args.as_ref()));
         }
 
         let result = if let Some(runner) = self.runner() {
@@ -119,7 +125,7 @@ impl Action {
             } else {
                 false
             };
-            let result = (runner)();
+            let result = (runner)(args.as_ref());
             match &result {
                 ActionResult::Ok if has_name => info!("[OK]"),
                 ActionResult::Skip { reason: None } if has_name => info!("[SKIPPED]"),
@@ -146,13 +152,11 @@ impl Action {
     }
 
     #[inline]
-    pub fn run(self, executed: &mut HashSet<Self>) -> io::Result<()> {
+    pub fn run(self, args: impl IntoIterator<Item = String>) {
+        let mut executed = HashSet::new();
         let mut running = Vec::with_capacity(8);
-        if let ActionResult::Error(error) = self.run_impl(executed, &mut running) {
-            Err(io::Error::new(io::ErrorKind::Other, error))
-        } else {
-            Ok(())
-        }
+        let args: Vec<_> = args.into_iter().collect();
+        let _ = self.run_impl(&mut executed, &mut running, &args);
     }
 }
 

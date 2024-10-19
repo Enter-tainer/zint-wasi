@@ -8,7 +8,7 @@ use std::{
     sync::{RwLock, TryLockError},
 };
 
-pub(in super) const STATE_PATH: &str = "./xtask/state";
+pub(super) const STATE_PATH: &str = concat![env!("PROJECT_ROOT"), "/xtask/state"];
 
 #[derive(Default)]
 pub struct State {
@@ -91,7 +91,7 @@ impl State {
                                 path.as_ref().display()
                             ),
                         ))
-                        .map(|(k, v)| (k.to_string(), v.to_string()))
+                        .map(|(k, v)| (k.to_string(), configure_string(v)))
                 })
             })
             .collect();
@@ -100,7 +100,7 @@ impl State {
         let mut environment = HashMap::new();
         for (key, val) in std::env::vars() {
             if let Some(key) = key.strip_prefix("XTASK_") {
-                environment.insert(key.to_string(), val);
+                environment.insert(key.to_string(), configure_string(val));
             }
         }
 
@@ -116,21 +116,40 @@ impl State {
         for (k, v) in &self.items {
             output.write_all(k.as_bytes())?;
             output.write_all(b"=")?;
-            output.write_all(v.as_bytes())?;
+            output.write_all(deconfigure_string(v).as_bytes())?;
             output.write_all(b"\n")?;
         }
         output.flush()
     }
     pub fn get(&self, key: impl AsRef<str>) -> Option<&str> {
-        self.items
+        self.environment
             .get(key.as_ref())
             .map(|it| it.as_str())
-            .or_else(|| self.environment.get(key.as_ref()).map(|it| it.as_str()))
+            .or_else(|| self.items.get(key.as_ref()).map(|it| it.as_str()))
     }
     pub fn set(&mut self, key: impl AsRef<str>, value: impl AsRef<str>) {
         self.items
             .insert(key.as_ref().to_string(), value.as_ref().to_string());
     }
+}
+
+static SYMBOL_MAP: &[(&str, &str)] = &[
+    ("$<root>", env!("PROJECT_ROOT")),
+];
+
+pub fn configure_string(input: impl AsRef<str>) -> String {
+    let mut current = input.as_ref().to_string();
+    for (from, to) in SYMBOL_MAP {
+        current = current.replace(from, to)
+    }
+    current
+}
+fn deconfigure_string(input: impl AsRef<str>) -> String {
+    let mut current = input.as_ref().to_string();
+    for (from, to) in SYMBOL_MAP {
+        current = current.replace(to, from)
+    }
+    current
 }
 
 impl<S> std::ops::Index<S> for State
@@ -151,12 +170,15 @@ macro_rules! state {
     ($key: tt) => {
         $crate::state::State::global_read()
             .get(stringify!($key))
+            .map(|it| $crate::state::configure_string(it))
             .expect(concat!["state is missing '", stringify!($key), "' key"])
     };
     ($key: tt, default: $default: literal) => {
-        $crate::state::State::global_read()
-            .get(stringify!($key))
-            .unwrap_or($default)
+        $crate::state::configure_string(
+            $crate::state::State::global_read()
+                .get(stringify!($key))
+                .unwrap_or($default),
+        )
     };
     ($key: tt, default: || $else: block) => {
         $crate::state::State::global_read()
