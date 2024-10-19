@@ -340,9 +340,9 @@ pub fn wasi_stub(input: impl AsRef<Path>, output: impl AsRef<Path>) -> Result<()
             return runner(OsStr::new(WASI_STUB));
         }
 
-        let work_dir = state_path!(WORK_DIR);
+        let min_proto_path = state_path!(WASM_MIN_PROTOCOL_DIR, default: "$<root>/zint-typst-plugin/vendor/wasm-minimal-protocol");
         let try_prebuilt = |kind: &str| {
-            let executable_path = work_dir.join(kind).join(WASI_STUB);
+            let executable_path = min_proto_path.join("target").join(kind).join(WASI_STUB);
             if !exists(&executable_path) {
                 return None;
             }
@@ -359,13 +359,13 @@ pub fn wasi_stub(input: impl AsRef<Path>, output: impl AsRef<Path>) -> Result<()
         }
 
         Box::new(move |file: &Path, output: &Path| {
-            let min_proto_path = state_path!(WASM_MIN_PROTOCOL_DIR, default: "$<root>/zint-typst-plugin/vendor/wasm-minimal-protocol").join("Cargo.toml");
+            let min_proto_path = min_proto_path.join("Cargo.toml");
             cargo([
                 OsStr::new("run"),
                 OsStr::new("--manifest-path"),
                 min_proto_path.as_os_str(),
-                OsStr::new("--release"),
                 OsStr::new("--bin=wasi-stub"),
+                OsStr::new("--release"),
                 OsStr::new("--"),
                 OsStr::new("-r"),
                 OsStr::new("0"),
