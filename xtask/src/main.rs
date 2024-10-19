@@ -1,6 +1,7 @@
 use std::collections::HashSet;
 
 use action::Action;
+use state::State;
 
 mod action;
 mod actions;
@@ -32,4 +33,6 @@ fn main() {
             error!(error);
         }
     }
+
+    let _ = State::global_read().save(state::STATE_PATH);
 }

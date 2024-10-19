@@ -4,7 +4,7 @@ use std::{
     path::{Path, PathBuf}
 };
 
-use crate::action::macros::*;
+use crate::{action::macros::*, state::State};
 use crate::action::ActionResult;
 use crate::tools::*;
 use crate::{state, state_path};
@@ -149,7 +149,23 @@ pub fn action_build_manual() -> ActionResult {
         state_path!(TYPST_PKG).join("manual.typ").to_string_lossy().to_string()
     });
     let manual_target = state_path!(TYPST_PKG).join("manual.pdf");
-    action_expect!(typst_compile(manual_source, manual_target));
+    action_expect!(typst_compile(&manual_source, &manual_target));
+
+    #[cfg(not(ci))]
+    {
+        let manual_sha = action_expect!(file_sha1(manual_source));
+        if manual_sha == state!(MANUAL_SHA1, default: "") {
+            cmd("git", [
+                OsStr::new("update-index"),
+                OsStr::new("--assume-unchanged"),
+                manual_target.as_os_str(),
+            ]);
+        } else {
+            let mut state = State::global_write();
+            state.set("MANUAL_SHA1", manual_sha)
+        }
+    }
+    
     action_ok!();
 }
 

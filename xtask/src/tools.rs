@@ -1,15 +1,17 @@
 use std::{
+    collections::HashMap,
     ffi::{OsStr, OsString},
     fmt::{Debug, Display},
     io,
     os::unix::ffi::OsStringExt,
     path::{Path, PathBuf},
     process as proc,
-    sync::OnceLock, str::FromStr,
+    str::FromStr,
+    sync::OnceLock,
 };
 
-use crate::state_path;
 use crate::log::*;
+use crate::state_path;
 
 pub fn exists(path: impl AsRef<Path>) -> bool {
     std::fs::exists(path.as_ref()).ok().unwrap_or_default()
@@ -29,6 +31,16 @@ pub fn cmd<S: AsRef<OsStr>>(
 }
 
 pub fn has_command(name: impl AsRef<OsStr>) -> bool {
+    use std::sync::RwLock;
+    static CACHE: OnceLock<RwLock<HashMap<OsString, bool>>> = OnceLock::new();
+    let cache = CACHE.get_or_init(|| RwLock::new(HashMap::new()));
+
+    if let Ok(cache) = cache.try_read() {
+        if let Some(cached) = cache.get(name.as_ref()) {
+            return *cached;
+        }
+    }
+
     let which = if cfg!(target_os = "windows") {
         "where"
     } else if cfg!(unix) {
@@ -36,15 +48,23 @@ pub fn has_command(name: impl AsRef<OsStr>) -> bool {
     } else {
         panic!("no known alternative for UNIX 'which' command on current platform")
     };
-    let output = match cmd(which, [name]).output() {
+    let output = match cmd(which, [name.as_ref()]).output() {
         Ok(it) => it,
         Err(_) => panic!("can't run '{}' to check evirnoment", which),
     };
-    output.status.success() && !output.stdout.is_empty()
+
+    let result = output.status.success() && !output.stdout.is_empty();
+    if let Ok(mut cache) = cache.try_write() {
+        cache.insert(name.as_ref().to_os_string(), result);
+    }
+
+    result
 }
 
 const CARGO: &str = "cargo";
-pub fn cargo<S: AsRef<OsStr>>(args: impl IntoIterator<Item = S>) -> Result<proc::Command, CommandError> {
+pub fn cargo<S: AsRef<OsStr>>(
+    args: impl IntoIterator<Item = S>,
+) -> Result<proc::Command, CommandError> {
     if !has_command(CARGO) {
         return Err(CommandError::missing_tool(
             CARGO,
@@ -313,7 +333,7 @@ pub fn wasi_stub(input: impl AsRef<Path>, output: impl AsRef<Path>) -> Result<()
                 .program_status(WASI_STUB)
             })
         };
-        
+
         if has_command(WASI_STUB) {
             return runner(OsStr::new(WASI_STUB));
         }
@@ -445,6 +465,42 @@ pub fn typst_compile(
     }
 
     (runner)(input.as_ref(), output.as_ref())
+}
+
+pub fn file_sha1(file: impl AsRef<Path>) -> Result<String, CommandError> {
+    let sha = if cfg!(target_os = "windows") {
+        if !has_command("certutil") {
+            return Err(CommandError::missing_tool("certutil", None));
+        }
+
+        let file_path = OsString::from_str(&format!("\"{}\"", file.as_ref().display())).unwrap();
+        let output = cmd(
+            "certutil",
+            [
+                OsStr::new("-hashfile"),
+                file_path.as_os_str(),
+                OsStr::new("SHA1"),
+            ],
+        )
+        .program_output("certutil");
+        CommandError::from_exit(output.status)?;
+        OsString::from_vec(output.stdout)
+            .to_string_lossy()
+            .to_string()
+    } else {
+        if !has_command("sha1sum") {
+            return Err(CommandError::missing_tool("sha1sum", None));
+        }
+
+        let output = cmd("sha1sum", [file.as_ref().as_os_str()]).program_output("sha1sum");
+        CommandError::from_exit(output.status)?;
+        OsString::from_vec(output.stdout)
+            .to_string_lossy()
+            .chars()
+            .take_while(|it| !it.is_ascii_whitespace())
+            .collect()
+    };
+    Ok(sha)
 }
 
 #[allow(dead_code)]

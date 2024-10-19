@@ -1,21 +1,25 @@
 #![allow(dead_code)]
 
-use std::{collections::HashMap, sync::{RwLock, TryLockError}};
+use crate::log::*;
 use std::io::{self, BufRead as _, Write as _};
 use std::path::{Path, PathBuf};
-use crate::log::*;
+use std::{
+    collections::{BTreeMap, HashMap},
+    sync::{RwLock, TryLockError},
+};
+
+pub(in super) const STATE_PATH: &str = "./xtask/state";
 
 #[derive(Default)]
 pub struct State {
     source: Option<PathBuf>,
-    items: HashMap<String, String>,
+    items: BTreeMap<String, String>,
     environment: HashMap<String, String>,
 }
 impl State {
     fn global() -> &'static RwLock<State> {
-        use std::sync::{RwLock, OnceLock};
+        use std::sync::{OnceLock, RwLock};
 
-        const STATE_PATH: &str = "./xtask/state";
         static STATE: OnceLock<RwLock<State>> = OnceLock::new();
         STATE.get_or_init(|| {
             let value = match State::load(STATE_PATH) {
@@ -57,7 +61,7 @@ impl State {
         })?;
         let input = io::BufReader::new(input);
 
-        let items: Result<HashMap<String, String>, _> = input
+        let items: Result<BTreeMap<String, String>, _> = input
             .lines()
             .enumerate()
             .filter_map(|(i, line)| {
@@ -126,16 +130,6 @@ impl State {
     pub fn set(&mut self, key: impl AsRef<str>, value: impl AsRef<str>) {
         self.items
             .insert(key.as_ref().to_string(), value.as_ref().to_string());
-    }
-}
-
-impl Drop for State {
-    fn drop(&mut self) {
-        if let Some(source) = &self.source {
-            if self.save(source).is_err() {
-                error!("unable to update xtask state file: {}", source.display())
-            }
-        }
     }
 }
 

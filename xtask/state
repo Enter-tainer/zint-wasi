@@ -1,7 +1,8 @@
-WORK_DIR=./target
-TYPST_PKG=./typst-package
-TARGET=wasm32-wasip1
-PLUGIN_WASM=zint_typst_plugin.wasm
-PLUGIN_STUB_WASM=zint_typst_plugin_stub.wasm
+MANUAL_SHA1=305adb89b9aa1ecc5c40ffeac4ce5cf5b10b0c10
 PLUGIN_STUB_OPT_WASM=zint_typst_plugin_stub_opt.wasm
+PLUGIN_STUB_WASM=zint_typst_plugin_stub.wasm
+PLUGIN_WASM=zint_typst_plugin.wasm
 PLUGIN_WASM_OUT=zint_typst_plugin.wasm
+TARGET=wasm32-wasip1
+TYPST_PKG=./typst-package
+WORK_DIR=./target
