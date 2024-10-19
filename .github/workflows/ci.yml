@@ -23,6 +23,11 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
             targets: wasm32-wasip1
+      - name: Restore WASI SDK
+        uses: actions/cache/restore@v4
+        with:
+          path: target/wasi_sdk
+          key: tools-wasi-sdk-${{ env.XTASK_WASI_SDK_VERSION }}
       - name: Restore wasi-stub
         uses: actions/cache/restore@v4
         with:
@@ -30,11 +35,6 @@ jobs:
             zint-typst-plugin/vendor/wasm-minimal-protocol/target/release/wasi-stub
             zint-typst-plugin/vendor/wasm-minimal-protocol/target/debug/wasi-stub
           key: tools-wasi-stub-${{ hashFiles('zint-typst-plugin/vendor/wasm-minimal-protocol/crates/wasi-stub/**') }}
-      - name: Restore wasi-stub
-        uses: actions/cache/restore@v4
-        with:
-          path: target/tools/wasm-opt
-          key: tools-wasi-stub-${{ env.XTASK_BINARYEN_VERSION }}
       - name: Restore wasm-opt
         uses: actions/cache/restore@v4
         with:
@@ -51,7 +51,7 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: target/wasi_sdk
-          key: tools-wasi-${{ env.XTASK_WASI_SDK_VERSION }}
+          key: tools-wasi-sdk-${{ env.XTASK_WASI_SDK_VERSION }}
       - name: Cache wasi-stub
         uses: actions/cache/save@v4
         with:
