@@ -66,29 +66,38 @@ pub fn action_ensure_wasi_sdk(_args: &[String]) -> ActionResult {
     action_ok!();
 }
 
-pub fn action_build_plugin(_args: &[String]) -> ActionResult {
+pub fn action_build_plugin(args: &[String]) -> ActionResult {
+    let mode = match args.contains(&"--debug".to_string()) {
+        true => "--debug".to_string(),
+        false => "--release".to_string(),
+    };
+
     action_expect!(cargo([
         "build".to_string(),
-        "--release".to_string(),
+        mode,
         "--target".to_string(),
         state!(TARGET)
     ]));
-    let base_path = state_path!(WORK_DIR).join(state!(TARGET)).join("release");
-    let release = base_path.join(state!(PLUGIN_WASM));
-    summary!(
-        "- Compiled WASM size: {}",
-        action_expect!(FileSize::of(release))
-    );
     action_ok!();
 }
 
-pub fn action_stub_plugin(_args: &[String]) -> ActionResult {
+pub fn action_stub_plugin(args: &[String]) -> ActionResult {
     let base_path = state_path!(WORK_DIR).join(state!(TARGET)).join("release");
     let release = base_path.join(state!(PLUGIN_WASM));
-    let stubbed = base_path.join(state!(PLUGIN_STUB_WASM, default: "plugin_stub.wasm"));
-    group!("Subbing {}", release.display());
-    action_expect!(wasi_stub(release, stubbed));
+    let stub_path = base_path.join(state!(PLUGIN_STUB_WASM, default: "plugin_stub.wasm"));
+    group!("Subbing '{}'", release.display());
+    action_expect!(wasi_stub(release, &stub_path));
     end_group!();
+    // report stubbed file size because WASI module can't actually be ran by
+    // typst, so this is the first "usable" module
+    summary!(
+        "- Compiled WASM size: {}",
+        action_expect!(FileSize::of(&stub_path))
+    );
+    if args.contains(&"--debug".to_string()) {
+        let target_path = state_path!(TYPST_PKG).join(state!(PLUGIN_WASM_OUT, default: "plugin.wasm"));
+        action_expect!(std::fs::copy(stub_path, target_path));
+    }
     action_ok!();
 }
 
@@ -108,9 +117,12 @@ fn binaryen_url(version: impl AsRef<str>) -> String {
     panic!("no prebuild binaryen available for current platform")
 }
 
-pub fn action_prepare_wasm_opt(_args: &[String]) -> ActionResult {
+pub fn action_prepare_wasm_opt(args: &[String]) -> ActionResult {
+    if args.contains(&"--debug".to_string()) {
+        action_skip!("building in debug mode");
+    }
     if has_command(WASM_OPT) {
-        action_ok!();
+        action_skip!("{} already in PATH", WASM_OPT);
     }
 
     let work_dir = state_path!(WORK_DIR);
@@ -140,7 +152,10 @@ pub fn action_prepare_wasm_opt(_args: &[String]) -> ActionResult {
     action_ok!();
 }
 
-pub fn action_opt_plugin(_args: &[String]) -> ActionResult {
+pub fn action_opt_plugin(args: &[String]) -> ActionResult {
+    if args.contains(&"--debug".to_string()) {
+        action_skip!("building in debug mode");
+    }
     let base_path = state_path!(WORK_DIR).join(state!(TARGET)).join("release");
     let stub_path = base_path.join(state!(PLUGIN_STUB_WASM, default: "plugin_stub.wasm"));
     let stub_opt_path =
@@ -252,7 +267,7 @@ fn typst_url(version: impl AsRef<str>) -> (String, &'static str, &'static str) {
 // should be only used for CI
 pub fn action_install_typst(_args: &[String]) -> ActionResult {
     if has_command(TYPST) {
-        action_ok!();
+        action_skip!("{} already in PATH", TYPST);
     }
 
     let (url, base_dir, ext) = typst_url(state!(TYPST_VERSION));

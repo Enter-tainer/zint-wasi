@@ -12,8 +12,13 @@ cargo xtask <COMMAND> [ARGS...]
 ## Commands
 
 - `package-plugin`: builds the tiaoma wasm plugin
+  - `--debug`: creates a debug build of the plugin
 - `build-manual`: compiles the manual
 - `package`: packages all requirements needed for publishing
+
+Command arguments are transitive, which means that running
+`cargo xtask package --debug` will pass that flag to all task that `package`
+depends on (i.e. `package-plugin`).
 
 There are some other internal commands (like `ci`), but they're not meant to be
 run as part of the normal development process, but instead under very specific
