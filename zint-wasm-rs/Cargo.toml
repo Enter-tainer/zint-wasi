@@ -17,3 +17,7 @@ hex = "0.4"
 
 bitflags = { version = "2.4", features = ["serde"] }
 thiserror = "1.0"
+
+[profile.release]
+# Enable link-time optimization
+lto = true
