@@ -2,7 +2,7 @@ use std::{ffi::OsStr, os::unix::ffi::OsStringExt, path::PathBuf};
 
 use crate::log::*;
 use crate::tools::*;
-use crate::state::State;
+use crate::state::GlobalState;
 use crate::{state, state_path};
 
 const WASI_PATH_VAR: &str = "WASI_SDK_PATH";
@@ -80,29 +80,25 @@ pub fn action_build_plugin(args: &[String]) -> ActionResult {
     action_ok!();
 }
 
-macro_rules! did_file_change {
-    ([$($files: expr),+] as $backing: expr) => {{
-        let hash = hash_files([$($files),*]).to_string();
-        if hash == state!($backing, default: "") {
-            false
-        } else {
-            let mut state = State::global_write();
-            state.set(stringify!($backing), hash);
-            true
-        }
-    }};
-}
-
 pub fn action_stub_plugin(args: &[String]) -> ActionResult {
     let base_path = state_path!(WORK_DIR).join(state!(TARGET)).join("release");
     let release = base_path.join(state!(PLUGIN_WASM));
     let stub_path = base_path.join(state!(PLUGIN_STUB_WASM, default: "plugin_stub.wasm"));
 
-    let input_changed = did_file_change!([&release] as PLUGIN_WASM_HASH);
+    let input_changed = did_files_change!([
+        "$<root>/zint-wasm-sys/src",
+        "$<root>/zint-wasm-sys/build.rs",
+        "$<root>/zint-wasm-rs/src",
+        "$<root>/zint-typst-plugin/src",
+    ] as PLUGIN_WASM_HASH);
     if !exists(&stub_path) || input_changed {
         group!("Stubbing '{}'", release.display());
         action_expect!(wasi_stub(release, &stub_path));
         end_group!();
+
+        if input_changed {
+            GlobalState::set("PLUGIN_WASM_STUB_HASH", state!(PLUGIN_WASM_HASH));
+        }
     }
 
     // report stubbed file size because WASI module can't actually be ran by
@@ -179,11 +175,13 @@ pub fn action_opt_plugin(args: &[String]) -> ActionResult {
         base_path.join(state!(PLUGIN_STUB_OPT_WASM, default: "plugin_stub_opt.wasm"));
     let target_path = state_path!(TYPST_PKG).join(state!(PLUGIN_WASM_OUT, default: "plugin.wasm"));
 
-    let input_changed = did_file_change!([&stub_opt_path] as PLUGIN_WASM_OPT_HASH);
+    let stub_hash = state!(PLUGIN_WASM_STUB_HASH, default: "");
+    let input_changed = state!(PLUGIN_WASM_HASH) != stub_hash;
     if !exists(&stub_opt_path) || input_changed {
         action_expect!(wasm_opt(stub_path, &stub_opt_path));
         action_expect!(std::fs::copy(stub_opt_path, &target_path));
     }
+    GlobalState::set("PLUGIN_WASM_HASH", stub_hash);
     summary!(
         "- Optimized WASM size: {}",
         action_expect!(FileSize::of(target_path))
@@ -207,7 +205,7 @@ pub fn action_build_manual(_args: &[String]) -> ActionResult {
 
     #[cfg(not(ci))]
     {
-        if !did_file_change!([manual_source] as PLUGIN_WASM_OPT_HASH) {
+        if !did_files_change!([manual_source] as MANUAL_HASH) {
             cmd(
                 "git",
                 [

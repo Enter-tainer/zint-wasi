@@ -1,15 +1,21 @@
 #![allow(dead_code)]
 
-use crate::log::*;
-use std::io::{self, BufRead as _, Write as _};
-use std::path::{Path, PathBuf};
+use crate::{log::*, util::SliceReplace};
 use std::{
-    collections::{BTreeMap, HashMap},
+    collections::{BTreeMap, HashMap, HashSet},
+    ffi::{OsStr, OsString},
+    io::{self, BufRead as _, Write as _},
+    path::{Path, PathBuf},
     sync::{RwLock, TryLockError},
 };
 
-pub(super) const STATE_PATH: &str = concat![env!("PROJECT_ROOT"), "/xtask/state"];
+/// Additional symbol besides state values to resolve
+#[rustfmt::skip]
+static SYMBOL_MAP: &[(&str, &str)] = &[
+    ("$<root>", env!("PROJECT_ROOT"))
+];
 
+/// A simple key-value store that can be loaded and saved.
 #[derive(Default)]
 pub struct State {
     source: Option<PathBuf>,
@@ -17,38 +23,6 @@ pub struct State {
     environment: HashMap<String, String>,
 }
 impl State {
-    fn global() -> &'static RwLock<State> {
-        use std::sync::{OnceLock, RwLock};
-
-        static STATE: OnceLock<RwLock<State>> = OnceLock::new();
-        STATE.get_or_init(|| {
-            let value = match State::load(STATE_PATH) {
-                Ok(it) => it,
-                Err(not_found) if not_found.kind() == io::ErrorKind::NotFound => State::new(),
-                Err(other) => {
-                    error!(other);
-                    std::process::abort()
-                }
-            };
-
-            RwLock::new(value)
-        })
-    }
-    pub fn global_read() -> StateRead {
-        match Self::global().try_read() {
-            Ok(read) => StateRead { read },
-            Err(TryLockError::WouldBlock) => panic!("state mutably borrowed"),
-            Err(TryLockError::Poisoned(_)) => panic!("state poisoned"),
-        }
-    }
-    pub fn global_write() -> StateWrite {
-        match Self::global().try_write() {
-            Ok(write) => StateWrite { write },
-            Err(TryLockError::WouldBlock) => panic!("state already borrowed"),
-            Err(TryLockError::Poisoned(_)) => panic!("state poisoned"),
-        }
-    }
-
     pub fn new() -> Self {
         Self::default()
     }
@@ -91,7 +65,7 @@ impl State {
                                 path.as_ref().display()
                             ),
                         ))
-                        .map(|(k, v)| (k.to_string(), configure_string(v)))
+                        .map(|(k, v)| (k.to_string(), v.configure(())))
                 })
             })
             .collect();
@@ -100,7 +74,7 @@ impl State {
         let mut environment = HashMap::new();
         for (key, val) in std::env::vars() {
             if let Some(key) = key.strip_prefix("XTASK_") {
-                environment.insert(key.to_string(), configure_string(val));
+                environment.insert(key.to_string(), val.configure(()));
             }
         }
 
@@ -116,77 +90,106 @@ impl State {
         for (k, v) in &self.items {
             output.write_all(k.as_bytes())?;
             output.write_all(b"=")?;
-            output.write_all(deconfigure_string(v).as_bytes())?;
+            output.write_all(v.unconfigure(()).as_bytes())?;
             output.write_all(b"\n")?;
         }
         output.flush()
     }
+    /// Get `key` entry value.
     pub fn get(&self, key: impl AsRef<str>) -> Option<&str> {
         self.environment
             .get(key.as_ref())
             .map(|it| it.as_str())
             .or_else(|| self.items.get(key.as_ref()).map(|it| it.as_str()))
     }
+    /// Set `key` entry `value`.
     pub fn set(&mut self, key: impl AsRef<str>, value: impl AsRef<str>) {
         self.items
             .insert(key.as_ref().to_string(), value.as_ref().to_string());
     }
-}
-
-static SYMBOL_MAP: &[(&str, &str)] = &[
-    ("$<root>", env!("PROJECT_ROOT")),
-];
-
-pub fn configure_string(input: impl AsRef<str>) -> String {
-    let mut current = input.as_ref().to_string();
-    for (from, to) in SYMBOL_MAP {
-        current = current.replace(from, to)
-    }
-    current
-}
-fn deconfigure_string(input: impl AsRef<str>) -> String {
-    let mut current = input.as_ref().to_string();
-    for (from, to) in SYMBOL_MAP {
-        current = current.replace(to, from)
-    }
-    current
-}
-
-impl<S> std::ops::Index<S> for State
-where
-    S: AsRef<str>,
-{
-    type Output = str;
-
-    fn index(&self, index: S) -> &Self::Output {
-        self.items
-            .get(index.as_ref())
-            .expect("state is missing expected entry")
+    /// Iterate over entries.
+    pub fn iter(&self) -> impl Iterator<Item = (String, String)> + '_ {
+        let mut found = HashSet::new();
+        self.environment
+            .iter()
+            .chain(self.items.iter())
+            .filter_map(move |(k, v)| {
+                if found.contains(k) {
+                    None
+                } else {
+                    found.insert(k.clone());
+                    Some((k.clone(), v.clone()))
+                }
+            })
     }
 }
 
+/// Accessor for global state.
+///
+/// Also works as state value for functions that accept [`OptionalState`] or
+/// [`OptionalStateMut`].
+pub struct GlobalState;
+
+impl GlobalState {
+    pub fn as_ref() -> StateRead<'static> {
+        global_read()
+    }
+    pub fn as_mut() -> StateWrite<'static> {
+        global_write()
+    }
+    pub fn get(key: impl AsRef<str>) -> Option<String> {
+        Self::as_ref().get(key).map(|it| it.to_string())
+    }
+    pub fn set(key: impl AsRef<str>, value: impl AsRef<str>) {
+        Self::as_mut().set(key, value)
+    }
+    pub fn save() -> io::Result<()> {
+        global_read().save(STATE_PATH)
+    }
+}
+
+/// Allows replacing all keys from [`SYMBOL_MAP`] and (if provided) [`State`]
+/// with associated values.
+pub trait Configure {
+    type Result;
+    fn configure<'s>(self, state: impl OptionalState<'s>) -> Self::Result;
+    fn unconfigure<'s>(self, state: impl OptionalState<'s>) -> Self::Result;
+}
+
+/// Convenience macro for calling [`Configure`].
+#[macro_export]
+macro_rules! configure {
+    ($what: expr) => {
+        $crate::state::Configure::configure($what, ())
+    };
+    ($what: expr, state: GlobalState) => {
+        $crate::state::Configure::configure($what, $crate::state::GlobalState)
+    };
+    ($what: expr, state: $state: expr) => {
+        $crate::state::Configure::configure($what, $state)
+    };
+}
+#[allow(unused_imports)]
+pub use crate::configure;
+
+/// Get value from global state or default
 #[macro_export]
 macro_rules! state {
     ($key: tt) => {
-        $crate::state::State::global_read()
-            .get(stringify!($key))
-            .map(|it| $crate::state::configure_string(it))
+        $crate::state::GlobalState::get(stringify!($key))
             .expect(concat!["state is missing '", stringify!($key), "' key"])
     };
-    ($key: tt, default: $default: literal) => {
-        $crate::state::configure_string(
-            $crate::state::State::global_read()
-                .get(stringify!($key))
-                .unwrap_or($default),
-        )
+    ($key: tt, default: $default: literal $(, state: $state: expr)?) => {
+        $crate::state::GlobalState::get(stringify!($key))
+            .unwrap_or_else(|| $crate::configure!($default $(, state: $state)?))
     };
-    ($key: tt, default: || $else: block) => {
-        $crate::state::State::global_read()
-            .get(stringify!($key))
-            .map(|it| it.to_string())
-            .unwrap_or_else(|| $else)
+    ($key: tt, default: || $else: block $(, state: $state: expr)?) => {
+        $crate::state::GlobalState::get(stringify!($key))
+            .unwrap_or_else(|| $crate::configure!($else $(, state: $state)?))
     };
 }
+
+/// Get path from global state or default
 #[macro_export]
 macro_rules! state_path {
     ($key: tt) => {
@@ -200,35 +203,234 @@ macro_rules! state_path {
     };
 }
 
+/// Much like [`AsRef`], but returns [`Option<StateRead<'s>>`] for different
+/// types.
+///
+/// Consuming function decides whether to fallback to global state or not to use
+/// state at all.
+pub trait OptionalState<'s> {
+    fn as_option(&self) -> Option<StateRead<'s>>;
+}
+impl<'s> OptionalState<'s> for () {
+    fn as_option(&self) -> Option<StateRead<'s>> {
+        None
+    }
+}
+impl<'s> OptionalState<'s> for &State {
+    fn as_option(&self) -> Option<StateRead<'s>> {
+        None
+    }
+}
+impl<'s> OptionalState<'s> for GlobalState {
+    fn as_option(&self) -> Option<StateRead<'s>> {
+        Some(global_read())
+    }
+}
+
+/// Much like [`AsMut`], but returns [`Option<StateWrite<'s>>`] for different
+/// types.
+///
+/// Consuming function decides whether to fallback to global state or not to use
+/// state at all.
+pub trait OptionalStateMut<'s> {
+    fn into_option_mut(self) -> Option<StateWrite<'s>>;
+}
+impl OptionalStateMut<'static> for () {
+    fn into_option_mut(self) -> Option<StateWrite<'static>> {
+        None
+    }
+}
+impl<'s> OptionalStateMut<'s> for StateWrite<'s> {
+    fn into_option_mut(self) -> Option<StateWrite<'s>> {
+        Some(self)
+    }
+}
+impl OptionalStateMut<'static> for GlobalState {
+    fn into_option_mut(self) -> Option<StateWrite<'static>> {
+        Some(GlobalState::as_mut())
+    }
+}
+
+// SECTION: Various Configure implementations
+
+macro_rules! impl_cfg_base {
+    ($(|$it: ident: $R: ty, $from: ident: $T: ty, $to: ident: $_ignored: ty| $replace: block),* $(,)?) => {
+        $(impl Configure for $T {
+            type Result = $R;
+
+            fn configure<'s>(self, state: impl OptionalState<'s>) -> Self::Result {
+                let mut $it = self.to_owned();
+                for ($from, $to) in SYMBOL_MAP {
+                    $it = (|$it: $R, $from, $to| $replace)($it, $from, $to);
+                }
+                if let Some(state) = state.as_option() {
+                    for ($from, $to) in state.iter() {
+                        let $from = format!("$<{}>", $from);
+                        $it = (|$it: $R, $from, $to| $replace)($it, &$from, &$to);
+                    }
+                }
+                $it
+            }
+            fn unconfigure<'s>(self, state: impl OptionalState<'s>) -> Self::Result {
+                let mut $it = self.to_owned();
+                if let Some(state) = state.as_option() {
+                    for ($from, $to) in state.iter() {
+                        let $from = format!("$<{}>", $from);
+                        $it = (|$it: $R, $from, $to| $replace)($it, &$to, &$from);
+                    }
+                }
+                for ($from, $to) in SYMBOL_MAP {
+                    $it = (|$it: $R, $from, $to| $replace)($it, $to, $from);
+                }
+                $it
+            }
+        })*
+    };
+}
+impl_cfg_base![
+    |it: String, from: &str, to: &str| {
+        it.replace(from, to)
+    },
+    |it: OsString, from: &OsStr, to: &OsStr| {
+        it.replace_slices(OsStr::new(from), OsStr::new(to))
+    },
+];
+
+macro_rules! impl_cfg_indirect_one {
+    ($cast: ident, T = $T: ty, R = $R: ty) => {
+        impl_cfg_indirect_one!($cast, T = $T, R = $R, |it| { it });
+    };
+    ($cast: ident, T = $T: ty, R = $R: ty, |$it: ident| $to_result: expr) => {
+        impl Configure for $T {
+            type Result = $R;
+            #[inline(always)]
+            fn configure<'s>(self, state: impl OptionalState<'s>) -> Self::Result {
+                (|$it| $to_result)(self.$cast().configure(state))
+            }
+            #[inline(always)]
+            fn unconfigure<'s>(self, state: impl OptionalState<'s>) -> Self::Result {
+                (|$it| $to_result)(self.$cast().unconfigure(state))
+            }
+        }
+    };
+}
+macro_rules! impl_cfg_indirect {
+    ($({$cast: ident, T = $T: ty, R = $R: ty $(, |$it: ident| $to_result: expr )?}),* $(,)?) => {
+        $(
+            impl_cfg_indirect_one!($cast, T=$T, R=$R $(,|$it| $to_result)?);
+        )*
+    };
+}
+impl_cfg_indirect![
+    { as_str,    T = String,    R = String   },
+    { as_str,    T = &String,   R = String   },
+    { as_os_str, T = OsString,  R = OsString },
+    { as_os_str, T = &OsString, R = OsString },
+    { as_os_str, T = &Path,     R = PathBuf, |it| PathBuf::from(it) },
+    { as_os_str, T = PathBuf,   R = PathBuf, |it| PathBuf::from(it) },
+    { as_os_str, T = &PathBuf,  R = PathBuf, |it| PathBuf::from(it) },
+];
+
+// !SECTION: Various Configure implementations
+
 mod _impl {
     use super::*;
     use std::sync::{RwLockReadGuard, RwLockWriteGuard};
 
-    pub struct StateRead {
-        pub(super) read: RwLockReadGuard<'static, State>,
-    }
-    impl std::ops::Deref for StateRead {
-        type Target = State;
+    pub(super) const STATE_PATH: &str = concat![env!("PROJECT_ROOT"), "/xtask/state"];
 
-        fn deref(&self) -> &Self::Target {
-            &self.read
+    pub(super) fn global_state() -> &'static RwLock<State> {
+        use std::sync::{OnceLock, RwLock};
+
+        static STATE: OnceLock<RwLock<State>> = OnceLock::new();
+        STATE.get_or_init(|| {
+            let value = match State::load(STATE_PATH) {
+                Ok(it) => it,
+                Err(not_found) if not_found.kind() == io::ErrorKind::NotFound => State::new(),
+                Err(other) => {
+                    error!(other);
+                    std::process::abort()
+                }
+            };
+
+            RwLock::new(value)
+        })
+    }
+    pub(super) fn global_read() -> StateRead<'static> {
+        match global_state().try_read() {
+            Ok(read) => StateRead::Guard(StateReadGuard { read }),
+            Err(TryLockError::WouldBlock) => panic!("state mutably borrowed"),
+            Err(TryLockError::Poisoned(_)) => panic!("state poisoned"),
+        }
+    }
+    pub(super) fn global_write() -> StateWrite<'static> {
+        match global_state().try_write() {
+            Ok(write) => StateWrite::Guard(StateWriteGuard { write }),
+            Err(TryLockError::WouldBlock) => panic!("state already borrowed"),
+            Err(TryLockError::Poisoned(_)) => panic!("state poisoned"),
         }
     }
 
-    pub struct StateWrite {
-        pub(super) write: RwLockWriteGuard<'static, State>,
+    // SECTION: Accessing state by referefence
+
+    pub enum StateRead<'s> {
+        Guard(StateReadGuard<'s>),
+        Reference(&'s State),
     }
-    impl std::ops::Deref for StateWrite {
+    pub struct StateReadGuard<'s> {
+        pub(super) read: RwLockReadGuard<'s, State>,
+    }
+    impl<'s> AsRef<State> for StateRead<'s> {
+        fn as_ref(&self) -> &State {
+            match self {
+                StateRead::Guard(guard) => &guard.read,
+                StateRead::Reference(it) => it,
+            }
+        }
+    }
+    impl<'s> std::ops::Deref for StateRead<'s> {
+        type Target = State;
+        fn deref(&self) -> &Self::Target {
+            self.as_ref()
+        }
+    }
+
+    pub enum StateWrite<'s> {
+        Guard(StateWriteGuard<'s>),
+        Reference(&'s mut State),
+    }
+    pub struct StateWriteGuard<'s> {
+        pub(super) write: RwLockWriteGuard<'s, State>,
+    }
+    impl<'s> AsRef<State> for StateWrite<'s> {
+        fn as_ref(&self) -> &State {
+            match self {
+                StateWrite::Guard(guard) => &guard.write,
+                StateWrite::Reference(it) => it,
+            }
+        }
+    }
+    impl<'s> AsMut<State> for StateWrite<'s> {
+        fn as_mut(&mut self) -> &mut State {
+            match self {
+                StateWrite::Guard(guard) => &mut guard.write,
+                StateWrite::Reference(it) => it,
+            }
+        }
+    }
+    impl<'s> std::ops::Deref for StateWrite<'s> {
         type Target = State;
 
         fn deref(&self) -> &Self::Target {
-            &self.write
+            self.as_ref()
         }
     }
-    impl std::ops::DerefMut for StateWrite {
+    impl<'s> std::ops::DerefMut for StateWrite<'s> {
         fn deref_mut(&mut self) -> &mut Self::Target {
-            &mut self.write
+            self.as_mut()
         }
     }
+
+    // !SECTION: Accessing state by referefence
 }
 use _impl::*;

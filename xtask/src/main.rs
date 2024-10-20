@@ -1,10 +1,11 @@
 use action::Action;
-use state::State;
+use state::GlobalState as GlobalState;
 
 mod action;
 mod tools;
 mod state;
 mod log;
+mod util;
 
 fn main() {
     let mut args = std::env::args().skip(1);
@@ -23,5 +24,5 @@ fn main() {
 
     action.run(args);
 
-    let _ = State::global_read().save(state::STATE_PATH);
+    let _ = GlobalState::save();
 }
