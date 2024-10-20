@@ -1,8 +1,8 @@
 use std::{ffi::OsStr, os::unix::ffi::OsStringExt, path::PathBuf};
 
 use crate::log::*;
-use crate::tools::*;
 use crate::state::GlobalState;
+use crate::tools::*;
 use crate::{state, state_path};
 
 const WASI_PATH_VAR: &str = "WASI_SDK_PATH";
@@ -66,14 +66,18 @@ pub fn action_ensure_wasi_sdk(_args: &[String]) -> ActionResult {
 }
 
 pub fn action_build_plugin(args: &[String]) -> ActionResult {
-    let mode = match args.contains(&"--debug".to_string()) {
-        true => "--debug".to_string(),
-        false => "--release".to_string(),
-    };
+    GlobalState::set_temporary(
+        "BUILD_PROFILE",
+        match args.contains(&"--debug".to_string()) {
+            true => "plugin-debug",
+            false => "plugin-release",
+        },
+    );
 
     action_expect!(cargo([
         "build".to_string(),
-        mode,
+        "--profile".to_string(),
+        state!(BUILD_PROFILE),
         "--target".to_string(),
         state!(TARGET)
     ]));
@@ -81,7 +85,9 @@ pub fn action_build_plugin(args: &[String]) -> ActionResult {
 }
 
 pub fn action_stub_plugin(args: &[String]) -> ActionResult {
-    let base_path = state_path!(WORK_DIR).join(state!(TARGET)).join("release");
+    let base_path = state_path!(WORK_DIR)
+        .join(state!(TARGET))
+        .join(state!(BUILD_PROFILE));
     let release = base_path.join(state!(PLUGIN_WASM));
     let stub_path = base_path.join(state!(PLUGIN_STUB_WASM, default: "plugin_stub.wasm"));
 
@@ -108,7 +114,8 @@ pub fn action_stub_plugin(args: &[String]) -> ActionResult {
         action_expect!(FileSize::of(&stub_path))
     );
     if args.contains(&"--debug".to_string()) {
-        let target_path = state_path!(TYPST_PKG).join(state!(PLUGIN_WASM_OUT, default: "plugin.wasm"));
+        let target_path =
+            state_path!(TYPST_PKG).join(state!(PLUGIN_WASM_OUT, default: "plugin.wasm"));
         action_expect!(std::fs::copy(stub_path, target_path));
     }
     action_ok!();
@@ -169,7 +176,9 @@ pub fn action_opt_plugin(args: &[String]) -> ActionResult {
     if args.contains(&"--debug".to_string()) {
         action_skip!("building in debug mode");
     }
-    let base_path = state_path!(WORK_DIR).join(state!(TARGET)).join("release");
+    let base_path = state_path!(WORK_DIR)
+        .join(state!(TARGET))
+        .join(state!(BUILD_PROFILE));
     let stub_path = base_path.join(state!(PLUGIN_STUB_WASM, default: "plugin_stub.wasm"));
     let stub_opt_path =
         base_path.join(state!(PLUGIN_STUB_OPT_WASM, default: "plugin_stub_opt.wasm"));

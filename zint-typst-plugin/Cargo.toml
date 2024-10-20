@@ -18,15 +18,3 @@ ciborium = "0.2.1"
 thiserror = "1.0"
 
 wasm-minimal-protocol = { path = "./vendor/wasm-minimal-protocol/crates/macro" }
-
-[profile.release]
-# Enable link-time optimization
-lto = true
-# Strip symbols from binary
-strip = true
-# Optimize for size
-opt-level = 'z'
-# Reduce number of codegen units to increase optimizations
-codegen-units = 1
-# Abort on panic
-panic = 'abort'

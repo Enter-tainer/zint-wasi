@@ -102,9 +102,14 @@ impl State {
             .map(|it| it.as_str())
             .or_else(|| self.items.get(key.as_ref()).map(|it| it.as_str()))
     }
-    /// Set `key` entry `value`.
+    /// Set `key` entry to `value`.
     pub fn set(&mut self, key: impl AsRef<str>, value: impl AsRef<str>) {
         self.items
+            .insert(key.as_ref().to_string(), value.as_ref().to_string());
+    }
+    /// Set `key` entry to `value` for current run only.
+    pub fn set_temporary(&mut self, key: impl AsRef<str>, value: impl AsRef<str>) {
+        self.environment
             .insert(key.as_ref().to_string(), value.as_ref().to_string());
     }
     /// Iterate over entries.
@@ -142,6 +147,9 @@ impl GlobalState {
     }
     pub fn set(key: impl AsRef<str>, value: impl AsRef<str>) {
         Self::as_mut().set(key, value)
+    }
+    pub fn set_temporary(key: impl AsRef<str>, value: impl AsRef<str>) {
+        Self::as_mut().set_temporary(key, value)
     }
     pub fn save() -> io::Result<()> {
         global_read().save(STATE_PATH)

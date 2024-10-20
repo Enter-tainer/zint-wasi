@@ -16,5 +16,25 @@ default-members = [
     "zint-typst-plugin",
 ]
 
+[profile.release]
+# Enable link-time optimization
+lto = true
+# Strip symbols from binary
+strip = true
+
+[profile.plugin-debug]
+inherits = "dev"
+# Abort on panic
+panic = 'abort'
+
+[profile.plugin-release]
+inherits = "release"
+# Optimize for size
+opt-level = 'z'
+# Reduce number of codegen units to increase optimizations
+codegen-units = 1
+# Abort on panic
+panic = 'abort'
+
 [workspace.dependencies]
 walkdir = "2"
