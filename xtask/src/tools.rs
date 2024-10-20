@@ -456,9 +456,9 @@ macro_rules! typst_report {
         if !items.is_empty() {
             summary!("<details>");
             match $kind {
-                "error" => summary!("  <summary>🚨 {} Errors</summary>\n", items.len()),
-                "warning" => summary!("  <summary>⚠️ {} Warnings</summary>\n", items.len()),
-                _ => summary!("  <summary>{} {}</summary>\n", items.len(), $kind),
+                "error" => summary!("  <summary><h4>🚨 {} Errors</h4></summary>\n", items.len()),
+                "warning" => summary!("  <summary><h4>⚠️ {} Warnings</h4></summary>\n", items.len()),
+                _ => summary!("  <summary><h4>{} {}</h4></summary>\n", items.len(), $kind),
             }
             
             for (item, count) in items {
@@ -537,7 +537,7 @@ pub fn typst_compile(
     #[cfg(ci = "github")]
     {
         summary!(
-            "## Typst compiled '{}' in {}",
+            "### Typst compiled '{}' in {}",
             input.as_ref().file_stem().unwrap().to_string_lossy(),
             DisplayDuration {
                 duration,
