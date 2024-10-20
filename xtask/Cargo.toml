@@ -9,3 +9,4 @@ license.workspace = true
 # possible, prefer using system tools instead
 
 xxhash-rust = { version = "0.8", features = ["xxh3"] }
+walkdir = { workspace = true }
