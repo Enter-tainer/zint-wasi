@@ -210,6 +210,10 @@ macro_rules! make_runner {
 }
 
 pub fn download(url: impl AsRef<str>, target: impl AsRef<Path>) -> Result<(), DownloadError> {
+    if let Some(parent) = target.as_ref().parent() {
+        std::fs::create_dir_all(parent).map_err(DownloadError::IO)?;
+    }
+
     let runner = make_runner!(fn(url: &str, target: &Path) -> Result<(), DownloadError> {
         if has_command(WGET) {
             return download_wget;
@@ -274,7 +278,7 @@ impl std::error::Error for DownloadError {
 const TAR: &str = "tar";
 pub fn untar<S>(
     archive: impl AsRef<Path>,
-    target: impl AsRef<Path>,
+    output: impl AsRef<Path>,
     args: impl IntoIterator<Item = S>,
 ) -> Result<(), CommandError>
 where
@@ -287,11 +291,18 @@ where
         ));
     }
 
+    if !exists(&archive) {
+        return Err(CommandError::file_not_found("archive", archive));
+    }
+    if let Err(err) = std::fs::create_dir_all(&output) {
+        return Err(CommandError::inaccessible("output", err));
+    }
+
     group!("Extract: {}", archive.as_ref().display());
     info!(
         "\t- extracting '{}' into '{}'",
         archive.as_ref().display(),
-        target.as_ref().display()
+        output.as_ref().display()
     );
     let result = cmd(
         TAR,
@@ -299,7 +310,7 @@ where
             OsStr::new("-xvsf"),
             OsStr::new(archive.as_ref().as_os_str()),
             OsStr::new("-C"),
-            OsStr::new(target.as_ref().as_os_str()),
+            OsStr::new(output.as_ref().as_os_str()),
         ]
         .into_iter()
         .map(|it| it.to_os_string())
@@ -317,6 +328,12 @@ pub fn wasi_stub(input: impl AsRef<Path>, output: impl AsRef<Path>) -> Result<()
     if !exists(&input) {
         return Err(CommandError::file_not_found("input", &input).program(WASI_STUB));
     }
+    if let Some(parent) = output.as_ref().parent() {
+        if let Err(err) = std::fs::create_dir_all(parent) {
+            return Err(CommandError::inaccessible("output", err));
+        }
+    }
+
     let runner = make_runner!(Fn(input: &Path, output: &Path) -> Result<(), CommandError> {
         let runner = |executable: &OsStr| {
             let executable = executable.to_owned();
@@ -379,6 +396,15 @@ pub fn wasi_stub(input: impl AsRef<Path>, output: impl AsRef<Path>) -> Result<()
 
 pub const WASM_OPT: &str = "wasm-opt";
 pub fn wasm_opt(input: impl AsRef<Path>, output: impl AsRef<Path>) -> Result<(), CommandError> {
+    if !exists(&input) {
+        return Err(CommandError::file_not_found("input", &input).program(WASM_OPT));
+    }
+    if let Some(parent) = output.as_ref().parent() {
+        if let Err(err) = std::fs::create_dir_all(parent) {
+            return Err(CommandError::inaccessible("output", err));
+        }
+    }
+
     let runner = make_runner!(Fn(input: &Path, output: &Path) -> Result<(), CommandError> {
         let tool_path = local_tool_path(WASM_OPT);
         let command = if has_command(WASM_OPT) {
@@ -412,10 +438,6 @@ pub fn wasm_opt(input: impl AsRef<Path>, output: impl AsRef<Path>) -> Result<(),
         })
     });
 
-    if !exists(&input) {
-        return Err(CommandError::file_not_found("input", &input).program(WASM_OPT));
-    }
-
     (runner)(input.as_ref(), output.as_ref()).map_err(|err| err.program(WASM_OPT))
 }
 
@@ -424,6 +446,15 @@ pub fn typst_compile(
     input: impl AsRef<Path>,
     output: impl AsRef<Path>,
 ) -> Result<std::time::Duration, CommandError> {
+    if !exists(&input) {
+        return Err(CommandError::file_not_found("input", &input).program(TYPST));
+    }
+    if let Some(parent) = output.as_ref().parent() {
+        if let Err(err) = std::fs::create_dir_all(parent) {
+            return Err(CommandError::inaccessible("output", err));
+        }
+    }
+
     let runner = make_runner!(fn(input: &Path, output: &Path) -> Result<std::time::Duration, CommandError> {
         if has_command(TYPST) {
             return |input, output| {
@@ -466,10 +497,6 @@ pub fn typst_compile(
             ))
         }
     });
-
-    if !exists(&input) {
-        return Err(CommandError::file_not_found("input", &input).program(TYPST));
-    }
 
     (runner)(input.as_ref(), output.as_ref())
 }
@@ -653,6 +680,14 @@ impl CommandError {
             ))),
         }
     }
+    pub fn inaccessible(argument: &'static str, source: io::Error) -> Self {
+        Self::BadArgument {
+            program: None,
+            argument,
+            expect_found: None,
+            reason: Some(Box::new(source)),
+        }
+    }
 
     pub fn program(mut self, name: &'static str) -> Self {
         match &mut self {
@@ -778,8 +813,10 @@ impl Display for CommandError {
                 };
                 write!(
                     f,
-                    "{} called with bad '{argument}' argument{detail}",
-                    program.unwrap_or("process")
+                    "{}bad '{argument}' argument{detail}",
+                    program
+                        .map(|p| format!("{p} executed with "))
+                        .unwrap_or_default()
                 )
             }
         }
