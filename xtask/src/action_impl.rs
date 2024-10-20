@@ -211,7 +211,23 @@ pub fn action_build_manual(_args: &[String]) -> ActionResult {
 
     #[cfg(not(ci))]
     {
-        if !did_files_change!([manual_source] as MANUAL_HASH) {
+        if did_files_change!([manual_source] as MANUAL_HASH) {
+            cmd(
+                "git",
+                [
+                    OsStr::new("update-index"),
+                    OsStr::new("--no-assume-unchanged"),
+                    manual_target.as_os_str(),
+                ],
+            );
+            cmd(
+                "git",
+                [
+                    OsStr::new("add"),
+                    manual_target.as_os_str(),
+                ],
+            );
+        } else {
             cmd(
                 "git",
                 [
