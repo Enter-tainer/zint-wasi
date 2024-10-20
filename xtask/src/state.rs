@@ -12,7 +12,7 @@ use std::{
 /// Additional symbol besides state values to resolve
 #[rustfmt::skip]
 static SYMBOL_MAP: &[(&str, &str)] = &[
-    ("$<root>", env!("PROJECT_ROOT"))
+    ("$<root>", env!("XTASK_PROJECT_ROOT"))
 ];
 
 /// A simple key-value store that can be loaded and saved.
@@ -343,7 +343,7 @@ mod _impl {
     use super::*;
     use std::sync::{RwLockReadGuard, RwLockWriteGuard};
 
-    pub(super) const STATE_PATH: &str = concat![env!("PROJECT_ROOT"), "/xtask/state"];
+    pub(super) const STATE_PATH: &str = concat![env!("XTASK_PROJECT_ROOT"), "/xtask/state"];
 
     pub(super) fn global_state() -> &'static RwLock<State> {
         use std::sync::{OnceLock, RwLock};

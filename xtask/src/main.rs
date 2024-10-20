@@ -23,7 +23,7 @@ fn main() {
     };
 
     let working_directory = state_path!(WORK_DIR);
-    if working_directory.exists() {
+    if !working_directory.exists() {
         std::fs::create_dir_all(working_directory).expect("unable to create work directory");
     }
     action.run(args);

@@ -15,10 +15,12 @@ fn main() {
         println!("cargo::rustc-cfg=ci");
     }
 
-    let project_root = PathBuf::from_str(std::env::var("CARGO_MANIFEST_DIR").unwrap().as_str())
-        .unwrap()
-        .parent()
-        .unwrap()
-        .to_path_buf();
-    println!("cargo::rustc-env=PROJECT_ROOT={}", project_root.display());
+    if !std::env::var("XTASK_PROJECT_ROOT").map(|it| !it.is_empty()).unwrap_or_default() {
+        let project_root = PathBuf::from_str(std::env::var("CARGO_MANIFEST_DIR").unwrap().as_str())
+            .unwrap()
+            .parent()
+            .unwrap()
+            .to_path_buf();
+        println!("cargo::rustc-env=XTASK_PROJECT_ROOT={}", project_root.display());
+    }
 }

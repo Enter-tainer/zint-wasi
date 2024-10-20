@@ -85,11 +85,15 @@ pub fn action_build_plugin(args: &[String]) -> ActionResult {
 }
 
 pub fn action_stub_plugin(args: &[String]) -> ActionResult {
-    let base_path = state_path!(WORK_DIR)
+    let release = state_path!(PROJECT_ROOT)
+        .join("target")
         .join(state!(TARGET))
-        .join(state!(BUILD_PROFILE));
-    let release = base_path.join(state!(PLUGIN_WASM));
-    let stub_path = base_path.join(state!(PLUGIN_STUB_WASM, default: "plugin_stub.wasm"));
+        .join(state!(BUILD_PROFILE))
+        .join(state!(PLUGIN_WASM));
+    let stub_path = state_path!(WORK_DIR)
+        .join(state!(TARGET))
+        .join(state!(BUILD_PROFILE))
+        .join(state!(PLUGIN_STUB_WASM, default: "plugin_stub.wasm"));
 
     let input_changed = did_files_change!([
         "$<root>/zint-wasm-sys/src",
