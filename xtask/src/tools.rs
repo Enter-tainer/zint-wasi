@@ -18,7 +18,6 @@ use crate::state_path;
 pub fn exists(path: impl AsRef<Path>) -> bool {
     std::fs::exists(path.as_ref()).ok().unwrap_or_default()
 }
-
 pub fn local_tool_path(name: impl AsRef<Path>) -> PathBuf {
     state_path!(WORK_DIR).join("tools").join(name)
 }
@@ -535,12 +534,14 @@ impl FileSize {
         if !exists(file) {
             return Err(CommandError::file_not_found("file", file).program("FileSize"));
         }
-    
+
         let mut file = match std::fs::File::open(file) {
             Ok(it) => it,
             Err(_) => return Ok(FileSize(0)),
         };
-        Ok(FileSize(file.seek(io::SeekFrom::End(0)).unwrap_or_default()))
+        Ok(FileSize(
+            file.seek(io::SeekFrom::End(0)).unwrap_or_default(),
+        ))
     }
 }
 impl From<u64> for FileSize {

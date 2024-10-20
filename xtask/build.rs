@@ -14,7 +14,7 @@ fn main() {
     {
         println!("cargo::rustc-cfg=ci");
     }
-    
+
     let project_root = PathBuf::from_str(std::env::var("CARGO_MANIFEST_DIR").unwrap().as_str())
         .unwrap()
         .parent()

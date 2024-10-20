@@ -1,10 +1,10 @@
 use action::Action;
-use state::GlobalState as GlobalState;
+use state::GlobalState;
 
 mod action;
-mod tools;
-mod state;
 mod log;
+mod state;
+mod tools;
 mod util;
 
 fn main() {
@@ -19,9 +19,13 @@ fn main() {
         None => {
             info!("no task specified, running 'all'");
             Action::default()
-        },
+        }
     };
 
+    let working_directory = state_path!(WORK_DIR);
+    if working_directory.exists() {
+        std::fs::create_dir_all(working_directory).expect("unable to create work directory");
+    }
     action.run(args);
 
     let _ = GlobalState::save();

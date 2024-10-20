@@ -97,7 +97,12 @@ impl Default for Action {
 }
 
 impl Action {
-    fn run_impl(self, executed: &mut HashSet<Self>, running: &mut Vec<Self>, args: impl AsRef<[String]>) -> ActionResult {
+    fn run_impl(
+        self,
+        executed: &mut HashSet<Self>,
+        running: &mut Vec<Self>,
+        args: impl AsRef<[String]>,
+    ) -> ActionResult {
         if running.contains(&self) {
             let names: Vec<_> = running
                 .iter()

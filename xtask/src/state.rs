@@ -296,9 +296,7 @@ macro_rules! impl_cfg_base {
     };
 }
 impl_cfg_base![
-    |it: String, from: &str, to: &str| {
-        it.replace(from, to)
-    },
+    |it: String, from: &str, to: &str| { it.replace(from, to) },
     |it: OsString, from: &OsStr, to: &OsStr| {
         it.replace_slices(OsStr::new(from), OsStr::new(to))
     },

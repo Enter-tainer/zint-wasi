@@ -112,7 +112,7 @@ impl Display for DisplayDuration {
             }
             write!(f, "{}ms", ms)?;
         }
-        
+
         Ok(())
     }
 }
@@ -146,6 +146,4 @@ macro_rules! summary {
 use std::fmt::{Display, Write};
 
 #[allow(unused_imports)]
-pub use crate::{
-    debug, info, warn, error, group, end_group, summary
-};
+pub use crate::{debug, end_group, error, group, info, summary, warn};
