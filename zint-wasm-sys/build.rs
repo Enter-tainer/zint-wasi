@@ -118,7 +118,7 @@ fn main() -> Result<()> {
     }
     build.compile("zint");
 
-    // Generate bindings for quickjs
+    // Generate bindings for zint
     let bindings = bindgen::Builder::default()
         .header("zint/backend/zint.h")
         .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
@@ -132,8 +132,6 @@ fn main() -> Result<()> {
     };
 
     let bindings = bindings.generate()?;
-
-    println!("cargo:rerun-if-changed=wrapper.h");
 
     for entry in WalkDir::new("zint") {
         println!("cargo:rerun-if-changed={}", entry?.path().display());
