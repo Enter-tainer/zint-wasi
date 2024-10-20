@@ -475,72 +475,6 @@ pub fn typst_compile(
     (runner)(input.as_ref(), output.as_ref())
 }
 
-fn walk_dir(root: impl AsRef<Path>, follow_symlinks: bool) -> io::Result<BTreeSet<PathBuf>> {
-    let root = root.as_ref();
-    let mut result = BTreeSet::new();
-    let mut first_done = false;
-
-    let mut queue = vec![root.to_path_buf()];
-    while let Some(current) = queue.pop() {
-        let dir = match std::fs::read_dir(&current) {
-            Ok(it) => it,
-            Err(err) => {
-                // we don't have access to root or it doesn't exist
-                if !first_done {
-                    // or it's a file...
-                    if root.is_file() {
-                        return Ok(BTreeSet::from_iter([root.to_path_buf()]));
-                    }
-                    // if not a file, root access error should be handled
-                    return Err(err);
-                }
-                // in case it's a subdirectory, we skip
-                continue;
-            }
-        };
-        first_done = true;
-
-        for dir_item in dir {
-            let dir_item = dir_item?;
-            let path = current.join(dir_item.file_name());
-            let ty = dir_item.file_type()?;
-            if ty.is_file() {
-                result.insert(path);
-                continue;
-            } else if ty.is_dir() {
-                queue.push(path);
-                continue;
-            } else if !follow_symlinks || !ty.is_symlink() {
-                continue;
-            }
-
-            let mut outer = path;
-            loop {
-                let Ok(inner) = std::fs::read_link(outer) else {
-                    break; // can't read link?
-                };
-                let Ok(ty) = inner.metadata() else {
-                    break; // can't read link target?
-                };
-
-                if ty.is_file() {
-                    result.insert(inner);
-                    break;
-                } else if ty.is_dir() {
-                    queue.push(inner);
-                    break;
-                } else if ty.is_symlink() {
-                    outer = inner;
-                } else {
-                    break;
-                }
-            }
-        }
-    }
-
-    Ok(result)
-}
-
 fn hash_single_file<H>(path: impl AsRef<Path>, state: &mut H) -> io::Result<()>
 where
     H: std::hash::Hasher,
@@ -575,9 +509,12 @@ where
         if root.is_file() {
             discovered.insert(root.to_path_buf());
             continue;
-        } else if let Ok(children) = walk_dir(root, false) {
-            for child in children {
-                discovered.insert(child);
+        } else {
+            let walk = walkdir::WalkDir::new(root);
+            for item in walk.into_iter().filter_map(Result::ok) {
+                if item.file_type().is_file() {
+                    discovered.insert(item.into_path());
+                }
             }
         }
     }

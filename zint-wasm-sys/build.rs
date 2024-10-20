@@ -1,13 +1,29 @@
 use anyhow::Result;
-use std::{env, path::PathBuf};
+use std::{
+    env,
+    path::{Path, PathBuf},
+};
 
 use walkdir::WalkDir;
 
+fn watch_files(path: impl AsRef<Path>) {
+    for entry in WalkDir::new(path).into_iter().filter_map(Result::ok) {
+        if entry.file_type().is_file() {
+            println!("cargo:rerun-if-changed={}", entry.path().display());
+        }
+    }
+}
+
 fn main() -> Result<()> {
     #[allow(non_snake_case)]
-    let WASM = env::var("CARGO_CFG_TARGET_FAMILY").map(|it| it == "wasm").unwrap_or_default();
+    let WASM = env::var("CARGO_CFG_TARGET_FAMILY")
+        .map(|it| it == "wasm")
+        .unwrap_or_default();
     #[allow(non_snake_case)]
-    let WASM32_WASIP1 = WASM && env::var("TARGET").map(|it| it == "wasm32-wasip1").unwrap_or_default();
+    let WASM32_WASIP1 = WASM
+        && env::var("TARGET")
+            .map(|it| it == "wasm32-wasip1")
+            .unwrap_or_default();
 
     if WASM32_WASIP1 {
         let sdk_path = match env::var("WASI_SDK_PATH") {
@@ -133,13 +149,8 @@ fn main() -> Result<()> {
 
     let bindings = bindings.generate()?;
 
-    for entry in WalkDir::new("zint") {
-        println!("cargo:rerun-if-changed={}", entry?.path().display());
-    }
-
-    for entry in WalkDir::new("patch") {
-        println!("cargo:rerun-if-changed={}", entry?.path().display());
-    }
+    watch_files("zint");
+    watch_files("patch");
 
     let out_dir = PathBuf::from(env::var("OUT_DIR")?);
     bindings.write_to_file(out_dir.join("bindings.rs"))?;
