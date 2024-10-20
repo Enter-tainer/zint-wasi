@@ -37,7 +37,7 @@ prefixed with `XTASK_` (`XTASK_<OPTION>`).
   - `TYPST_VERSION`: typst version used to compile the manual
 - Paths:
   - `WORK_DIR`: path to the output directory
-  - `TYPST_PKG`: path to the output directory
+  - `TYPST_PKG`: path to the typst package directory
   - `WASM_MIN_PROTOCOL_DIR`: path to `wasm-minimal-protocol` project used to compile `wasi-stub`
 
 A bunch of other, unlisted, variables are also defined/used, but they're
