@@ -6,8 +6,11 @@ description = "Rust bindings for Wasm build of zint"
 license = "MIT"
 categories = ["external-ffi-bindings"]
 
+[target.'cfg(not(target_family = "wasm"))'.dependencies]
+libc = "0.2"
+
 [build-dependencies]
 cc = "1.0"
 bindgen = "0.70.1"
-walkdir = "2"
+walkdir = { workspace = true }
 anyhow = "1"

@@ -20,12 +20,23 @@ _(click on the image to open)_
 
 ## Build
 
-Install wasi-sdk. Put them at `/opt/wasi-sdk`. Then run:
-
-
+Clone with:
+```sh
+git clone --recurse-submodules -j8 https://github.com/Enter-tainer/zint-wasi.git
 ```
-./build.sh
+
+You must have standard development tools pre-installed on your machine and in path:
+- cargo (rustc; get with [rustup](https://rustup.rs/))
+- tar
+- wget/curl
+- gcc/clang
+
+To build the typst package, run:
+```sh
+cargo xtask package
 ```
+
+See [`xtask` readme](./xtask/README.md) for more information.
 
 ## License
 

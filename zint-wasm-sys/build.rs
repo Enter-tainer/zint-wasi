@@ -1,11 +1,58 @@
 use anyhow::Result;
-use std::{env, path::PathBuf};
+use std::{
+    env,
+    path::{Path, PathBuf},
+};
 
 use walkdir::WalkDir;
 
+fn watch_files(path: impl AsRef<Path>) {
+    for entry in WalkDir::new(path).into_iter().filter_map(Result::ok) {
+        if entry.file_type().is_file() {
+            println!("cargo:rerun-if-changed={}", entry.path().display());
+        }
+    }
+}
+
 fn main() -> Result<()> {
-    env::set_var("CC", "/opt/wasi-sdk/bin/clang");
-    env::set_var("AR", "/opt/wasi-sdk/bin/ar");
+    #[allow(non_snake_case)]
+    let WASM = env::var("CARGO_CFG_TARGET_FAMILY")
+        .map(|it| it == "wasm")
+        .unwrap_or_default();
+    #[allow(non_snake_case)]
+    let WASM32_WASIP1 = WASM
+        && env::var("TARGET")
+            .map(|it| it == "wasm32-wasip1")
+            .unwrap_or_default();
+
+    if WASM32_WASIP1 {
+        let sdk_path = match env::var("WASI_SDK_PATH") {
+            Ok(it) => PathBuf::from(it),
+            Err(_) => PathBuf::from("/opt/wasi-sdk"),
+        };
+        // report these errors early with clear error messages
+        match std::fs::exists(&sdk_path) {
+            Ok(true) => {}
+            Ok(false) => panic!(
+                "WASI SDK not installed, misconfigured: {}",
+                sdk_path.display()
+            ),
+            Err(_) => panic!(
+                "missing permissions to access WASI SDK: {}",
+                sdk_path.display()
+            ),
+        }
+
+        let sdk_bin = sdk_path.join("bin");
+        let sdk_sysroot = sdk_path.join("share/wasi-sysroot");
+
+        unsafe {
+            env::set_var("CC", sdk_bin.join("clang"));
+            env::set_var("AR", sdk_bin.join("ar"));
+            env::set_var("CFLAGS", format!("--sysroot={}", sdk_sysroot.display()));
+        }
+    }
+
     let files = [
         "zint/backend/2of5.c",
         "zint/backend/auspost.c",
@@ -56,11 +103,13 @@ fn main() -> Result<()> {
         "zint/backend/vector.c",
         "patch/patch.c",
     ];
-    // Build quickjs as a static library.
-    cc::Build::new()
-        .files(files.iter())
+
+    // Build zint as a static library.
+    let mut build = cc::Build::new();
+
+    build
+        .files(files)
         .define("_GNU_SOURCE", None)
-        .cargo_metadata(true)
         // The below flags are used by the official Makefile.
         .flag_if_supported("-Wchar-subscripts")
         .flag_if_supported("-Wno-array-bounds")
@@ -77,27 +126,31 @@ fn main() -> Result<()> {
         .flag_if_supported("-Wno-enum-conversion")
         .flag_if_supported("-Wno-implicit-function-declaration")
         .flag_if_supported("-Wno-implicit-const-int-float-conversion")
-        .target("wasm32-wasip1")
-        .opt_level(2)
-        .compile("zint");
+        .flag_if_supported("-Wno-shift-op-parentheses")
+        .opt_level(2);
 
-    // Generate bindings for quickjs
+    if WASM32_WASIP1 {
+        build.target("wasm32-wasip1");
+    }
+    build.compile("zint");
+
+    // Generate bindings for zint
     let bindings = bindgen::Builder::default()
         .header("zint/backend/zint.h")
         .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
-        .clang_args(&["-fvisibility=hidden", "--target=wasm32-wasip1"])
-        .size_t_is_usize(false)
-        .generate()?;
+        .clang_arg("-fvisibility=hidden")
+        .size_t_is_usize(false);
 
-    println!("cargo:rerun-if-changed=wrapper.h");
+    let bindings = if WASM32_WASIP1 {
+        bindings.clang_arg("--target=wasm32-wasip1")
+    } else {
+        bindings
+    };
 
-    for entry in WalkDir::new("zint") {
-        println!("cargo:rerun-if-changed={}", entry?.path().display());
-    }
+    let bindings = bindings.generate()?;
 
-    for entry in WalkDir::new("patch") {
-        println!("cargo:rerun-if-changed={}", entry?.path().display());
-    }
+    watch_files("zint");
+    watch_files("patch");
 
     let out_dir = PathBuf::from(env::var("OUT_DIR")?);
     bindings.write_to_file(out_dir.join("bindings.rs"))?;

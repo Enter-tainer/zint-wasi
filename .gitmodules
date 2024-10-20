@@ -1,3 +1,7 @@
 [submodule "zint-wasm-sys/zint"]
 	path = zint-wasm-sys/zint
 	url = https://github.com/zint/zint
+[submodule "zint-typst-plugin/vendor/wasm-minimal-protocol"]
+	path = zint-typst-plugin/vendor/wasm-minimal-protocol
+	url = https://github.com/Caellian/wasm-minimal-protocol.git
+	branch = zint-wasi-vendor

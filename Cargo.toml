@@ -1,15 +1,40 @@
 [workspace]
 package.edition = "2021"
+package.license = "MIT"
 resolver = "2"
 members = [
     "zint-wasm-sys",
     "zint-wasm-rs",
-    "zint-typst-plugin"
+    "zint-typst-plugin",
+    "zint-typst-plugin/vendor/wasm-minimal-protocol/crates/macro",
+    "zint-typst-plugin/vendor/wasm-minimal-protocol/crates/wasi-stub",
+    "xtask"
 ]
-package.license = "MIT"
+default-members = [
+    "zint-wasm-sys",
+    "zint-wasm-rs",
+    "zint-typst-plugin",
+]
+
 [profile.release]
-lto = true          # Enable link-time optimization
-strip = true        # Strip symbols from binary*
-opt-level = 'z'     # Optimize for size
-codegen-units = 1   # Reduce number of codegen units to increase optimizations
-panic = 'abort'     # Abort on panic
+# Enable link-time optimization
+lto = true
+# Strip symbols from binary
+strip = true
+
+[profile.plugin-debug]
+inherits = "dev"
+# Abort on panic
+panic = 'abort'
+
+[profile.plugin-release]
+inherits = "release"
+# Optimize for size
+opt-level = 'z'
+# Reduce number of codegen units to increase optimizations
+codegen-units = 1
+# Abort on panic
+panic = 'abort'
+
+[workspace.dependencies]
+walkdir = "2"
