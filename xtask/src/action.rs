@@ -288,4 +288,6 @@ pub mod macros {
     };
 }
 
-include!("./action_impl.rs");
+#[path = "./action_impl.rs"]
+mod action_impl;
+pub use action_impl::*;

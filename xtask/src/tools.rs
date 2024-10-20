@@ -441,11 +441,43 @@ pub fn wasm_opt(input: impl AsRef<Path>, output: impl AsRef<Path>) -> Result<(),
     (runner)(input.as_ref(), output.as_ref()).map_err(|err| err.program(WASM_OPT))
 }
 
+#[cfg(ci = "github")]
+macro_rules! typst_report {
+    ($output: ident, $kind: literal) => {{
+        let matches: Vec<_> = $output.lines()
+            .filter(|it| it.starts_with(concat![$kind, ":"]))
+            .map(|it| it.strip_prefix(concat![$kind, ":"]).unwrap().trim())
+            .collect();
+        let mut items = std::collections::BTreeMap::new();
+        for item in matches {
+            let count = items.entry(item).or_insert(0);
+            *count += 1;
+        }
+        if !items.is_empty() {
+            summary!("<details>");
+            match $kind {
+                "error" => summary!("  <summary>🚨 {} Errors</summary>\n", items.len()),
+                "warning" => summary!("  <summary>⚠️ {} Warnings</summary>\n", items.len()),
+                _ => summary!("  <summary>{} {}</summary>\n", items.len(), $kind),
+            }
+            
+            for (item, count) in items {
+                if count > 1 {
+                    summary!("  - {} **\\[x{}]**", item, count);
+                } else {
+                    summary!("  - {}", item);
+                }
+            }
+            summary!("\n</details>");
+        }
+    }};
+}
+
 pub const TYPST: &str = "typst";
 pub fn typst_compile(
     input: impl AsRef<Path>,
     output: impl AsRef<Path>,
-) -> Result<std::time::Duration, CommandError> {
+) -> Result<(), CommandError> {
     if !exists(&input) {
         return Err(CommandError::file_not_found("input", &input).program(TYPST));
     }
@@ -455,7 +487,7 @@ pub fn typst_compile(
         }
     }
 
-    let runner = make_runner!(fn(input: &Path, output: &Path) -> Result<std::time::Duration, CommandError> {
+    let runner = make_runner!(fn(input: &Path, output: &Path) -> Result<(proc::Output, std::time::Duration), CommandError> {
         if has_command(TYPST) {
             return |input, output| {
                 let begin = std::time::Instant::now();
@@ -467,9 +499,9 @@ pub fn typst_compile(
                         output.as_os_str(),
                     ],
                 )
-                .program_status(TYPST);
+                .program_output(TYPST);
                 let duration = std::time::Instant::now() - begin;
-                result.map(|_| duration)
+                Ok((result, duration))
             }
         }
 
@@ -484,9 +516,9 @@ pub fn typst_compile(
                         output.as_os_str(),
                     ],
                 )
-                .program_status(TYPST);
+                .program_output(TYPST);
                 let duration = std::time::Instant::now() - begin;
-                result.map(|_| duration)
+                Ok((result, duration))
             }
         }
 
@@ -498,7 +530,37 @@ pub fn typst_compile(
         }
     });
 
-    (runner)(input.as_ref(), output.as_ref())
+    #[allow(unused_variables)]
+    let (output, duration) = (runner)(input.as_ref(), output.as_ref())?;
+    let stderr = OsString::from_vec(output.stderr).to_string_lossy().to_string();
+
+    #[cfg(ci = "github")]
+    {
+        summary!(
+            "## Typst compiled '{}' in {}",
+            input.as_ref().file_stem().unwrap().to_string_lossy(),
+            DisplayDuration {
+                duration,
+                show_ms: true,
+            }
+        );
+
+        typst_report!(stderr, "error");
+        typst_report!(stderr, "warning");
+    }
+    group!("Typst compile: {}", input.as_ref().display());
+    if !stderr.trim().is_empty() {
+        if output.status.success() {
+            info!(stderr)
+        } else {
+            error!(stderr)
+        }
+    } else if cfg!(ci) {
+        info!("typst produced no output");
+    }
+    end_group!();
+
+    CommandError::from_exit(output.status)
 }
 
 fn hash_single_file<H>(path: impl AsRef<Path>, state: &mut H) -> io::Result<()>

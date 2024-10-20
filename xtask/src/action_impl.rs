@@ -1,6 +1,6 @@
 use std::{ffi::OsStr, os::unix::ffi::OsStringExt, path::PathBuf};
 
-use crate::log::*;
+use super::*;
 use crate::state::GlobalState;
 use crate::tools::*;
 use crate::{state, state_path};
@@ -207,14 +207,7 @@ pub fn action_build_manual(_args: &[String]) -> ActionResult {
         state_path!(TYPST_PKG).join("manual.typ").to_string_lossy().to_string()
     });
     let manual_target = state_path!(TYPST_PKG).join("manual.pdf");
-    let duration = action_expect!(typst_compile(&manual_source, &manual_target));
-    summary!(
-        "- Cold compilation time for 'manual.pdf': {}",
-        DisplayDuration {
-            duration,
-            show_ms: true,
-        }
-    );
+    action_expect!(typst_compile(&manual_source, &manual_target));
 
     #[cfg(not(ci))]
     {
