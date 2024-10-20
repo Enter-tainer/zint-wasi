@@ -2,7 +2,6 @@ use action::Action;
 use state::State;
 
 mod action;
-mod actions;
 mod tools;
 mod state;
 mod log;

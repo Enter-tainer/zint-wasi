@@ -1,9 +1,8 @@
 use std::{ffi::OsStr, os::unix::ffi::OsStringExt, path::PathBuf};
 
-use crate::action::ActionResult;
 use crate::log::*;
 use crate::tools::*;
-use crate::{action::macros::*, state::State};
+use crate::state::State;
 use crate::{state, state_path};
 
 const WASI_PATH_VAR: &str = "WASI_SDK_PATH";
@@ -101,7 +100,7 @@ pub fn action_stub_plugin(args: &[String]) -> ActionResult {
 
     let input_changed = did_file_change!([&release] as PLUGIN_WASM_HASH);
     if !exists(&stub_path) || input_changed {
-        group!("Subbing '{}'", release.display());
+        group!("Stubbing '{}'", release.display());
         action_expect!(wasi_stub(release, &stub_path));
         end_group!();
     }

@@ -14,27 +14,27 @@ declare_actions![
     EnsureWasi: {
         arg: "", name: "prepare WASI SDK",
         require: [],
-        run: Some(crate::actions::action_ensure_wasi_sdk)
+        run: Some(action_ensure_wasi_sdk)
     },
     StubPlugin: {
         arg: "", name: "stub wasi",
         require: [BuildPlugin],
-        run: Some(crate::actions::action_stub_plugin)
+        run: Some(action_stub_plugin)
     },
     EnsureWasmOpt: {
         arg: "", name: "prepare wasm-opt",
         require: [],
-        run: Some(crate::actions::action_prepare_wasm_opt)
+        run: Some(action_prepare_wasm_opt)
     },
     OptPlugin: {
         arg: "", name: "optimize wasm",
         require: [EnsureWasmOpt, StubPlugin],
-        run: Some(crate::actions::action_opt_plugin)
+        run: Some(action_opt_plugin)
     },
     BuildPlugin: {
         arg: "build-plugin", name: "build plugin",
         require: [EnsureWasi],
-        run: Some(crate::actions::action_build_plugin)
+        run: Some(action_build_plugin)
     },
     PackagePlugin: {
         arg: "package-plugin", name: "package plugin",
@@ -44,27 +44,27 @@ declare_actions![
     CompileManual: {
         arg: "build-manual", name: "compile manual",
         require: [PackagePlugin],
-        run: Some(crate::actions::action_build_manual)
+        run: Some(action_build_manual)
     },
     CompileExample: {
         arg: "", name: "compile example",
         require: [PackagePlugin],
-        run: Some(crate::actions::action_build_example)
+        run: Some(action_build_example)
     },
     CopyLicense: {
         arg: "", name: "",
         require: [],
-        run: Some(crate::actions::action_copy_license)
+        run: Some(action_copy_license)
     },
     EnsureCargoAbout: {
         arg: "", name: "",
         require: [],
-        run: Some(crate::actions::action_ensure_cargo_about)
+        run: Some(action_ensure_cargo_about)
     },
     ThirdPartyLicense: {
         arg: "", name: "generate 3rd-party license list",
         require: [],
-        run: Some(crate::actions::action_make_3rdparty_license_list)
+        run: Some(action_make_3rdparty_license_list)
     },
     Package: {
         arg: "package", name: "package",
@@ -74,7 +74,7 @@ declare_actions![
     InstallTypst: {
         arg: "", name: "",
         require: [],
-        run: Some(crate::actions::action_install_typst)
+        run: Some(action_install_typst)
     },
     RunCI: {
         arg: "ci", name: "",
@@ -282,3 +282,5 @@ pub mod macros {
         action_error, action_expect, action_expect_0, action_ok, action_skip, action_try,
     };
 }
+
+include!("./action_impl.rs");
