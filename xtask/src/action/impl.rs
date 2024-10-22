@@ -74,6 +74,13 @@ pub fn action_build_plugin(args: &ArgumentList) -> ActionResult {
         },
     );
 
+    GlobalState::set_temporary("PREV_PLUGIN_WASM_HASH", state!(PLUGIN_WASM_HASH));
+    GlobalState::set("PLUGIN_WASM_HASH", hash_configured_paths!([
+        "$<root>/zint-wasm-sys/src",
+        "$<root>/zint-wasm-sys/build.rs",
+        "$<root>/zint-wasm-rs/src",
+        "$<root>/zint-typst-plugin/src",
+    ]).to_string());
     action_expect!(cargo((
         "build",
         "--profile",
@@ -95,20 +102,11 @@ pub fn action_stub_plugin(args: &ArgumentList) -> ActionResult {
         .join(state!(BUILD_PROFILE))
         .join(state!(PLUGIN_STUB_WASM, default: "plugin_stub.wasm"));
 
-    let input_changed = did_files_change!([
-        "$<root>/zint-wasm-sys/src",
-        "$<root>/zint-wasm-sys/build.rs",
-        "$<root>/zint-wasm-rs/src",
-        "$<root>/zint-typst-plugin/src",
-    ] as PLUGIN_WASM_HASH);
+    let input_changed = state!(PREV_PLUGIN_WASM_HASH) != state!(PLUGIN_WASM_HASH);
     if !exists(&stub_path) || input_changed {
         group!("Stubbing '{}'", release.display());
         action_expect!(wasi_stub(release, &stub_path));
         end_group!();
-
-        if input_changed {
-            GlobalState::set("PLUGIN_WASM_STUB_HASH", state!(PLUGIN_WASM_HASH));
-        }
     }
 
     // report stubbed file size because WASI module can't actually be ran by
@@ -188,13 +186,11 @@ pub fn action_opt_plugin(args: &ArgumentList) -> ActionResult {
         base_path.join(state!(PLUGIN_STUB_OPT_WASM, default: "plugin_stub_opt.wasm"));
     let target_path = state_path!(TYPST_PKG).join(state!(PLUGIN_WASM_OUT, default: "plugin.wasm"));
 
-    let stub_hash = state!(PLUGIN_WASM_STUB_HASH, default: "");
-    let input_changed = state!(PLUGIN_WASM_HASH) != stub_hash;
+    let input_changed = state!(PREV_PLUGIN_WASM_HASH) != state!(PLUGIN_WASM_HASH);
     if !exists(&stub_opt_path) || input_changed {
         action_expect!(wasm_opt(stub_path, &stub_opt_path));
         action_expect!(std::fs::copy(stub_opt_path, &target_path));
     }
-    GlobalState::set("PLUGIN_WASM_HASH", stub_hash);
     summary!(
         "- Optimized WASM size: {}",
         action_expect!(FileSize::of(target_path))
@@ -220,6 +216,7 @@ pub fn action_build_manual(_args: &ArgumentList) -> ActionResult {
             create_time.to_string(),
         )
     ));
+    GlobalState::set("MANUAL_CHANGE_TIME", create_time.to_string());
 
     action_ok!();
 }

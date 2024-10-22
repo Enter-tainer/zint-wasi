@@ -27,7 +27,7 @@ jobs:
       - name: Restore WASI SDK
         uses: actions/cache/restore@v4
         with:
-          path: ci_work_dir/wasi_sdk
+          path: ${{ env.XTASK_WORK_DIR }}/wasi_sdk
           key: tools-wasi-sdk-${{ env.XTASK_WASI_SDK_VERSION }}
       - name: Restore wasi-stub
         uses: actions/cache/restore@v4
@@ -39,19 +39,19 @@ jobs:
       - name: Restore wasm-opt
         uses: actions/cache/restore@v4
         with:
-          path: ci_work_dir/tools/wasm-opt
+          path: ${{ env.XTASK_WORK_DIR }}/tools/wasm-opt
           key: tools-binaryen-${{ env.XTASK_BINARYEN_VERSION }}
       - name: Restore typst
         uses: actions/cache/restore@v4
         with:
-          path: ci_work_dir/tools/typst
+          path: ${{ env.XTASK_WORK_DIR }}/tools/typst
           key: tools-typst-${{ env.XTASK_TYPST_VERSION }}
       - name: Run CI xtask
         run: cargo xtask ci
       - name: Cache WASI SDK
         uses: actions/cache/save@v4
         with:
-          path: ci_work_dir/wasi_sdk
+          path: ${{ env.XTASK_WORK_DIR }}/wasi_sdk
           key: tools-wasi-sdk-${{ env.XTASK_WASI_SDK_VERSION }}
       - name: Cache wasi-stub
         uses: actions/cache/save@v4
@@ -63,12 +63,12 @@ jobs:
       - name: Cache wasm-opt
         uses: actions/cache/save@v4
         with:
-          path: ci_work_dir/tools/wasm-opt
+          path: ${{ env.XTASK_WORK_DIR }}/tools/wasm-opt
           key: tools-binaryen-${{ env.XTASK_BINARYEN_VERSION }}
       - name: Cache typst
         uses: actions/cache/save@v4
         with:
-          path: ci_work_dir/tools/typst
+          path: ${{ env.XTASK_WORK_DIR }}/tools/typst
           key: tools-typst-${{ env.XTASK_TYPST_VERSION }}
       - uses: actions/upload-artifact@v4
         with:
