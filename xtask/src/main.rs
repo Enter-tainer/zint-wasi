@@ -5,7 +5,7 @@ mod action;
 mod log;
 mod state;
 mod tools;
-mod util;
+mod arguments;
 
 fn main() {
     let mut args = std::env::args().skip(1);
