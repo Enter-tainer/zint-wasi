@@ -1,7 +1,11 @@
 use std::{ffi::OsStr, path::PathBuf};
 
-use super::*;
-use crate::state::GlobalState;
+use super::macros::*;
+use super::ActionResult;
+
+use crate::arguments::ArgumentList;
+use crate::log::*;
+use crate::state::{configure, GlobalState};
 use crate::tools::*;
 use crate::{state, state_path};
 
@@ -75,12 +79,16 @@ pub fn action_build_plugin(args: &ArgumentList) -> ActionResult {
     );
 
     GlobalState::set_temporary("PREV_PLUGIN_WASM_HASH", state!(PLUGIN_WASM_HASH));
-    GlobalState::set("PLUGIN_WASM_HASH", hash_configured_paths!([
-        "$<root>/zint-wasm-sys/src",
-        "$<root>/zint-wasm-sys/build.rs",
-        "$<root>/zint-wasm-rs/src",
-        "$<root>/zint-typst-plugin/src",
-    ]).to_string());
+    GlobalState::set(
+        "PLUGIN_WASM_HASH",
+        hash_configured_paths!([
+            "$<root>/zint-wasm-sys/src",
+            "$<root>/zint-wasm-sys/build.rs",
+            "$<root>/zint-wasm-rs/src",
+            "$<root>/zint-typst-plugin/src",
+        ])
+        .to_string(),
+    );
     action_expect!(cargo((
         "build",
         "--profile",

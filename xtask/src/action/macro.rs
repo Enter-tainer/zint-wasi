@@ -54,24 +54,3 @@ macro_rules! declare_actions {
         }
     };
 }
-
-macro_rules! hash_configured_paths {
-    ([$($files: expr),+ $(,)?]) => {{
-        hash_files([$(
-            $crate::state::Configure::configure($files, $crate::state::GlobalState)
-        ),*])
-    }};
-}
-macro_rules! did_files_change {
-    ([$($files: expr),+ $(,)?] as $backing: expr) => {{
-        let hash = hash_configured_paths!([$(
-            $files
-        ),*]).to_string();
-        if hash == state!($backing, default: "") {
-            false
-        } else {
-            $crate::state::GlobalState::set(stringify!($backing), hash);
-            true
-        }
-    }};
-}

@@ -1,7 +1,7 @@
 use std::{collections::HashSet, fmt::Display};
 
 use crate::arguments::ArgumentList;
-use crate::*;
+use crate::log::*;
 
 /*
 OptPlugin, // wasm-opt typst-package/zint_typst_plugin.wasm -O3 --enable-bulk-memory -o typst-package/zint_typst_plugin.wasm
@@ -116,13 +116,13 @@ impl Action {
         }
 
         if executed.contains(&self) {
-            action_skip!("already executed");
+            macros::action_skip!("already executed");
         } else {
             running.push(self);
         }
 
         for dep in self.dependencies() {
-            action_try!(dep.run_impl(executed, running, args));
+            macros::action_try!(dep.run_impl(executed, running, args));
         }
 
         let result = if let Some(runner) = self.runner() {
@@ -225,8 +225,8 @@ pub mod macros {
     }
     #[macro_export]
     macro_rules! action_expect {
-        (cargo([$($args: expr),*])) => {{
-            let status = match cargo([$($args),*]) {
+        (cargo($($args: tt),*)) => {{
+            let status = match cargo($($args),*) {
                 Ok(it) => it,
                 Err(error) => $crate::action_error!(error),
             }.status();
@@ -244,39 +244,6 @@ pub mod macros {
         }};
     }
     #[macro_export]
-    macro_rules! action_expect_0 {
-        (cargo([$($args: expr),*])) => {{
-            $crate::action_expect!($crate::tools::CommandError::from_exit(
-                $crate::action_expect!(cargo([$($args),*]))
-            ).map_err(|err| err.program("cargo")))
-        }};
-        (cmd($name: literal, [$($args: expr),*])) => {{
-            $crate::action_expect!($crate::tools::CommandError::from_exit(
-                $crate::action_expect!(cmd($name, [$($args),*]))
-            ).map_err(|err| err.program($name)))
-        }};
-        (cmd($program: literal as $name: literal, [$($args: expr),*])) => {{
-            $crate::action_expect!($crate::tools::CommandError::from_exit(
-                $crate::action_expect!(cmd($program, [$($args),*]))
-            ).map_err(|err| err.program($name)))
-        }};
-        (cmd($name: literal, [$($args: expr),*])) => {{
-            $crate::action_expect!($crate::tools::CommandError::from_exit(
-                $crate::action_expect!(cmd($name, [$($args),*]))
-            ).map_err(|err| err.program(stringify!($name))))
-        }};
-        (cmd($program: ident as $name: literal, [$($args: expr),*])) => {{
-            $crate::action_expect!($crate::tools::CommandError::from_exit(
-                $crate::action_expect!(cmd($program, [$($args),*]))
-            ).map_err(|err| err.program($name)))
-        }};
-        ($stmt: expr) => {{
-            $crate::action_expect!($crate::tools::CommandError::from_exit(
-                $crate::action_expect!($stmt)
-            ))
-        }};
-    }
-    #[macro_export]
     macro_rules! action_try {
         ($stmt: expr) => {{
             if let $crate::action::ActionResult::Error(error) = $stmt {
@@ -285,9 +252,32 @@ pub mod macros {
         }};
     }
 
+    #[macro_export]
+    macro_rules! hash_configured_paths {
+        ([$($files: expr),+ $(,)?]) => {{
+            hash_files([$(
+                $crate::state::Configure::configure($files, $crate::state::GlobalState)
+            ),*])
+        }};
+    }
+    #[macro_export]
+    macro_rules! did_files_change {
+        ([$($files: expr),+ $(,)?] as $backing: expr) => {{
+            let hash = hash_configured_paths!([$(
+                $files
+            ),*]).to_string();
+            if hash == state!($backing, default: "") {
+                false
+            } else {
+                $crate::state::GlobalState::set(stringify!($backing), hash);
+                true
+            }
+        }};
+    }
+
     #[allow(unused_imports)]
     pub use crate::{
-        action_error, action_expect, action_expect_0, action_ok, action_skip, action_try,
+        action_error, action_expect, action_ok, action_skip, action_try, hash_configured_paths, did_files_change
     };
 }
 
