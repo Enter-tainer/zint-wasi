@@ -10,3 +10,4 @@ license.workspace = true
 
 xxhash-rust = { version = "0.8", features = ["xxh3"] }
 walkdir = { workspace = true }
+memchr = { version = "2", default-features = false }

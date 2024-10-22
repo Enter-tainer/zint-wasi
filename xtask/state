@@ -1,10 +1,9 @@
-MANUAL_HASH=6768760725972220257
+MANUAL_CHANGE_TIME=1729509536356
 PLUGIN_STUB_OPT_WASM=zint_typst_plugin_stub_opt.wasm
 PLUGIN_STUB_WASM=zint_typst_plugin_stub.wasm
 PLUGIN_WASM=zint_typst_plugin.wasm
 PLUGIN_WASM_HASH=13965701503739485256
 PLUGIN_WASM_OUT=zint_typst_plugin.wasm
-PLUGIN_WASM_STUB_HASH=13965701503739485256
 TARGET=wasm32-wasip1
-TYPST_PKG=$<root>/typst-package
-WORK_DIR=$<root>/target
+TYPST_PKG=/data/code/Projects/zint-wasi/typst-package
+WORK_DIR=/data/code/Projects/zint-wasi/target
