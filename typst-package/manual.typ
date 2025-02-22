@@ -1,7 +1,7 @@
 #import "./lib.typ": *
 #import "./lib.typ"
-#import "@preview/tidy:0.2.0"
-#import "@preview/tablex:0.0.8": tablex, colspanx, cellx
+#import "@preview/tidy:0.4.1"
+#import "@preview/tablex:0.0.9": tablex, colspanx, cellx
 #import "./tidy_style.typ"
 
 #set page(
@@ -442,7 +442,7 @@ The following table documents supported values and their #typst-type("str") repr
     stroke: gray.lighten(60%),
     radius: 2pt,
     width: 100%,
-    text(size: 8pt, par(linebreaks: "simple", code-block)),
+    text(size: 8pt, code-block),
   )
 
   *Result:*

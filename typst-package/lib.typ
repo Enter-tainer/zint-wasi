@@ -38,9 +38,9 @@
 /// Draw a barcode SVG of any supported `symbology`.
 ///
 /// *Example:*
-/// #example(
-/// `
-/// tiaoma.barcode("12345678", "QRCode", options: (
+/// 
+/// ```example
+/// #tiaoma.barcode("12345678", "QRCode", options: (
 ///   scale: 2.0,
 ///   fg-color: blue,
 ///   bg-color: green.lighten(70%),
@@ -49,7 +49,7 @@
 ///   ),
 ///   dot-size: 1.2,
 /// ))
-/// `)
+/// ```
 ///
 /// - data (str): Data to encode.
 /// - symbology (str): Symbology type name; must be one of #l(<symbology>)[supported types].
@@ -68,7 +68,7 @@
     data = bytes(data)
   }
 
-  image.decode(
+  image(
     zint-wasm.gen_with_options(
       cbor.encode((symbology: symbology, .._proc_options(options))),
       data,
