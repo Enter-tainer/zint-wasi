@@ -1,4 +1,4 @@
-MANUAL_HASH=6768760725972220257
+MANUAL_HASH=11321595543471864483
 PLUGIN_STUB_OPT_WASM=zint_typst_plugin_stub_opt.wasm
 PLUGIN_STUB_WASM=zint_typst_plugin_stub.wasm
 PLUGIN_WASM=zint_typst_plugin.wasm

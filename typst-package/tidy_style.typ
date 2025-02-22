@@ -3,7 +3,7 @@
 // Modified to link to official documentation and allow linking to other
 // document content.
 
-#import "@preview/tidy:0.2.0": utilities, show-example as show-ex
+#import "@preview/tidy:0.4.1": utilities, show-example as show-ex
 
 // Color to highlight function names in
 #let function-name-color = rgb("#4b69c6")
