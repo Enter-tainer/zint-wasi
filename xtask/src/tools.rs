@@ -444,7 +444,8 @@ pub fn wasm_opt(input: impl AsRef<Path>, output: impl AsRef<Path>) -> Result<(),
 #[cfg(ci = "github")]
 macro_rules! typst_report {
     ($output: ident, $kind: literal) => {{
-        let matches: Vec<_> = $output.lines()
+        let matches: Vec<_> = $output
+            .lines()
             .filter(|it| it.starts_with(concat![$kind, ":"]))
             .map(|it| it.strip_prefix(concat![$kind, ":"]).unwrap().trim())
             .collect();
@@ -457,10 +458,13 @@ macro_rules! typst_report {
             summary!("<details>");
             match $kind {
                 "error" => summary!("  <summary><h4>🚨 {} Errors</h4></summary>\n", items.len()),
-                "warning" => summary!("  <summary><h4>⚠️ {} Warnings</h4></summary>\n", items.len()),
+                "warning" => summary!(
+                    "  <summary><h4>⚠️ {} Warnings</h4></summary>\n",
+                    items.len()
+                ),
                 _ => summary!("  <summary><h4>{} {}</h4></summary>\n", items.len(), $kind),
             }
-            
+
             for (item, count) in items {
                 if count > 1 {
                     summary!("  - {} **\\[x{}]**", item, count);
@@ -495,6 +499,7 @@ pub fn typst_compile(
                     TYPST,
                     [
                         OsStr::new("compile"),
+                        OsStr::new("--creation-timestamp=0"),
                         input.as_os_str(),
                         output.as_os_str(),
                     ],
@@ -532,7 +537,9 @@ pub fn typst_compile(
 
     #[allow(unused_variables)]
     let (output, duration) = (runner)(input.as_ref(), output.as_ref())?;
-    let stderr = OsString::from_vec(output.stderr).to_string_lossy().to_string();
+    let stderr = OsString::from_vec(output.stderr)
+        .to_string_lossy()
+        .to_string();
 
     #[cfg(ci = "github")]
     {
