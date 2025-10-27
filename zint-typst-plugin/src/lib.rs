@@ -1,26 +1,29 @@
 use wasm_minimal_protocol::*;
-use zint_wasm_rs::{options::Options, symbol::Symbol};
+
+use zint_rs::{output::VectorPlot, *};
+
+use crate::serde::decode_options;
+
+mod output;
+mod serde;
 
 initiate_protocol!();
 
-#[derive(thiserror::Error, Debug)]
-pub enum Error {
-    #[error("provided invalid options: {0}")]
-    BadOptions(
-        #[from]
-        #[source]
-        ciborium::de::Error<std::io::Error>,
-    ),
-    #[error(transparent)]
-    ZintEncoding(#[from] zint_wasm_rs::error::Error),
-}
-type Result<T> = std::result::Result<T, crate::Error>;
-
 #[wasm_func]
-pub fn gen_with_options(options: &[u8], text: &[u8]) -> Result<Vec<u8>> {
-    let options: Options = ciborium::from_reader(options)?;
-    let text = std::str::from_utf8(text).expect("non-utf8 string"); // bytes(data) always creates a utf8 slice
-    let symbol = Symbol::new(&options);
-    let svg = symbol.encode_svg(text, 0, 0)?;
-    Ok(svg.into_bytes())
+pub fn zint_encode(options: &[u8], text: &[u8]) -> Vec<u8> {
+    output::pack_result((|| {
+        let value: ciborium::Value =
+            ciborium::from_reader(options).map_err(|e| error!("invalid options: {e}"))?;
+        let options = decode_options(&value)?;
+        let mut symbol = match options.format {
+            serde::Format::Utf8 => {
+                let text = std::str::from_utf8(text)?; // bytes(data) always creates a utf8 slice
+                Symbol::encode_utf8(options.generic, text)?
+            }
+            // TODO: ECI handling is literally just missing deserialization
+            serde::Format::ECI => return Err(error!("ECI handling not yet implemented")),
+        };
+        let plot: VectorPlot = symbol.plot(&options.display)?;
+        Ok(plot)
+    })())
 }

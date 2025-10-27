@@ -1,180 +1,183 @@
-use std::{
-    ffi::CString,
-    ops::{Deref, DerefMut},
-};
+use zint_sys::*;
 
-use zint_wasm_sys::{zint_symbol, ZBarcode_Encode_and_Print};
+use crate::error::{Error, ZintResult};
+use crate::options::{output_options::OutputOptions, symbology::Symbology, GenericOptions};
+use crate::output::PlotResult;
+use crate::segment::{Segment, ECI};
 
-use crate::{
-    error::{Error, ZintResult},
-    options::{color::Color, output_options, Options},
-};
+use crate::options::DisplayOptions;
 
 #[repr(transparent)]
 pub struct Symbol {
     inner: *mut zint_symbol,
 }
 
+#[inline(always)]
+fn make_zint_symbol(symbology: Symbology) -> *mut zint_symbol {
+    let result_ptr = unsafe { zint_sys::ZBarcode_Create() };
+    let result = unsafe { result_ptr.as_mut().unwrap_unchecked() };
+    result.symbology = symbology as i32;
+    // must be set
+    result.outfile[0] = '\0' as i8;
+    // always output to memory
+    result.output_options = OutputOptions::BARCODE_MEMORY_FILE.into();
+
+    if cfg!(test) {
+        result.debug = zint_sys::ZINT_DEBUG_PRINT as i32;
+    }
+    result_ptr
+}
+
 impl Symbol {
-    #[allow(clippy::field_reassign_with_default)]
-    pub fn new(options: &Options) -> Self {
-        let mut result = Self::default();
-        let filename = "res.svg";
-
-        result.symbology = options.symbology as i32;
-
-        if let Some(height) = options.height {
-            result.height = height;
+    pub fn encode_ascii<'o, O>(options: O, text: &str) -> Result<Self, Error>
+    where
+        O: TryInto<GenericOptions<'o>>,
+        Error: From<O::Error> + From<std::convert::Infallible>,
+    {
+        let options = options.try_into()?;
+        for char in text.chars() {
+            if char as u32 > 0xFF {
+                // TODO: return error
+                panic!("Non-latin character");
+            }
         }
-        if let Some(scale) = options.scale {
-            result.scale = scale;
-        }
-        if let Some(whitespace_width) = options.whitespace_width {
-            result.whitespace_width = whitespace_width;
-        }
-        if let Some(whitespace_height) = options.whitespace_height {
-            result.whitespace_height = whitespace_height;
-        }
-        if let Some(border_width) = options.border_width {
-            result.border_width = border_width;
-        }
-
-        if let Some(output_options) = options.output_options {
-            result.output_options = output_options.as_i32();
-        }
-        // Always write to memory file
-        result.output_options |= output_options::OutputOptions::BARCODE_MEMORY_FILE.as_i32();
-
-        crate::util::copy_into_cstr(
-            options.fg_color.unwrap_or(Color::BLACK).to_hex_string(),
-            &mut result.fgcolour,
-        );
-
-        crate::util::copy_into_cstr(
-            options
-                .bg_color
-                .unwrap_or(Color::TRANSPARENT)
-                .to_hex_string(),
-            &mut result.bgcolour,
-        );
-
-        crate::util::copy_into_cstr(filename, &mut result.outfile);
-
-        if let Some(ref primary) = options.primary {
-            crate::util::copy_into_cstr(primary, &mut result.primary);
-        }
-
-        if let Some(option_1) = options.option_1 {
-            result.option_1 = option_1;
-        }
-
-        if let Some(option_2) = options.option_2 {
-            result.option_2 = option_2;
-        }
-
-        if let Some(option_3) = options.option_3 {
-            result.option_3 = option_3.as_i32();
-        }
-
-        if let Some(show_hrt) = options.show_hrt {
-            result.show_hrt = show_hrt as i32;
-        }
-
-        if let Some(ref input_mode) = options.input_mode {
-            result.input_mode = input_mode.as_i32();
-        }
-
-        if let Some(eci) = options.eci {
-            result.eci = eci;
-        }
-
-        if let Some(dot_size) = options.dot_size {
-            result.dot_size = dot_size;
-        }
-
-        if let Some(text_gap) = options.text_gap {
-            result.text_gap = text_gap;
-        }
-
-        if let Some(guard_descent) = options.guard_descent {
-            result.guard_descent = guard_descent;
-        }
-
-        result
-    }
-
-    /// # Safety
-    ///
-    /// Provided `ptr` must point to a properly initalized `Symbol`.
-    pub unsafe fn from_ptr(ptr: *mut zint_symbol) -> Self {
-        if ptr.is_null() {
-            panic!("can't create a Symbol from null pointer")
-        }
-        Self { inner: ptr }
-    }
-
-    pub fn as_ptr(&self) -> *mut zint_symbol {
-        self.inner
-    }
-
-    pub fn encode_svg(self, data: &str, length: i32, rotate_angle: i32) -> Result<String, Error> {
-        let c_str_data = CString::new(data).expect("CString::new failed");
-        let result = ZintResult::from(unsafe {
-            ZBarcode_Encode_and_Print(
-                self.inner,
-                c_str_data.as_bytes_with_nul().as_ptr(),
-                length,
-                rotate_angle,
-            ) as u32
-        });
-        if let Some(err) = result.as_error() {
-            return Err(Error::Zint(err));
-        }
-        let svg = unsafe {
-            let memfile = std::slice::from_raw_parts(self.memfile, self.memfile_size as usize);
-            memfile
+        let eci = if options.supports_eci() {
+            ECI::ISO_8859_1
+        } else {
+            ECI::NONE
         };
-        let svg = String::from_utf8_lossy(svg).to_string();
-
-        match result.as_error() {
-            Some(err) => Err(Error::Zint(err)),
-            None => Ok(svg),
-        }
+        Self::encode_segments(options, &[Segment::new(text.as_bytes(), eci)])
     }
-}
 
-impl Default for Symbol {
-    fn default() -> Self {
-        Self {
-            inner: unsafe { zint_wasm_sys::ZBarcode_Create() },
-        }
+    pub fn encode_utf8<'o, O>(options: O, text: &str) -> Result<Self, Error>
+    where
+        O: TryInto<GenericOptions<'o>>,
+        Error: From<O::Error> + From<std::convert::Infallible>,
+    {
+        let options = options.try_into()?;
+        let eci = if options.supports_eci() {
+            ECI::UTF_8
+        } else {
+            ECI::NONE
+        };
+        Self::encode_segments(options, &[Segment::new(text.as_bytes(), eci)])
     }
-}
 
-impl Deref for Symbol {
-    type Target = zint_symbol;
+    pub fn encode_segments<'o, O>(options: O, data: &[Segment<'_>]) -> Result<Self, Error>
+    where
+        O: TryInto<GenericOptions<'o>>,
+        Error: From<O::Error> + From<std::convert::Infallible>,
+    {
+        let options = options.try_into()?;
 
-    fn deref(&self) -> &Self::Target {
-        unsafe {
-            // Safety: Symbol is always created as a valid zint_symbol
-            self.inner.as_ref().unwrap()
+        // SAFETY: Segment is a transparent wrapper of zint_seg
+        let segments: &[zint_seg] =
+            unsafe { std::mem::transmute::<&[Segment<'_>], &[zint_seg]>(data) };
+        let segment_count = segments.len();
+        let max_segments = if options.supports_eci() {
+            zint_sys::ZINT_MAX_SEG_COUNT as usize
+        } else {
+            1
+        };
+        if segment_count > max_segments {
+            // TODO: return error
+            panic!("Too many segments")
         }
+        let segments = segments.as_ptr();
+
+        let result_ptr = make_zint_symbol(options.symbology);
+        let result = unsafe { result_ptr.as_mut().unwrap_unchecked() };
+        options.apply(result)?;
+
+        let result = ZintResult::from(
+            unsafe { ZBarcode_Encode_Segs(result_ptr, segments, segment_count as i32) as u32 },
+            result_ptr,
+        );
+        match result {
+            ZintResult::Error(zint_error) => return Err(Error::from(zint_error)),
+            ZintResult::Warning(zint_warning) => match options.warnings {
+                crate::options::WarningHandling::Ignore => {}
+                crate::options::WarningHandling::LogWarnings(level) => {
+                    log::log!(level, "{zint_warning}");
+                }
+                crate::options::WarningHandling::AsErrors => return Err(Error::from(zint_warning)),
+            },
+            ZintResult::Ok => {}
+        }
+        Ok(Self { inner: result_ptr })
     }
-}
 
-impl DerefMut for Symbol {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        unsafe {
-            // Safety: Symbol is always created as a valid zint_symbol
-            self.inner.as_mut().unwrap()
+    #[cfg(feature = "raster")]
+    fn plot_raster_data(&self, options: &DisplayOptions) -> Result<(), Error> {
+        let result = ZintResult::from(
+            unsafe { ZBarcode_Buffer(self.inner, options.rotation.into()) as u32 },
+            self.inner,
+        );
+
+        match result {
+            ZintResult::Error(zint_error) => return Err(Error::from(zint_error)),
+            ZintResult::Warning(zint_warning) => match options.warnings {
+                crate::options::WarningHandling::Ignore => {}
+                crate::options::WarningHandling::LogWarnings(level) => {
+                    log::log!(level, "{zint_warning}");
+                }
+                crate::options::WarningHandling::AsErrors => return Err(Error::from(zint_warning)),
+            },
+            ZintResult::Ok => {}
         }
+        Ok(())
+    }
+
+    #[cfg(feature = "vector")]
+    fn plot_vector_data(&self, options: &DisplayOptions) -> Result<(), Error> {
+        let result = ZintResult::from(
+            #[cfg(feature = "display")]
+            unsafe {
+                ZBarcode_Buffer_Vector(self.inner, options.rotation.into()) as u32
+            },
+            #[cfg(not(feature = "display"))]
+            unsafe {
+                ZBarcode_Buffer_Vector(self.inner, 0) as u32
+            },
+            self.inner,
+        );
+
+        match result {
+            ZintResult::Error(zint_error) => return Err(Error::from(zint_error)),
+            ZintResult::Warning(zint_warning) => match options.warnings {
+                crate::options::WarningHandling::Ignore => {}
+                crate::options::WarningHandling::LogWarnings(level) => {
+                    log::log!(level, "{zint_warning}");
+                }
+                crate::options::WarningHandling::AsErrors => return Err(Error::from(zint_warning)),
+            },
+            ZintResult::Ok => {}
+        }
+        Ok(())
+    }
+
+    pub fn plot<'a, R: PlotResult<'a>>(
+        &'a mut self,
+        options: &'a DisplayOptions,
+    ) -> Result<R, Error> {
+        let result: &'a mut zint_symbol = unsafe { self.inner.as_mut().unwrap_unchecked() };
+        options.apply(result)?;
+
+        match R::KIND {
+            #[cfg(feature = "raster")]
+            crate::output::PlotKind::Raster => self.plot_raster_data(options)?,
+            #[cfg(feature = "vector")]
+            crate::output::PlotKind::Vector => self.plot_vector_data(options)?,
+        }
+
+        R::from_symbol(result, options)
     }
 }
 
 impl Drop for Symbol {
     fn drop(&mut self) {
         unsafe {
-            zint_wasm_sys::ZBarcode_Delete(self.inner);
+            zint_sys::ZBarcode_Delete(self.inner);
         }
     }
 }

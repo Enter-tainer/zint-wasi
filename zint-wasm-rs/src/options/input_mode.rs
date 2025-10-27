@@ -1,45 +1,47 @@
 use serde::Deserialize;
 
-use crate::error::{Error, ValidationFailiure};
+use crate::error::{Error, ValidationFailure};
 
 bitflags::bitflags! {
     /// Input modes and options
     #[derive(Debug, Clone, Copy)]
     pub struct InputMode: u32 {
         /// Binary
-        const DATA = zint_wasm_sys::DATA_MODE;
+        const DATA = zint_sys::DATA_MODE;
         /// UTF-8
-        const UNICODE = zint_wasm_sys::UNICODE_MODE;
+        const UNICODE = zint_sys::UNICODE_MODE;
         /// GS1
-        const GS1 = zint_wasm_sys::GS1_MODE;
+        const GS1 = zint_sys::GS1_MODE;
 
         /// Process escape sequences
-        const ESCAPE = zint_wasm_sys::ESCAPE_MODE;
-        /// Process parentheses as GS1 AI delimiters (instead of square brackets)
-        const GS1_PARENTHESES = zint_wasm_sys::GS1PARENS_MODE;
+        const ESCAPE = zint_sys::ESCAPE_MODE;
+        /// Process parentheses instead of square brackets as GS1 AI delimiters
+        const GS1_PARENTHESES = zint_sys::GS1PARENS_MODE;
         /// Do not check validity of GS1 data
-        const GS1_NO_CHECK = zint_wasm_sys::GS1NOCHECK_MODE;
+        const GS1_NO_CHECK = zint_sys::GS1NOCHECK_MODE;
         /// Interpret `height` as per-row rather than as overall height
-        const HEIGHT_PER_ROW = zint_wasm_sys::HEIGHTPERROW_MODE;
+        const HEIGHT_PER_ROW = zint_sys::HEIGHTPERROW_MODE;
         /// Use faster, less optimal encoding or other shortcuts if available
-        const FAST = zint_wasm_sys::FAST_MODE;
+        const FAST = zint_sys::FAST_MODE;
         /// Process special symbology-specific escape sequences
-        const EXTRA_ESCAPE = zint_wasm_sys::EXTRA_ESCAPE_MODE;
+        const EXTRA_ESCAPE = zint_sys::EXTRA_ESCAPE_MODE;
     }
 }
 
 impl InputMode {
-    pub fn as_i32(&self) -> i32 {
-        self.bits() as i32
-    }
-
-    pub fn validate(&self) -> Option<ValidationFailiure> {
+    pub(crate) fn validate(&self) -> Option<ValidationFailure> {
         // DATA is 0 so it can't be checked as UNICODE overwrites it
         if self.contains(Self::UNICODE) && self.contains(Self::GS1) {
-            return Some(ValidationFailiure::MultipleFormats);
+            return Some(ValidationFailure::MultipleFormats);
         }
 
         None
+    }
+}
+
+impl From<InputMode> for std::ffi::c_int {
+    fn from(value: InputMode) -> Self {
+        value.bits() as std::ffi::c_int
     }
 }
 
@@ -95,7 +97,7 @@ impl<'de> Deserialize<'de> for InputMode {
                     "unicode" => Ok(InputMode::UNICODE),
                     "gs1" => Ok(InputMode::GS1),
                     _ => Err(E::custom(Error::InvalidInputMode(
-                        ValidationFailiure::UnknownFormat,
+                        ValidationFailure::UnknownFormat,
                     ))),
                 }
             }
@@ -106,7 +108,7 @@ impl<'de> Deserialize<'de> for InputMode {
             {
                 if v > u32::MAX as u64 {
                     return Err(E::custom(Error::InvalidInputMode(
-                        ValidationFailiure::TooBig,
+                        ValidationFailure::TooBig,
                     )));
                 }
                 Ok(InputMode::from_bits_retain(v as u32))
@@ -118,11 +120,11 @@ impl<'de> Deserialize<'de> for InputMode {
             {
                 if v > u32::MAX as i64 {
                     return Err(E::custom(Error::InvalidInputMode(
-                        ValidationFailiure::TooBig,
+                        ValidationFailure::TooBig,
                     )));
                 } else if v.is_negative() {
                     return Err(E::custom(Error::InvalidInputMode(
-                        ValidationFailiure::Negative,
+                        ValidationFailure::Negative,
                     )));
                 }
                 Ok(InputMode::from_bits_retain(v as u32))
@@ -165,7 +167,7 @@ impl<'de> Deserialize<'de> for InputMode {
                         None if key == "format" => {
                             let value = map.next_value::<String>().map_err(|_| {
                                 de::Error::custom(Error::InvalidInputMode(
-                                    ValidationFailiure::UnknownFormat,
+                                    ValidationFailure::UnknownFormat,
                                 ))
                             })?;
                             match value.as_str() {
@@ -174,7 +176,7 @@ impl<'de> Deserialize<'de> for InputMode {
                                 "gs1" => InputMode::GS1,
                                 _ => {
                                     return Err(de::Error::custom(Error::InvalidInputMode(
-                                        ValidationFailiure::UnknownFormat,
+                                        ValidationFailure::UnknownFormat,
                                     )))
                                 }
                             }

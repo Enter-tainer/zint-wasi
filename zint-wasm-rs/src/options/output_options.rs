@@ -1,50 +1,50 @@
 use serde::Deserialize;
 
-use crate::error::{Error, ValidationFailiure};
+use crate::error::{Error, ValidationFailure};
 
 bitflags::bitflags! {
-    #[derive(Debug, Clone, Copy)]
+    #[derive(Debug, Default, Clone, Copy)]
     pub struct OutputOptions: u32 {
         /// Boundary bar above the symbol only (not below), does not affect stacking
-        const BARCODE_BIND_TOP = zint_wasm_sys::BARCODE_BIND_TOP;
+        const BARCODE_BIND_TOP = zint_sys::BARCODE_BIND_TOP;
         /// Boundary bars above & below the symbol and between stacked symbols
-        const BARCODE_BIND = zint_wasm_sys::BARCODE_BIND;
+        const BARCODE_BIND = zint_sys::BARCODE_BIND;
         /// Box around symbol
-        const BARCODE_BOX = zint_wasm_sys::BARCODE_BOX;
+        const BARCODE_BOX = zint_sys::BARCODE_BOX;
         /// Output to stdout
-        const BARCODE_STDOUT = zint_wasm_sys::BARCODE_STDOUT;
+        const BARCODE_STDOUT = zint_sys::BARCODE_STDOUT;
         /// Reader Initialisation (Programming)
-        const READER_INIT = zint_wasm_sys::READER_INIT;
+        const READER_INIT = zint_sys::READER_INIT;
         /// Use smaller font
-        const SMALL_TEXT = zint_wasm_sys::SMALL_TEXT;
+        const SMALL_TEXT = zint_sys::SMALL_TEXT;
         /// Use bold font
-        const BOLD_TEXT = zint_wasm_sys::BOLD_TEXT;
+        const BOLD_TEXT = zint_sys::BOLD_TEXT;
         /// CMYK colour space (Encapsulated PostScript and TIF)
-        const CMYK_COLOR = zint_wasm_sys::CMYK_COLOUR;
+        const CMYK_COLOR = zint_sys::CMYK_COLOUR;
         /// Plot a matrix symbol using dots rather than squares
-        const BARCODE_DOTTY_MODE = zint_wasm_sys::BARCODE_DOTTY_MODE;
+        const BARCODE_DOTTY_MODE = zint_sys::BARCODE_DOTTY_MODE;
         /// Use GS instead of FNC1 as GS1 separator (Data Matrix)
-        const GS1_GS_SEPARATOR = zint_wasm_sys::GS1_GS_SEPARATOR;
+        const GS1_GS_SEPARATOR = zint_sys::GS1_GS_SEPARATOR;
         /// Return ASCII values in bitmap buffer (OUT_BUFFER only)
-        const OUT_BUFFER_INTERMEDIATE = zint_wasm_sys::OUT_BUFFER_INTERMEDIATE;
+        const OUT_BUFFER_INTERMEDIATE = zint_sys::OUT_BUFFER_INTERMEDIATE;
         /// Add compliant quiet zones (additional to any specified whitespace)
-        const BARCODE_QUIET_ZONES = zint_wasm_sys::BARCODE_QUIET_ZONES;
+        const BARCODE_QUIET_ZONES = zint_sys::BARCODE_QUIET_ZONES;
         /// Disable quiet zones, notably those with defaults as listed above
-        const BARCODE_NO_QUIET_ZONES = zint_wasm_sys::BARCODE_NO_QUIET_ZONES;
+        const BARCODE_NO_QUIET_ZONES = zint_sys::BARCODE_NO_QUIET_ZONES;
         /// Warn if height not compliant, or use standard height (if any) as default
-        const COMPLIANT_HEIGHT = zint_wasm_sys::COMPLIANT_HEIGHT;
+        const COMPLIANT_HEIGHT = zint_sys::COMPLIANT_HEIGHT;
         /// Add quiet zone indicators ("<"/">") to HRT whitespace (EAN/UPC)
-        const EAN_UPC_GUARD_WHITESPACE = zint_wasm_sys::EANUPC_GUARD_WHITESPACE;
+        const EAN_UPC_GUARD_WHITESPACE = zint_sys::EANUPC_GUARD_WHITESPACE;
         /// Embed font in vector output - currently only for SVG output
-        const EMBED_VECTOR_FONT = zint_wasm_sys::EMBED_VECTOR_FONT;
+        const EMBED_VECTOR_FONT = zint_sys::EMBED_VECTOR_FONT;
         /// Write output to in-memory buffer `memfile` instead of to `outfile`
-        const BARCODE_MEMORY_FILE = zint_wasm_sys::BARCODE_MEMORY_FILE;
+        const BARCODE_MEMORY_FILE = zint_sys::BARCODE_MEMORY_FILE;
     }
 }
 
-impl OutputOptions {
-    pub fn as_i32(&self) -> i32 {
-        self.bits() as i32
+impl From<OutputOptions> for std::ffi::c_int {
+    fn from(value: OutputOptions) -> Self {
+        value.bits() as std::ffi::c_int
     }
 }
 
@@ -102,7 +102,7 @@ impl<'de> Deserialize<'de> for OutputOptions {
             {
                 if v > u32::MAX as u64 {
                     return Err(E::custom(Error::InvalidInputMode(
-                        ValidationFailiure::TooBig,
+                        ValidationFailure::TooBig,
                     )));
                 }
                 Ok(OutputOptions::from_bits_retain(v as u32))
@@ -114,11 +114,11 @@ impl<'de> Deserialize<'de> for OutputOptions {
             {
                 if v > u32::MAX as i64 {
                     return Err(E::custom(Error::InvalidInputMode(
-                        ValidationFailiure::TooBig,
+                        ValidationFailure::TooBig,
                     )));
                 } else if v.is_negative() {
                     return Err(E::custom(Error::InvalidInputMode(
-                        ValidationFailiure::Negative,
+                        ValidationFailure::Negative,
                     )));
                 }
                 Ok(OutputOptions::from_bits_retain(v as u32))

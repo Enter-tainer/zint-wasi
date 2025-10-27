@@ -76,6 +76,8 @@ pub fn action_build_plugin(args: &[String]) -> ActionResult {
 
     action_expect!(cargo([
         "build".to_string(),
+        "-p".to_string(),
+        "zint-typst-plugin".to_string(),
         "--profile".to_string(),
         state!(BUILD_PROFILE),
         "--target".to_string(),

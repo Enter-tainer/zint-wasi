@@ -1,7 +1,8 @@
-use std::{fmt::Display, mem::MaybeUninit, str::Utf8Error};
+use std::{ffi::CStr, fmt::Display, mem::MaybeUninit};
 
 use serde::Deserialize;
-use zint_wasm_sys::*;
+use zint_sys::*;
+use crate::options::symbology::SymbolOptionError;
 
 macro_rules! in_range_or_other {
     ($owner: ident, $repr: ty) => {
@@ -42,154 +43,193 @@ macro_rules! in_range_or_other {
 }
 
 /// Warning conditions (API return values)
-#[derive(thiserror::Error, Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u32, C)]
 #[non_exhaustive]
-pub enum ZintWarning {
+pub enum ZintWarningKind {
     /// Unknown warning
-    #[error("unknown zint warning: #{0}")]
     Other(u32),
     /// Human Readable Text was truncated (max 199 bytes)
-    #[error("Human Readable Text was truncated (max 199 bytes)")]
     HRTTruncated = ZINT_WARN_HRT_TRUNCATED,
     /// Invalid option given but overridden by Zint
-    #[error("Invalid option given but overridden by Zint")]
     InvalidOption = ZINT_WARN_INVALID_OPTION,
     /// Automatic ECI inserted by Zint
-    #[error("Automatic ECI inserted by Zint")]
     UsesECI = ZINT_WARN_USES_ECI,
     /// Symbol created not compliant with standards
-    #[error("Symbol created not compliant with standards")]
     Noncompliant = ZINT_WARN_NONCOMPLIANT,
 }
-
-impl ZintWarning {
+impl ZintWarningKind {
     const FIRST: u32 = ZINT_WARN_HRT_TRUNCATED;
     const LAST: u32 = ZINT_WARN_NONCOMPLIANT;
 }
-in_range_or_other!(ZintWarning, u32);
+in_range_or_other!(ZintWarningKind, u32);
+
+impl Display for ZintWarningKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            ZintWarningKind::Other(number) => return write!(f, "unknown zint warning: #{number}"),
+            ZintWarningKind::HRTTruncated => "Human Readable Text was truncated (max 199 bytes)",
+            ZintWarningKind::InvalidOption => "Invalid option given but overridden by Zint",
+            ZintWarningKind::UsesECI => "Automatic ECI inserted by Zint",
+            ZintWarningKind::Noncompliant => "Symbol created not compliant with standards",
+        })
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct ZintWarning {
+    kind: ZintWarningKind,
+    message: Option<String>,
+}
+
+impl Display for ZintWarning {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if let Some(message) = &self.message {
+            f.write_str(&message)
+        } else {
+            Display::fmt(&self.kind, f)
+        }
+    }
+}
 
 /// Error conditions (API return values)
-#[derive(thiserror::Error, Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u32, C)]
 #[non_exhaustive]
-pub enum ZintError {
+pub enum ZintErrorKind {
     /// Unknown error
-    #[error("unknown zint error: #{0}")]
     Other(u32) = 0,
     /// Input data wrong length
-    #[error("input data wrong length")]
     TooLong = ZINT_ERROR_TOO_LONG,
     /// Input data incorrect
-    #[error("input data incorrect")]
     InvalidData = ZINT_ERROR_INVALID_DATA,
     /// Input check digit incorrect
-    #[error("input check digit incorrect")]
     InvalidCheck = ZINT_ERROR_INVALID_CHECK,
     /// Incorrect option given
-    #[error("incorrect option given")]
     InvalidOption = ZINT_ERROR_INVALID_OPTION,
     /// Internal error (should not happen)
-    #[error("internal error")]
     EncodingProblem = ZINT_ERROR_ENCODING_PROBLEM,
     /// Error opening output file
-    #[error("error opening output file")]
     FileAccess = ZINT_ERROR_FILE_ACCESS,
     /// Memory allocation (malloc) failure
-    #[error("memory allocation failure")]
     Memory = ZINT_ERROR_MEMORY,
     /// Error writing to output file
-    #[error("error writing to output file")]
     FileWrite = ZINT_ERROR_FILE_WRITE,
 
     // Errors caused by warnings
     /// Automatic ECI inserted by Zint
-    #[error("Automatic ECI inserted by Zint")]
     UsesECI = ZINT_ERROR_USES_ECI,
     /// Symbol created not compliant with standards
-    #[error("Symbol created not compliant with standards")]
-    Noncompliant = ZINT_ERROR_NONCOMPLIANT,
+    NotCompliant = ZINT_ERROR_NONCOMPLIANT,
     /// Human Readable Text was truncated (max 199 bytes)
-    #[error("Human Readable Text was truncated (max 199 bytes)")]
     HRTTruncated = ZINT_ERROR_HRT_TRUNCATED,
 }
-
-impl ZintError {
-    const FIRST: u32 = ZintWarning::LAST + 1;
+impl ZintErrorKind {
+    const FIRST: u32 = ZintWarningKind::LAST + 1;
     const LAST: u32 = ZINT_ERROR_HRT_TRUNCATED;
 }
-in_range_or_other!(ZintError, u32);
+in_range_or_other!(ZintErrorKind, u32);
 
-#[derive(Debug, Clone, Copy)]
-#[repr(u32)]
-pub enum ZintOk {
-    /// Ok result, indicating no errors
-    Ok = 0,
+impl Display for ZintErrorKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            Self::Other(other) => return write!(f, "unknown zint error: #{other}"),
+            Self::TooLong => "input data wrong length",
+            Self::InvalidData => "input data incorrect",
+            Self::InvalidCheck => "input check digit incorrect",
+            Self::InvalidOption => "incorrect option given",
+            Self::EncodingProblem => "internal error",
+            Self::FileAccess => "error opening output file",
+            Self::Memory => "memory allocation failure",
+            Self::FileWrite => "error writing to output file",
+            Self::UsesECI => "Automatic ECI inserted by Zint",
+            Self::NotCompliant => "created Symbol is not compliant with standards",
+            Self::HRTTruncated => "Human Readable Text was truncated (max 199 bytes)",
+        })
+    }
 }
 
-/// A safe wrapper around Zint return values.
+#[derive(Debug, Clone)]
+pub struct ZintError {
+    kind: ZintErrorKind,
+    message: Option<String>,
+}
+impl Display for ZintError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if let Some(message) = &self.message {
+            f.write_str(message)
+        } else {
+            Display::fmt(&self.kind, f)
+        }
+    }
+}
+impl std::error::Error for ZintError {}
+
+/// A safe wrapper around zint return values.
 ///
-/// All variants are `u32`.
-#[derive(Clone, Copy)]
-pub struct ZintResult(u32);
+/// zint always returns a single warning/error if the result isn't `Ok`
+/// (indicated by 0), with errors having precedence over warnings. In other
+/// words, if both an error and warning occur during some procedure, only the
+/// error will be returned.
+#[derive(Clone)]
+pub enum ZintResult {
+    Ok,
+    Warning(ZintWarning),
+    Error(ZintError),
+}
 impl ZintResult {
+    #[allow(clippy::not_unsafe_ptr_arg_deref)]
+    pub fn from(value: u32, symbol: *const zint_symbol) -> Self {
+        if value == 0 {
+            ZintResult::Ok
+        } else {
+            if symbol.is_null() {
+                return ZintResult::Error(ZintError {
+                    kind: ZintErrorKind::InvalidData,
+                    message: Some("symbol is null".to_string()),
+                });
+            }
+            let symbol = unsafe { symbol.as_ref().unwrap_unchecked() };
+            let message = unsafe {
+                let error_text = std::mem::transmute::<&[i8], &[u8]>(&symbol.errtxt);
+                CStr::from_bytes_until_nul(error_text).unwrap_unchecked()
+            };
+            let message = Some(message.to_string_lossy().to_string());
+            if value <= ZintWarningKind::LAST {
+                let kind = ZintWarningKind::from(value);
+                ZintResult::Warning(ZintWarning { kind, message })
+            } else {
+                let kind = ZintErrorKind::from(value);
+                ZintResult::Error(ZintError { kind, message })
+            }
+        }
+    }
     pub fn is_ok(&self) -> bool {
-        self.0 == 0
+        matches!(self, ZintResult::Ok)
     }
     pub fn is_warning(&self) -> bool {
-        (ZintWarning::FIRST..=ZintWarning::LAST).contains(&self.0)
+        matches!(self, ZintResult::Warning(_))
     }
     pub fn is_error(&self) -> bool {
-        (ZintError::FIRST..).contains(&self.0)
+        matches!(self, ZintResult::Error(_))
     }
-    pub fn as_warning(&self) -> Option<ZintWarning> {
-        if !self.is_warning() {
-            return None;
+    pub fn as_warning(&self) -> Option<&ZintWarning> {
+        match self {
+            ZintResult::Warning(zint_warning) => Some(zint_warning),
+            _ => None,
         }
-        Some(ZintWarning::from(self.0))
     }
-    pub fn as_error(&self) -> Option<ZintError> {
-        if !self.is_error() {
-            return None;
+    pub fn as_error(&self) -> Option<&ZintError> {
+        match self {
+            ZintResult::Error(zint_error) => Some(zint_error),
+            _ => None,
         }
-        Some(ZintError::from(self.0))
-    }
-}
-impl From<u32> for ZintResult {
-    #[inline]
-    fn from(value: u32) -> Self {
-        ZintResult(value)
-    }
-}
-impl From<ZintResult> for u32 {
-    #[inline]
-    fn from(value: ZintResult) -> Self {
-        value.0
     }
 }
 
-impl From<ZintOk> for ZintResult {
-    #[inline]
-    fn from(_: ZintOk) -> Self {
-        ZintResult(0)
-    }
-}
-impl From<ZintWarning> for ZintResult {
-    #[inline]
-    fn from(warning: ZintWarning) -> Self {
-        ZintResult(warning.into())
-    }
-}
-impl From<ZintError> for ZintResult {
-    #[inline]
-    fn from(error: ZintError) -> Self {
-        ZintResult(error.into())
-    }
-}
-
-/// Additional information about reason for failiure.
+/// Additional information about reason for failure.
 #[derive(Debug)]
-pub enum ValidationFailiure {
+pub enum ValidationFailure {
     // generic
     TooBig,
     Negative,
@@ -197,27 +237,41 @@ pub enum ValidationFailiure {
     UnknownFormat,
     MultipleFormats,
 }
-impl Display for ValidationFailiure {
+
+impl Display for ValidationFailure {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(match self {
-            ValidationFailiure::TooBig => "value is too large",
-            ValidationFailiure::Negative => "value is negative",
-            ValidationFailiure::UnknownFormat => "unknown input format",
-            ValidationFailiure::MultipleFormats => "selected multiple input formats",
+            ValidationFailure::TooBig => "value is too large",
+            ValidationFailure::Negative => "value is negative",
+            ValidationFailure::UnknownFormat => "unknown input format",
+            ValidationFailure::MultipleFormats => "selected multiple input formats",
         })
     }
 }
+
+#[derive(Debug)]
+pub enum ZintProblem {
+    Error(ZintError),
+    Warning(ZintWarning),
+}
+impl Display for ZintProblem {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ZintProblem::Error(zint_error) => Display::fmt(zint_error, f),
+            ZintProblem::Warning(zint_warning) => Display::fmt(zint_warning, f),
+        }
+    }
+}
+impl std::error::Error for ZintProblem {}
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     /// Error originating from Zint
     #[error(transparent)]
-    Zint(#[from] ZintError),
-    #[error("zint returned non-utf8 SVG result")]
-    InvalidResultSVG(#[source] Utf8Error),
+    Zint(#[from] ZintProblem),
     /// Invalid output options
     #[error("invalid input mode: {0}")]
-    InvalidInputMode(ValidationFailiure),
+    InvalidInputMode(ValidationFailure),
     /// Multiple input modes selected
     #[error("multiple input modes selected")]
     MultipleInputModes,
@@ -226,7 +280,7 @@ pub enum Error {
     UnknownInputOption(String),
     /// Invalid output options
     #[error("invalid output options: {0}")]
-    InvalidOutputOptions(ValidationFailiure),
+    InvalidOutputOptions(ValidationFailure),
     /// Unknown output option
     #[error("unknown output option: {0}")]
     UnknownOutputOption(String),
@@ -241,14 +295,36 @@ pub enum Error {
         which: &'static str,
         value: Box<dyn std::fmt::Debug>,
     },
+    #[error(transparent)]
+    SymbolOptionError(#[from] SymbolOptionError),
+    /// This error occurs when trying to construct [`VectorData`] from a Symbol that
+    /// hasn't been encoded yet.
+    ///
+    /// [`VectorData`]: crate::vector::VectorData
+    #[error("Symbol is missing vector data")]
+    MissingVectorData,
+    /// This error occurs when trying to construct [`RasterData`] from a Symbol that
+    /// hasn't been encoded yet.
+    ///
+    /// [`RasterData`]: crate::raster::RasterData
+    #[error("Symbol is missing raster data")]
+    MissingRasterData,
 }
 
-/// Warning level (symbol->warn_level)
-#[derive(Debug, Copy, Clone, Deserialize)]
-#[repr(u32)]
-pub enum WarningLevel {
-    /// Default behaviour
-    Default = WARN_DEFAULT,
-    /// Treat warning as error
-    FailAll = WARN_FAIL_ALL,
+impl From<std::convert::Infallible> for Error {
+    fn from(_: std::convert::Infallible) -> Self {
+        unreachable!()
+    }
+}
+
+impl From<ZintError> for Error {
+    fn from(value: ZintError) -> Self {
+        Self::Zint(ZintProblem::Error(value))
+    }
+}
+
+impl From<ZintWarning> for Error {
+    fn from(value: ZintWarning) -> Self {
+        Self::Zint(ZintProblem::Warning(value))
+    }
 }

@@ -1,19 +1,29 @@
 [package]
-name = "zint-wasm-rs"
-version = "0.2.1"
+name = "zint-rs"
+version = "0.3.0"
 license = "MIT"
 edition.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
-default = []
-typst = []
+default = ["raster", "vector", "svg", "ps", "emf"]
+raster = ["zint-sys/raster", "display", "dep:image"]
+vector = ["zint-sys/vector"]
+display = []
+svg = ["display", "vector", "zint-sys/svg"]
+ps = ["display", "vector", "zint-sys/ps"]
+emf = ["display", "vector", "zint-sys/emf"]
 
 [dependencies]
-zint-wasm-sys = { path = "../zint-wasm-sys" }
+zint-rs-macros = {path = "./macros"}
+
+zint-sys = { path = "../zint-wasm-sys", default-features = false, features = ["internals"]}
 
 serde = { version = "1", features = ["derive"] }
 hex = "0.4"
 
+image = { version = "0.25", optional = true, default-features = false }
+
 bitflags = { version = "2.4", features = ["serde"] }
-thiserror = "1.0"
+thiserror = "2.0"
+log = "0.4"

@@ -5,6 +5,7 @@ resolver = "2"
 members = [
     "zint-wasm-sys",
     "zint-wasm-rs",
+    "zint-wasm-rs/macros",
     "zint-typst-plugin",
     "zint-typst-plugin/vendor/wasm-minimal-protocol/crates/macro",
     "zint-typst-plugin/vendor/wasm-minimal-protocol/crates/wasi-stub",

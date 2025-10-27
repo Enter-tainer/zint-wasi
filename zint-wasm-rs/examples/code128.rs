@@ -1,14 +1,25 @@
-use zint_wasm_rs::{
-    options::{symbology::Symbology, Options},
-    symbol::Symbol,
+use zint_rs::{
+    options::{symbology::Symbology, DisplayOptions},
+    output::SvgPlot,
+    symbol::Symbol, GenericOptions,
 };
 
 pub fn main() {
     let encoded_text = "A12345B";
-    let options = Options::with_symbology(Symbology::Code128);
-    let symbol = Symbol::new(&options);
-    match symbol.encode_svg(encoded_text, 0, 0) {
-        Ok(svg) => println!("{}", svg),
-        Err(err) => println!("{:#?}", err),
-    }
+    let symbol = Symbol::encode_ascii(
+        GenericOptions::from_symbology(Symbology::Code128),
+        encoded_text,
+    );
+    let mut symbol = match symbol {
+        Ok(it) => it,
+        Err(err) => {
+            eprintln!("unable to encode code 128 symbol: {err}");
+            std::process::exit(1);
+        },
+    };
+    let plot: SvgPlot = symbol
+        .plot(&DisplayOptions::default())
+        .expect("unable to plot symbol");
+    let plot: String = plot.into();
+    println!("{plot}");
 }

@@ -1,55 +1,6 @@
 #let zint-wasm = plugin("./zint_typst_plugin.wasm")
 
-// handles option conversion
-#let _proc_options(options) = {
-  let result = options
-
-  let proc_color(opt, name) = {
-    let c = opt.at(name, default: none)
-    if c != none {
-      if type(c) == color {
-        return c.to-hex().slice(1)
-      } else if type(c) == str {
-        if c.at(0) == "#" {
-          color.rgb(c) // error: not a valid HEX color
-        } else {
-          color.rgb("#" + c) // error: not a valid HEX color
-        }
-        return c
-      } else {
-        panic(name + " must be a color or HEX color str; found: " + type(c))
-      }
-    }
-    return none
-  }
-
-  let fg-color = proc_color(result, "fg-color")
-  if fg-color != none {
-    result.insert("fg-color", fg-color)
-  }
-  let bg-color = proc_color(result, "bg-color")
-  if bg-color != none {
-    result.insert("bg-color", bg-color)
-  }
-
-  return result
-}
-
-/// Draw a barcode SVG of any supported `symbology`.
-///
-/// *Example:*
-/// #example(
-/// `
-/// tiaoma.barcode("12345678", "QRCode", options: (
-///   scale: 2.0,
-///   fg-color: blue,
-///   bg-color: green.lighten(70%),
-///   output-options: (
-///     barcode-dotty-mode: true
-///   ),
-///   dot-size: 1.2,
-/// ))
-/// `)
+/// Draw a barcode of any supported `symbology`.
 ///
 /// - data (str): Data to encode.
 /// - symbology (str): Symbology type name; must be one of #l(<symbology>)[supported types].
@@ -58,9 +9,11 @@
 /// - options (dictionary): Additional options to pass to Zint.
 ///
 ///     See the #l(<options>)[configuration section] for details on available options and how to use them.
-/// - ..args (any): Any additional arguments to forward to #l("https://typst.app/docs/reference/visualize/image/#definitions-decode", raw("image.decode", lang: "typ")) function.
+/// - fg-color (color): Foreground color for barcode elements.
+/// - bg-color (color, none): Background color. Set to `none` for transparent.
+/// - ..args (any): Any additional arguments to forward to the container.
 /// -> content
-#let barcode(data, symbology, options: (:), ..args) = {
+#let barcode(data, symbology, options: (:), fg-color: black, bg-color: none, ..args) = {
   let data = data
   if type(data) == str {
     data = bytes(data)
@@ -68,14 +21,61 @@
     data = bytes(data)
   }
 
-  image.decode(
-    zint-wasm.gen_with_options(
-      cbor.encode((symbology: symbology, .._proc_options(options))),
-      data,
-    ),
-    format: "svg",
-    ..args,
-  )
+  let result = cbor(zint-wasm.zint_encode(
+    cbor.encode((symbology: symbology, ..options)),
+    data,
+  ))
+
+  // Unwrap Result envelope
+  let plot = if "Ok" in result {
+    result.Ok
+  } else if "Err" in result {
+    panic(result.Err.message)
+  } else {
+    panic("unexpected zint response: " + repr(result))
+  }
+
+  let w = plot.width
+  let h = plot.height
+  let geo = plot.geometry
+
+  box(width: w * 1pt, height: h * 1pt, fill: bg-color, ..args.named())[
+    // Rectangles
+    #for r in geo.at("rectangles", default: ()) {
+      place(dx: r.x * 1pt, dy: r.y * 1pt,
+        rect(width: r.width * 1pt, height: r.height * 1pt, fill: fg-color))
+    }
+    // Circles
+    #for c in geo.at("circles", default: ()) {
+      place(dx: (c.x - c.diameter / 2) * 1pt, dy: (c.y - c.diameter / 2) * 1pt,
+        circle(radius: c.diameter / 2 * 1pt,
+          fill: if c.width == 0.0 { fg-color } else { none },
+          stroke: if c.width > 0.0 { fg-color + c.width * 1pt } else { none }))
+    }
+    // Hexagons (MaxiCode)
+    #for hex in geo.at("hexagons", default: ()) {
+      let r = hex.diameter / 2
+      // Regular hexagon path centered at (hex.x, hex.y)
+      place(dx: hex.x * 1pt, dy: hex.y * 1pt,
+        path(fill: fg-color, closed: true,
+          (r * calc.cos(0deg) * 1pt, r * calc.sin(0deg) * 1pt),
+          (r * calc.cos(60deg) * 1pt, r * calc.sin(60deg) * 1pt),
+          (r * calc.cos(120deg) * 1pt, r * calc.sin(120deg) * 1pt),
+          (r * calc.cos(180deg) * 1pt, r * calc.sin(180deg) * 1pt),
+          (r * calc.cos(240deg) * 1pt, r * calc.sin(240deg) * 1pt),
+          (r * calc.cos(300deg) * 1pt, r * calc.sin(300deg) * 1pt),
+        ))
+    }
+    // Text (HRT) — zint returns (x, y) as (center, baseline)
+    #for s in geo.at("strings", default: ()) {
+      let tw = s.width * 1pt
+      let halign = if s.horizontal_align == "Left" { left }
+        else if s.horizontal_align == "Right" { right }
+        else { center }
+      place(dx: s.x * 1pt - tw / 2, dy: (s.y - s.font_size) * 1pt,
+        box(width: tw, align(halign, text(size: s.font_size * 1pt, top-edge: "ascender", bottom-edge: "descender", fill: fg-color, s.text))))
+    }
+  ]
 }
 
 /// Returns #typst-type("int") option value for given Data Matrix _width_ and _height_.
