@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use zint_wasm_sys::*;
+use zint_sys::*;
 
 /// Capability flags (ZBarcode_Cap() `cap_flag`)
 #[derive(Debug, Copy, Clone, Serialize, Deserialize)]
@@ -36,6 +36,9 @@ pub enum CapabilityFlags {
     StructApp,
     /// Has compliant height?
     CompliantHeight,
+    /// Has row separators that can be set?
+    /// Includes stacked symbologies and stackable linear symbologies.
+    Bindable,
 }
 
 impl From<CapabilityFlags> for i32 {
@@ -56,6 +59,7 @@ impl From<CapabilityFlags> for i32 {
             CapabilityFlags::Mask => ZINT_CAP_MASK,
             CapabilityFlags::StructApp => ZINT_CAP_STRUCTAPP,
             CapabilityFlags::CompliantHeight => ZINT_CAP_COMPLIANT_HEIGHT,
+            CapabilityFlags::Bindable => ZINT_CAP_BINDABLE,
         }
         .try_into()
         .unwrap()

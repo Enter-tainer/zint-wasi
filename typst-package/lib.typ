@@ -67,15 +67,19 @@
   } else if type(data) == array {
     data = bytes(data)
   }
+  
+  let text-options = options.at("hrt", default: (:))
 
-  image(
-    zint-wasm.gen_with_options(
-      cbor.encode((symbology: symbology, .._proc_options(options))),
-      data,
-    ),
-    format: "svg",
-    ..args,
-  )
+  box()[
+    #image.decode(
+      zint-wasm.gen_with_options(
+        cbor.encode((symbology: symbology, .._proc_options(options))),
+        data,
+      ),
+      format: "svg",
+      ..args,
+    )
+  ]
 }
 
 /// Returns #typst-type("int") option value for given Data Matrix _width_ and _height_.

@@ -1,5 +1,7 @@
 use wasm_minimal_protocol::*;
-use zint_wasm_rs::{options::Options, symbol::Symbol};
+use zint_wasm_rs::{options::Options, symbol::{Rotation, Symbol}};
+
+mod serde;
 
 initiate_protocol!();
 
@@ -21,6 +23,6 @@ pub fn gen_with_options(options: &[u8], text: &[u8]) -> Result<Vec<u8>> {
     let options: Options = ciborium::from_reader(options)?;
     let text = std::str::from_utf8(text).expect("non-utf8 string"); // bytes(data) always creates a utf8 slice
     let symbol = Symbol::new(&options);
-    let svg = symbol.encode_svg(text, 0, 0)?;
+    let svg = symbol.encode(text, Rotation::Deg0)?;
     Ok(svg.into_bytes())
 }

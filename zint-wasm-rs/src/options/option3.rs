@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 
 use serde::Deserialize;
-use zint_wasm_sys::*;
+use zint_sys::*;
 
 use crate::error::Error;
 
@@ -176,29 +176,34 @@ pub union Option3 {
 }
 
 impl Option3 {
-    pub fn as_i32(&self) -> i32 {
+    pub(crate) fn as_c_int(&self) -> std::ffi::c_int {
         let result: u32 = unsafe {
             // Safety: All variants are u32
             std::mem::transmute(*self)
         };
-
-        result as i32
+        result as std::ffi::c_int
     }
+
     /// # Safety
+    /// 
     /// Option3 can be treated as [`DataMatrixOption`] only when
     /// [`symbology`](super::Options::symbology) stored in parent
     /// [`Options`](super::Options) permits so.
     pub unsafe fn as_data_matrix(&self) -> DataMatrixOption {
         self.data_matrix
     }
+    
     /// # Safety
+    /// 
     /// Option3 can be treated as [`QRMatrixOption`] only when
     /// [`symbology`](super::Options::symbology) stored in parent
     /// [`Options`](super::Options) permits so.
     pub unsafe fn as_qr_matrix(&self) -> QRMatrixOption {
         self.qr_matrix
     }
+    
     /// # Safety
+    /// 
     /// Option3 can be treated as [`UltracodeOption`] only when
     /// [`symbology`](super::Options::symbology) stored in parent
     /// [`Options`](super::Options) permits so.
@@ -209,7 +214,7 @@ impl Option3 {
 
 impl Debug for Option3 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.as_i32().fmt(f)
+        self.as_c_int().fmt(f)
     }
 }
 

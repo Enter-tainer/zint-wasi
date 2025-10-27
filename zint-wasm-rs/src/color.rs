@@ -4,7 +4,8 @@ use serde::Deserialize;
 
 use crate::error::Error;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[repr(C)]
 pub struct Color {
     pub r: u8,
     pub g: u8,
@@ -17,14 +18,25 @@ impl Color {
         r: 0,
         g: 0,
         b: 0,
-        a: u8::MAX,
+        a: 0xFF,
+    };
+    pub const WHITE: Color = Color {
+        r: 0xFF,
+        g: 0xFF,
+        b: 0xFF,
+        a: 0xFF,
     };
     pub const TRANSPARENT: Color = Color {
-        r: u8::MAX,
-        g: u8::MAX,
-        b: u8::MAX,
+        r: 0xFF,
+        g: 0xFF,
+        b: 0xFF,
         a: 0,
     };
+
+    #[inline]
+    pub fn new(r: u8, g: u8, b: u8, a: u8) -> Self {
+        Self { r, g, b, a }
+    }
 
     pub fn to_hex_string(&self) -> String {
         hex::encode([self.r, self.g, self.b, self.a])

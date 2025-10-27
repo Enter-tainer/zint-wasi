@@ -1,16 +1,34 @@
 [package]
-name = "zint-wasm-sys"
-version = "0.1.0"
+name = "zint-sys"
+version = "0.2.0"
 edition = "2021"
 description = "Rust bindings for Wasm build of zint"
 license = "MIT"
 categories = ["external-ffi-bindings"]
+
+[features]
+default = [
+    "raster",
+    "vector", "svg", "emf", "ps"
+]
+
+raster = []
+# Raster formats are intentionally excluded as image crate will yield much
+# better integration in Rust ecosystem; use symbol.bitmap and symbol.alphamap
+
+vector = []
+ps = ["vector"]
+emf = ["vector"]
+svg = ["vector"]
+
+# Provides access to some internals to allow finer control over execution
+internals = []
 
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
 libc = "0.2"
 
 [build-dependencies]
 cc = "1.0"
-bindgen = "0.70.1"
+bindgen = "0.72.1"
 walkdir = { workspace = true }
 anyhow = "1"
