@@ -1,6 +1,6 @@
 use crate::util::*;
+use syn::parse::Parse;
 use syn::*;
-use syn::{parse::Parse, token::PathSep};
 use syn::{punctuated::Punctuated, spanned::Spanned};
 
 pub mod options;
@@ -43,7 +43,7 @@ pub struct SymbologyVariant {
     pub attrs: Vec<Attribute>,
     pub name: Ident,
     pub eq_token: Token![=],
-    pub brace_token: token::Brace,
+    pub _brace_token: token::Brace,
     pub entries: Punctuated<SymbologyEntry, Token![,]>,
 }
 
@@ -61,7 +61,7 @@ impl Parse for SymbologyVariant {
             attrs,
             name: symbol_name,
             eq_token,
-            brace_token,
+            _brace_token: brace_token,
             entries,
         };
         result.validate()?;
@@ -161,10 +161,11 @@ impl SymbologyVariant {
         }
     }
 
+    #[allow(dead_code)]
     pub fn aliases(&self) -> Option<&[LitStr]> {
         let raw = self.get_entry(SymbologyEntry::ALIAS_NAME)?;
         match raw {
-            SymbologyEntry::Aliases { aliases, .. } => Some(aliases),
+            SymbologyEntry::Aliases { _aliases, .. } => Some(_aliases),
             _ => unreachable!(),
         }
     }
@@ -246,7 +247,7 @@ pub enum SymbologyEntry {
     },
     Aliases {
         name: Ident,
-        aliases: Vec<LitStr>,
+        _aliases: Vec<LitStr>,
     },
     Options {
         attrs: Vec<Attribute>,
@@ -308,7 +309,10 @@ impl Parse for SymbologyEntry {
                 });
                 let aliases = flatten_errors(aliases)?;
 
-                SymbologyEntry::Aliases { name, aliases }
+                SymbologyEntry::Aliases {
+                    name,
+                    _aliases: aliases,
+                }
             }
             SymbologyEntry::APPLY_OPTION_NAME if attrs.is_empty() => Self::ApplyOption {
                 name,

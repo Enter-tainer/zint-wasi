@@ -31,7 +31,7 @@ impl TryFrom<u32> for DataMatrixOption {
                 return Err(Error::UnknownOption {
                     which: "option_3",
                     value: Box::new(other),
-                })
+                });
             }
         })
     }
@@ -159,14 +159,14 @@ impl TryFrom<u32> for UltracodeOption {
                 return Err(Error::UnknownOption {
                     which: "option_3",
                     value: Box::new(other),
-                })
+                });
             }
         })
     }
 }
 
 /// Option3 is an `u32` whose variant is determined by
-/// [`Options::symbology`](super::Options::symbology) value.
+/// [`Options::symbology`](super::GenericOptions::symbology) value.
 #[derive(Clone, Copy)]
 #[repr(C)]
 pub union Option3 {
@@ -185,30 +185,30 @@ impl Option3 {
     }
 
     /// # Safety
-    /// 
+    ///
     /// Option3 can be treated as [`DataMatrixOption`] only when
-    /// [`symbology`](super::Options::symbology) stored in parent
-    /// [`Options`](super::Options) permits so.
+    /// [`symbology`](super::GenericOptions::symbology) stored in parent
+    /// [`Options`](super::GenericOptions) permits so.
     pub unsafe fn as_data_matrix(&self) -> DataMatrixOption {
-        self.data_matrix
+        unsafe { self.data_matrix }
     }
-    
+
     /// # Safety
-    /// 
+    ///
     /// Option3 can be treated as [`QRMatrixOption`] only when
-    /// [`symbology`](super::Options::symbology) stored in parent
-    /// [`Options`](super::Options) permits so.
+    /// [`symbology`](super::GenericOptions::symbology) stored in parent
+    /// [`Options`](super::GenericOptions) permits so.
     pub unsafe fn as_qr_matrix(&self) -> QRMatrixOption {
-        self.qr_matrix
+        unsafe { self.qr_matrix }
     }
-    
+
     /// # Safety
-    /// 
+    ///
     /// Option3 can be treated as [`UltracodeOption`] only when
-    /// [`symbology`](super::Options::symbology) stored in parent
-    /// [`Options`](super::Options) permits so.
+    /// [`symbology`](super::GenericOptions::symbology) stored in parent
+    /// [`Options`](super::GenericOptions) permits so.
     pub unsafe fn as_ultracode(&self) -> UltracodeOption {
-        self.ultracode
+        unsafe { self.ultracode }
     }
 }
 

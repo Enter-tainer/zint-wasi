@@ -1,7 +1,7 @@
 [workspace]
-package.edition = "2021"
+package.edition = "2024"
 package.license = "MIT"
-resolver = "2"
+resolver = "3"
 members = [
     "zint-wasm-sys",
     "zint-wasm-rs",

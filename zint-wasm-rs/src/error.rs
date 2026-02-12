@@ -1,8 +1,7 @@
 use std::{ffi::CStr, fmt::Display, mem::MaybeUninit};
 
-use serde::Deserialize;
-use zint_sys::*;
 use crate::options::symbology::SymbolOptionError;
+use zint_sys::*;
 
 macro_rules! in_range_or_other {
     ($owner: ident, $repr: ty) => {
@@ -85,7 +84,7 @@ pub struct ZintWarning {
 impl Display for ZintWarning {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if let Some(message) = &self.message {
-            f.write_str(&message)
+            f.write_str(message)
         } else {
             Display::fmt(&self.kind, f)
         }
@@ -297,16 +296,18 @@ pub enum Error {
     },
     #[error(transparent)]
     SymbolOptionError(#[from] SymbolOptionError),
-    /// This error occurs when trying to construct [`VectorData`] from a Symbol that
-    /// hasn't been encoded yet.
-    ///
-    /// [`VectorData`]: crate::vector::VectorData
+    /// Non-latin character found in input for `encode_ascii`
+    #[error("non-latin character '{}' at position {position} in encode_ascii input", .char)]
+    NonLatinCharacter { char: char, position: usize },
+    /// Too many segments provided for the symbology
+    #[error("too many segments: provided {provided}, maximum allowed {maximum}")]
+    TooManySegments { provided: usize, maximum: usize },
+    /// This error occurs when trying to plot a Symbol that hasn't been
+    /// encoded with vector output enabled.
     #[error("Symbol is missing vector data")]
     MissingVectorData,
-    /// This error occurs when trying to construct [`RasterData`] from a Symbol that
-    /// hasn't been encoded yet.
-    ///
-    /// [`RasterData`]: crate::raster::RasterData
+    /// This error occurs when trying to plot a Symbol that hasn't been
+    /// encoded with raster output enabled.
     #[error("Symbol is missing raster data")]
     MissingRasterData,
 }

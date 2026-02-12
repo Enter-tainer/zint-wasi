@@ -76,6 +76,7 @@ macro_rules! end_group {
     }};
 }
 
+#[allow(dead_code)]
 pub struct DisplayDuration {
     pub duration: std::time::Duration,
     pub show_ms: bool,

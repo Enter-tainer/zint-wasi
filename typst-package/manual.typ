@@ -812,7 +812,7 @@ Following symbology values are supported:
   typst-val("\"MSIPlessey\""),
   typst-val("\"FIM\""),
 
-  typst-val("\"Logmars\""),
+  typst-val("\"LOGMARS\""),
   typst-val("\"Pharma\""),
   typst-val("\"PZN\""),
   typst-val("\"PharmaTwo\""),
@@ -861,7 +861,7 @@ Following symbology values are supported:
   typst-val("\"HIBCQR\""),
   typst-val("\"HIBCPDF\""),
 
-  typst-val("\"HIBCMicPDF\""),
+  typst-val("\"HIBCMicroPDF\""),
   typst-val("\"HIBCCodablockF\""),
   typst-val("\"HIBCAztec\""),
   typst-val("\"DotCode\""),
@@ -890,4 +890,11 @@ Following symbology values are supported:
   typst-val("\"UPNQR\""),
 
   typst-val("\"Ultra\""), typst-val("\"RMQR\""), typst-val("\"BC412\""),
+  typst-val("\"DXFilmEdge\""),
+  typst-val("\"EAN2\""),
+  typst-val("\"EAN5\""),
+  typst-val("\"EAN8\""),
+  typst-val("\"EAN13\""),
+  typst-val("\"EAN8CC\""),
+  typst-val("\"EAN13CC\""),
 )

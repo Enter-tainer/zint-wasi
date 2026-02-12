@@ -135,7 +135,7 @@ impl<'de> Deserialize<'de> for OutputOptions {
                         None => {
                             return Err(de::Error::custom(Error::UnknownOutputOption(
                                 el.to_string(),
-                            )))
+                            )));
                         }
                     }
                 }
@@ -161,7 +161,7 @@ impl<'de> Deserialize<'de> for OutputOptions {
                         None => {
                             return Err(de::Error::custom(Error::UnknownOutputOption(
                                 key.to_string(),
-                            )))
+                            )));
                         }
                     }
                 }

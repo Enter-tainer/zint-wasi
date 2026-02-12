@@ -16,9 +16,9 @@ pub enum MSIPlesseyCheckDigits {
     Two(ModuloScheme),
 }
 
-impl Into<std::ffi::c_int> for MSIPlesseyCheckDigits {
-    fn into(self) -> std::ffi::c_int {
-        match self {
+impl From<MSIPlesseyCheckDigits> for std::ffi::c_int {
+    fn from(val: MSIPlesseyCheckDigits) -> Self {
+        match val {
             MSIPlesseyCheckDigits::None => 0,
             MSIPlesseyCheckDigits::One(modulo_scheme) => match modulo_scheme {
                 ModuloScheme::Luhn => 1,

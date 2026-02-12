@@ -98,7 +98,6 @@ fn main() -> Result<()> {
         "zint/backend/telepen.c",
         "zint/backend/ultra.c",
         "zint/backend/upcean.c",
-
         "patch/patch.c",
     ];
 
@@ -127,7 +126,6 @@ fn main() -> Result<()> {
         .flag_if_supported("-Wno-shift-op-parentheses")
         .flag_if_supported("-Wno-maybe-uninitialized")
         .opt_level(2);
-
 
     macro_rules! cfg_enable_formats {
         ($($format:literal || $define:literal),*) => {

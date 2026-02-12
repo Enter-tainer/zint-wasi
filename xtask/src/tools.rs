@@ -36,10 +36,10 @@ pub fn has_command(name: impl AsRef<OsStr>) -> bool {
     static CACHE: OnceLock<RwLock<HashMap<OsString, bool>>> = OnceLock::new();
     let cache = CACHE.get_or_init(|| RwLock::new(HashMap::new()));
 
-    if let Ok(cache) = cache.try_read() {
-        if let Some(cached) = cache.get(name.as_ref()) {
-            return *cached;
-        }
+    if let Ok(cache) = cache.try_read()
+        && let Some(cached) = cache.get(name.as_ref())
+    {
+        return *cached;
     }
 
     let which = if cfg!(target_os = "windows") {
@@ -146,10 +146,10 @@ fn download_wget(url: &str, path: &Path) -> Result<(), DownloadError> {
     // https://www.gnu.org/software/wget/manual/html_node/Exit-Status.html
     match status.code() {
         Some(0) => Ok(()),
-        Some(3) => Err(DownloadError::IO(io::Error::new(
-            io::ErrorKind::Other,
-            format!("file I/O error: {}", path.display()),
-        ))),
+        Some(3) => Err(DownloadError::IO(io::Error::other(format!(
+            "file I/O error: {}",
+            path.display()
+        )))),
         Some(4) => Err(DownloadError::BadUrl {
             url: url.to_string(),
         }),
@@ -177,10 +177,10 @@ fn download_curl(url: &str, path: &Path) -> Result<(), DownloadError> {
         Some(3) | Some(5) | Some(6) | Some(7) => Err(DownloadError::BadUrl {
             url: url.to_string(),
         }),
-        Some(23) => Err(DownloadError::IO(io::Error::new(
-            io::ErrorKind::Other,
-            format!("file I/O error: {}", path.display()),
-        ))),
+        Some(23) => Err(DownloadError::IO(io::Error::other(format!(
+            "file I/O error: {}",
+            path.display()
+        )))),
         _ => Err(DownloadError::CommandError(
             CommandError::from(status).program(CURL),
         )),
@@ -328,10 +328,10 @@ pub fn wasi_stub(input: impl AsRef<Path>, output: impl AsRef<Path>) -> Result<()
     if !exists(&input) {
         return Err(CommandError::file_not_found("input", &input).program(WASI_STUB));
     }
-    if let Some(parent) = output.as_ref().parent() {
-        if let Err(err) = std::fs::create_dir_all(parent) {
-            return Err(CommandError::inaccessible("output", err));
-        }
+    if let Some(parent) = output.as_ref().parent()
+        && let Err(err) = std::fs::create_dir_all(parent)
+    {
+        return Err(CommandError::inaccessible("output", err));
     }
 
     let runner = make_runner!(Fn(input: &Path, output: &Path) -> Result<(), CommandError> {
@@ -365,7 +365,7 @@ pub fn wasi_stub(input: impl AsRef<Path>, output: impl AsRef<Path>) -> Result<()
             let executable_path = executable_path
                 .canonicalize()
                 .expect("unable to canonicalize path that exists");
-            return Some(runner(executable_path.as_os_str()));
+            Some(runner(executable_path.as_os_str()))
         };
         if let Some(it) = try_prebuilt("release") {
             return it;
@@ -399,10 +399,10 @@ pub fn wasm_opt(input: impl AsRef<Path>, output: impl AsRef<Path>) -> Result<(),
     if !exists(&input) {
         return Err(CommandError::file_not_found("input", &input).program(WASM_OPT));
     }
-    if let Some(parent) = output.as_ref().parent() {
-        if let Err(err) = std::fs::create_dir_all(parent) {
-            return Err(CommandError::inaccessible("output", err));
-        }
+    if let Some(parent) = output.as_ref().parent()
+        && let Err(err) = std::fs::create_dir_all(parent)
+    {
+        return Err(CommandError::inaccessible("output", err));
     }
 
     let runner = make_runner!(Fn(input: &Path, output: &Path) -> Result<(), CommandError> {
@@ -422,6 +422,7 @@ pub fn wasm_opt(input: impl AsRef<Path>, output: impl AsRef<Path>) -> Result<(),
                         file.as_os_str(),
                         OsStr::new("-O3"),
                         OsStr::new("--enable-bulk-memory"),
+                        OsStr::new("--enable-nontrapping-float-to-int"),
                         OsStr::new("-o"),
                         output.as_os_str(),
                     ],
@@ -485,10 +486,10 @@ pub fn typst_compile(
     if !exists(&input) {
         return Err(CommandError::file_not_found("input", &input).program(TYPST));
     }
-    if let Some(parent) = output.as_ref().parent() {
-        if let Err(err) = std::fs::create_dir_all(parent) {
-            return Err(CommandError::inaccessible("output", err));
-        }
+    if let Some(parent) = output.as_ref().parent()
+        && let Err(err) = std::fs::create_dir_all(parent)
+    {
+        return Err(CommandError::inaccessible("output", err));
     }
 
     let runner = make_runner!(fn(input: &Path, output: &Path) -> Result<(proc::Output, std::time::Duration), CommandError> {
@@ -836,7 +837,9 @@ impl Display for CommandError {
                 program,
                 install_from,
             } => {
-                write!(f, "{program} is not in PATH, and it's required for running requested tasks. Install it using {} or from",
+                write!(
+                    f,
+                    "{program} is not in PATH, and it's required for running requested tasks. Install it using {} or from",
                     if cfg!(target_os = "macos") {
                         "brew"
                     } else if cfg!(target_os = "windows") {

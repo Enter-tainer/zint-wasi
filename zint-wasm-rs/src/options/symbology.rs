@@ -1,10 +1,14 @@
+// Allow deprecated variants (EANX, EANXChk, EANXCC) to be defined and
+// referenced in macro-generated code without triggering warnings.
+#![allow(deprecated)]
+
+use crate::options::GenericOptions;
+use crate::options::values;
+use crate::segment::ECI;
 use serde::Deserialize;
 use std::{ffi::CString, fmt::Display};
 use zint_rs_macros::symbol_data;
 use zint_sys::*;
-use crate::options::GenericOptions;
-use crate::options::values;
-use crate::segment::ECI;
 
 // `symbol_data!` macro is responsible for generating `Symbology` enum as well
 // as each symbol options or a type alias to another symbol options that are
@@ -91,7 +95,7 @@ use crate::segment::ECI;
 // zint-rs. Features are added as-needed.
 
 symbol_data! {
-    #[allow(clippy::upper_case_acronyms)]
+    #[allow(clippy::upper_case_acronyms, deprecated)]
     #[derive(Debug, Clone, Copy, Default, Deserialize)]
     #[non_exhaustive]
     #[repr(i32)]
@@ -160,10 +164,25 @@ symbol_data! {
         /// Code 39
         Code39 = {
             raw: BARCODE_CODE39,
+            options: Code39Options {
+                /// Whether to add a modulo-43 check digit.
+                check_digit: bool,
+                /// Whether to hide the check digit from Human Readable Text (HRT).
+                hide_check_digit: bool,
+            },
+            apply_options: |result, options| {
+                result.option_2 = Some(match (options.check_digit, options.hide_check_digit) {
+                    (true, false) => 1,
+                    (true, true) => 2,
+                    _ => 0,
+                });
+                Ok(())
+            },
         },
         /// Extended Code 39
         ExCode39 = {
             raw: BARCODE_EXCODE39,
+            options: Code39Options,
         },
         /// Variable length EAN variant
         #[deprecated(note = "will be removed; use specialized EAN code variants")]
@@ -184,7 +203,7 @@ symbol_data! {
             options: UPCEOptions,
         },
         /// EAN/UPC 2-digit
-        /// 
+        ///
         /// This symbology is almost never used as standalone and is generally
         /// appended to other one-dimensional barcodes.
         EAN2 = {
@@ -193,7 +212,7 @@ symbol_data! {
             options: UPCEOptions,
         },
         /// EAN/UPC 5-digit
-        /// 
+        ///
         /// This symbology is almost never used as standalone and is generally
         /// appended to other one-dimensional barcodes.
         EAN5 = {
@@ -202,7 +221,7 @@ symbol_data! {
             options: UPCEOptions,
         },
         /// EAN-8 (European Article Number) GTIN-8
-        /// 
+        ///
         /// In addition EAN-2 and EAN-5 add-on symbols can be added by using the
         /// '+' character as a separator after EAN-8 data.
         EAN8 = {
@@ -212,10 +231,10 @@ symbol_data! {
         },
         /// EAN-13 (European Article Number) is a standard 13-digit barcode used
         /// in retail across Europe.
-        /// 
+        ///
         /// EAN-13 requires 12-digit numerical input. The check digit is
         /// calculated by Zint.
-        /// 
+        ///
         /// In addition EAN-2 and EAN-5 add-on symbols can be added by using the
         /// '+' character as a separator after EAN-13 data.
         EAN13 = {
@@ -224,10 +243,10 @@ symbol_data! {
             options: UPCEOptions,
         },
         /// EAN-14
-        /// 
+        ///
         /// EAN-14 requires 13-digit numerical input. The check digit is
         /// calculated by Zint.
-        /// 
+        ///
         /// In addition EAN-2 and EAN-5 add-on symbols can be added by using the
         /// '+' character as a separator after EAN-14 data.
         EAN14 = {
@@ -253,6 +272,21 @@ symbol_data! {
         /// Codabar
         Codabar = {
             raw: BARCODE_CODABAR,
+            options: {
+                /// Whether to add a modulo-16 check digit.
+                check_digit: bool,
+                /// Whether to show the check digit in Human Readable Text (HRT).
+                /// Only relevant when `check_digit` is true.
+                show_check_digit: bool,
+            },
+            apply_options: |result, options| {
+                result.option_2 = Some(match (options.check_digit, options.show_check_digit) {
+                    (true, true) => 2,
+                    (true, false) => 1,
+                    _ => 0,
+                });
+                Ok(())
+            },
         },
         /// Code 128
         #[default]
@@ -274,10 +308,30 @@ symbol_data! {
         /// Code 16k
         Code16k = {
             raw: BARCODE_CODE16K,
+            options: {
+                /// Minimum number of rows (2-16, 0 = automatic).
+                rows: u8 = 0,
+            },
+            apply_options: |result, options| {
+                if options.rows > 0 {
+                    result.option_1 = Some(require_range_inclusive("rows", options.rows, 2, 16)? as i32);
+                }
+                Ok(())
+            },
         },
         /// Code 49
         Code49 = {
             raw: BARCODE_CODE49,
+            options: {
+                /// Minimum number of rows (2-8, 0 = automatic).
+                rows: u8 = 0,
+            },
+            apply_options: |result, options| {
+                if options.rows > 0 {
+                    result.option_1 = Some(require_range_inclusive("rows", options.rows, 2, 8)? as i32);
+                }
+                Ok(())
+            },
         },
         /// Code 93
         Code93 = {
@@ -362,10 +416,10 @@ symbol_data! {
         },
         /// MSI Plessey is based on [`Plessey`][Symbology::Plessey] and
         /// developed by MSE Data Corporation.
-        /// 
+        ///
         /// MSI Plessey has a range of check digit options that are selectable
         /// by setting [`check_digits`][MSIPlesseyOptions::check_digits].
-        /// 
+        ///
         /// Numeric (digits 0-9) input can be encoded, up to a maximum of 65
         /// digits.
         MSIPlessey = {
@@ -394,7 +448,21 @@ symbol_data! {
         /// LOGMARS
         LOGMARS = {
             raw: BARCODE_LOGMARS,
-            alias: "Logmars"
+            alias: "Logmars",
+            options: {
+                /// Whether to add a modulo-43 check digit.
+                check_digit: bool,
+                /// Whether to hide the check digit from Human Readable Text (HRT).
+                hide_check_digit: bool,
+            },
+            apply_options: |result, options| {
+                result.option_2 = Some(match (options.check_digit, options.hide_check_digit) {
+                    (true, false) => 1,
+                    (true, true) => 2,
+                    _ => 0,
+                });
+                Ok(())
+            },
         },
         /// Pharmacode One-Track
         Pharma = {
@@ -415,18 +483,35 @@ symbol_data! {
         /// PDF417
         PDF417 = {
             raw: BARCODE_PDF417,
+            options: PDF417Options {
+                /// Error correction level (1-8, 0 = automatic).
+                /// Number of codewords = 2^(level + 1).
+                ecc_level: u8 = 0,
+                /// Number of data columns (1-30, 0 = automatic).
+                columns: u8 = 0,
+            },
+            apply_options: |result, options| {
+                if options.ecc_level > 0 {
+                    result.option_1 = Some(require_range_inclusive("ecc_level", options.ecc_level, 1, 8)? as i32);
+                }
+                if options.columns > 0 {
+                    result.option_2 = Some(require_range_inclusive("columns", options.columns, 1, 30)? as i32);
+                }
+                Ok(())
+            },
         },
         /// Compact PDF417 (Truncated PDF417)
         PDF417Comp = {
             raw: BARCODE_PDF417COMP,
             alias: "PDF417Trunc",
+            options: PDF417Options,
         },
         /// MaxiCode
-        /// 
+        ///
         /// This symbology is designed for the identification of parcels.
         /// MaxiCode symbols can be encoded in one of five modes which are
         /// specified using the [`mode`][MaxiCodeOptions::mode] option.
-        /// 
+        ///
         /// This symbology uses Latin-1 character encoding by default but also
         /// supports the ECI encoding mechanism. The maximum length of text
         /// which can be placed in a MaxiCode symbol depends on the type of
@@ -436,20 +521,20 @@ symbol_data! {
             raw: BARCODE_MAXICODE,
             options: <'o> {
                 /// MaxiCode mode and corresponding options to use for encoding.
-                /// 
+                ///
                 /// See [`MaxiCodeMode`][values::MaxiCodeMode] for details.
                 mode: values::MaxiCodeMode<'o>,
                 /// 2-digit version used in **ISO/IEC 15434 Format 01
                 /// (transportation)** prefix `[)>\R01\Gvv` which will be
                 /// prepended to ASCII-compatible secondary message data.
-                /// 
+                ///
                 /// This prefix will only be used with
                 /// [`StructuredCarrierMessage`][values::MaxiCodeMode::StructuredCarrierMessage]
                 /// and will be ignored otherwise.
-                /// 
+                ///
                 /// Only values in range [0, 99] are valid, and zint will return
                 /// an error if provided data ECI isn't ASCII-compatible.
-                /// 
+                ///
                 /// This is only a utility option and prefix can be included in
                 /// secondary message data manually.
                 scm_prefix: Option<u8>,
@@ -480,6 +565,21 @@ symbol_data! {
         /// QR Code
         QRCode = {
             raw: BARCODE_QRCODE,
+            options: {
+                /// Error correction level (1=L, 2=M, 3=Q, 4=H, 0 = automatic).
+                ecc_level: u8 = 0,
+                /// Symbol version/size (1-40, 0 = automatic).
+                version: u8 = 0,
+            },
+            apply_options: |result, options| {
+                if options.ecc_level > 0 {
+                    result.option_1 = Some(require_range_inclusive("ecc_level", options.ecc_level, 1, 4)? as i32);
+                }
+                if options.version > 0 {
+                    result.option_2 = Some(require_range_inclusive("version", options.version, 1, 40)? as i32);
+                }
+                Ok(())
+            },
         },
         /// Code 128 (Suppress Code Set C)
         Code128AB = {
@@ -503,10 +603,10 @@ symbol_data! {
             raw: BARCODE_AUSREDIRECT,
         },
         /// ISBN
-        /// 
+        ///
         /// Relevant check digit needs to be present in the input data and will
         /// be verified before the symbol is generated.
-        /// 
+        ///
         /// In addition EAN-2 and EAN-5 add-on symbols can be added using the +
         /// character as with UPC symbols.
         ISBNX = {
@@ -520,6 +620,17 @@ symbol_data! {
         /// Data Matrix (ECC200)
         DataMatrix = {
             raw: BARCODE_DATAMATRIX,
+            options: {
+                /// Symbol size/version (1-48, 0 = automatic).
+                /// 1-30: standard sizes, 31-48: DMRE rectangular.
+                size: u8 = 0,
+            },
+            apply_options: |result, options| {
+                if options.size > 0 {
+                    result.option_2 = Some(require_range_inclusive("size", options.size, 1, 48)? as i32);
+                }
+                Ok(())
+            },
         },
         /// Vehicle Identification Number
         VIN = {
@@ -528,6 +639,21 @@ symbol_data! {
         /// Codablock-F
         CodablockF = {
             raw: BARCODE_CODABLOCKF,
+            options: {
+                /// Number of rows (2-44, 0 = automatic).
+                rows: u8 = 0,
+                /// Number of columns (data characters per row, 9-67, 0 = automatic).
+                columns: u8 = 0,
+            },
+            apply_options: |result, options| {
+                if options.rows > 0 {
+                    result.option_1 = Some(require_range_inclusive("rows", options.rows, 2, 44)? as i32);
+                }
+                if options.columns > 0 {
+                    result.option_2 = Some(require_range_inclusive("columns", options.columns, 9, 67)? as i32);
+                }
+                Ok(())
+            },
         },
         /// NVE-18 (SSCC-18)
         NVE18 = {
@@ -555,6 +681,16 @@ symbol_data! {
         #[serde(alias = "RSSExpStack")]
         DBarExpStk = {
             raw: BARCODE_DBAR_EXPSTK,
+            options: {
+                /// Number of columns (character pairs per row, 1-11, 0 = automatic).
+                columns: u8 = 0,
+            },
+            apply_options: |result, options| {
+                if options.columns > 0 {
+                    result.option_2 = Some(require_range_inclusive("columns", options.columns, 1, 11)? as i32);
+                }
+                Ok(())
+            },
         },
         /// USPS PLANET
         Planet = {
@@ -563,6 +699,16 @@ symbol_data! {
         /// MicroPDF417
         MicroPDF417 = {
             raw: BARCODE_MICROPDF417,
+            options: {
+                /// Number of columns (1-4, 0 = automatic).
+                columns: u8 = 0,
+            },
+            apply_options: |result, options| {
+                if options.columns > 0 {
+                    result.option_2 = Some(require_range_inclusive("columns", options.columns, 1, 4)? as i32);
+                }
+                Ok(())
+            },
         },
         /// USPS Intelligent Mail (OneCode)
         USPSIMail = {
@@ -571,11 +717,21 @@ symbol_data! {
         },
         /// Plessey (Code) symbology was developed by the Plessey Company Ltd.
         /// in the UK.
-        /// 
+        ///
         /// The symbol can encode data consisting of digits (0-9) or letters A-F
         /// up to a maximum of 65 characters and includes a CRC check digit.
         Plessey = {
             raw: BARCODE_PLESSEY,
+            options: {
+                /// Whether to show the CRC check digits in Human Readable Text (HRT).
+                show_check_digits: bool,
+            },
+            apply_options: |result, options| {
+                if options.show_check_digits {
+                    result.option_2 = Some(1);
+                }
+                Ok(())
+            },
         },
 
         // Tbarcode 8 codes
@@ -596,6 +752,22 @@ symbol_data! {
         /// Aztec Code
         Aztec = {
             raw: BARCODE_AZTEC,
+            options: {
+                /// Error correction capacity (1=10%+3, 2=23%+3, 3=36%+3, 4=50%+3, 0 = automatic).
+                ecc_level: u8 = 0,
+                /// Symbol size/version (1-36, 0 = automatic).
+                /// Versions 1-4 are compact, 5-36 are full-range.
+                size: u8 = 0,
+            },
+            apply_options: |result, options| {
+                if options.ecc_level > 0 {
+                    result.option_1 = Some(require_range_inclusive("ecc_level", options.ecc_level, 1, 4)? as i32);
+                }
+                if options.size > 0 {
+                    result.option_2 = Some(require_range_inclusive("size", options.size, 1, 36)? as i32);
+                }
+                Ok(())
+            },
         },
         /// DAFT Code
         DAFT = {
@@ -604,10 +776,36 @@ symbol_data! {
         /// DPD Code
         DPD = {
             raw: BARCODE_DPD,
+            options: {
+                /// Whether to mark as a 'relabel' code.
+                relabel: bool,
+            },
+            apply_options: |result, options| {
+                if options.relabel {
+                    result.option_2 = Some(1);
+                }
+                Ok(())
+            },
         },
         /// Micro QR Code
         MicroQR = {
             raw: BARCODE_MICROQR,
+            options: {
+                /// Error correction level (1=L, 2=M, 3=Q, 0 = automatic).
+                /// Note: M1 is always L, Q is only available for M4.
+                ecc_level: u8 = 0,
+                /// Version (1=M1, 2=M2, 3=M3, 4=M4, 0 = automatic).
+                version: u8 = 0,
+            },
+            apply_options: |result, options| {
+                if options.ecc_level > 0 {
+                    result.option_1 = Some(require_range_inclusive("ecc_level", options.ecc_level, 1, 3)? as i32);
+                }
+                if options.version > 0 {
+                    result.option_2 = Some(require_range_inclusive("version", options.version, 1, 4)? as i32);
+                }
+                Ok(())
+            },
         },
 
         // Tbarcode 9 codes
@@ -650,10 +848,35 @@ symbol_data! {
         /// DotCode
         DotCode = {
             raw: BARCODE_DOTCODE,
+            options: {
+                /// Number of columns (symbol width, 1-200, 0 = automatic).
+                columns: u16 = 0,
+            },
+            apply_options: |result, options| {
+                if options.columns > 0 {
+                    result.option_2 = Some(require_range_inclusive("columns", options.columns, 1, 200)? as i32);
+                }
+                Ok(())
+            },
         },
         /// Han Xin (Chinese Sensible) Code
         HanXin = {
             raw: BARCODE_HANXIN,
+            options: {
+                /// Error correction level (1=~8%, 2=~15%, 3=~23%, 4=~30%, 0 = automatic).
+                ecc_level: u8 = 0,
+                /// Symbol version (1-84, 0 = automatic).
+                version: u8 = 0,
+            },
+            apply_options: |result, options| {
+                if options.ecc_level > 0 {
+                    result.option_1 = Some(require_range_inclusive("ecc_level", options.ecc_level, 1, 4)? as i32);
+                }
+                if options.version > 0 {
+                    result.option_2 = Some(require_range_inclusive("version", options.version, 1, 84)? as i32);
+                }
+                Ok(())
+            },
         },
 
         // Tbarcode 11 codes
@@ -726,14 +949,49 @@ symbol_data! {
         /// Channel Code
         Channel = {
             raw: BARCODE_CHANNEL,
+            options: {
+                /// Number of channels (3-8, 0 = auto-determined by data length).
+                channels: u8 = 0,
+            },
+            apply_options: |result, options| {
+                if options.channels > 0 {
+                    result.option_2 = Some(require_range_inclusive("channels", options.channels, 3, 8)? as i32);
+                }
+                Ok(())
+            },
         },
         /// Code One
         CodeOne = {
             raw: BARCODE_CODEONE,
+            options: {
+                /// Symbol version (1=A, 2=B, 3=C, 4=D, 5=E, 6=F, 7=G, 8=H, 9=S, 10=T, 0 = automatic).
+                version: u8 = 0,
+            },
+            apply_options: |result, options| {
+                if options.version > 0 {
+                    result.option_2 = Some(require_range_inclusive("version", options.version, 1, 10)? as i32);
+                }
+                Ok(())
+            },
         },
         /// Grid Matrix
         GridMatrix = {
             raw: BARCODE_GRIDMATRIX,
+            options: {
+                /// Error correction capacity (1=~10%, 2=~20%, 3=~30%, 4=~40%, 5=~50%, 0 = automatic).
+                ecc_level: u8 = 0,
+                /// Symbol version (1-13, 0 = automatic).
+                version: u8 = 0,
+            },
+            apply_options: |result, options| {
+                if options.ecc_level > 0 {
+                    result.option_1 = Some(require_range_inclusive("ecc_level", options.ecc_level, 1, 5)? as i32);
+                }
+                if options.version > 0 {
+                    result.option_2 = Some(require_range_inclusive("version", options.version, 1, 13)? as i32);
+                }
+                Ok(())
+            },
         },
         /// UPNQR (Univerzalnega Plačilnega Naloga QR)
         UPNQR = {
@@ -742,10 +1000,42 @@ symbol_data! {
         /// Ultracode
         Ultra = {
             raw: BARCODE_ULTRA,
+            options: {
+                /// Error correction level (1=EC0, 2=EC1, 3=EC2, 4=EC3, 5=EC4, 6=EC5, 0 = automatic).
+                ecc_level: u8 = 0,
+            },
+            apply_options: |result, options| {
+                if options.ecc_level > 0 {
+                    result.option_1 = Some(require_range_inclusive("ecc_level", options.ecc_level, 1, 6)? as i32);
+                }
+                Ok(())
+            },
         },
         /// Rectangular Micro QR Code (rMQR)
         RMQR = {
             raw: BARCODE_RMQR,
+            options: {
+                /// Error correction level (2=M, 4=H, 0 = automatic).
+                ecc_level: u8 = 0,
+                /// Version (1-32 for specific sizes, 33-38 for fixed-height auto-width, 0 = automatic).
+                version: u8 = 0,
+            },
+            apply_options: |result, options| {
+                if options.ecc_level > 0 {
+                    if options.ecc_level != 2 && options.ecc_level != 4 {
+                        return Err(SymbolOptionError {
+                            option_name: "ecc_level",
+                            value: options.ecc_level.to_string(),
+                            reason: "rMQR only supports ECC level M (2) or H (4)".to_string(),
+                        });
+                    }
+                    result.option_1 = Some(options.ecc_level as i32);
+                }
+                if options.version > 0 {
+                    result.option_2 = Some(require_range_inclusive("version", options.version, 1, 38)? as i32);
+                }
+                Ok(())
+            },
         },
         /// IBM BC412 (SEMI T1-95)
         BC412 = {
@@ -778,7 +1068,7 @@ impl Symbology {
         // SAFETY: zint always insterts a nul byte at the end
         let read_buffer = unsafe { CString::from_vec_with_nul_unchecked(read_buffer) };
         let result = unsafe { read_buffer.to_str().unwrap_unchecked() };
-        return result.to_string();
+        result.to_string()
     }
 
     /// Returns default width in mm for this symbology.
@@ -1150,21 +1440,15 @@ mod tests {
 
         let target = std::fs::read_to_string(root.join("zint-wasm-rs/src/options/symbology.rs"))
             .expect("can't find symbology.rs");
-        let target = target
-            .split_once("pub enum Symbology {\n")
-            .expect("unexpected symbology.rs content")
-            .1;
+        // Extract BARCODE_* constants from symbol_data! macro `raw: BARCODE_XXX,` entries
         let mut target: HashSet<String> = target
             .lines()
-            .take_while(|it| it.trim() != "}")
             .filter_map(|it| {
                 let it = it.trim();
-                if it.starts_with("#[") || it.starts_with("//") {
-                    None
-                } else if it.ends_with(" as i32,") {
-                    let it = it.split_once(" = ").expect("unexpected syntax").1;
-                    let it = it.chars().take_while(|it| !it.is_whitespace()).collect();
-                    Some(it)
+                if it.starts_with("raw:") {
+                    let name = it.strip_prefix("raw:").unwrap().trim();
+                    let name: String = name.chars().take_while(|c| *c != ',').collect();
+                    Some(name.trim().to_string())
                 } else {
                     None
                 }

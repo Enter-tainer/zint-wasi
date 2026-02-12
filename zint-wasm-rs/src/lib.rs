@@ -1,14 +1,14 @@
+mod color;
 pub mod error;
 pub mod options;
-pub mod symbol;
-pub mod segment;
-mod color;
 pub mod output;
+pub mod segment;
+pub mod symbol;
 
 pub use color::Color;
-pub use symbol::Symbol;
-pub use options::{SymbolOptions, GenericOptions, DisplayOptions};
 pub use options::symbology::Symbology;
+pub use options::{DisplayOptions, GenericOptions, SymbolOptions};
+pub use symbol::Symbol;
 
 pub(crate) mod util {
     use std::ffi::CString;

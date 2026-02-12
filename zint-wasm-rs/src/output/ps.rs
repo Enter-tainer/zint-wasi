@@ -6,10 +6,10 @@ use std::fmt::Display;
 use zint_sys::{internal, zint_symbol};
 
 /// Default zint Postscript export.
-/// 
+///
 /// This plotting target will use default zint PS output and store it in a byte
 /// buffer.
-/// 
+///
 /// If you need access to vector primitives, use
 /// [`VectorPlot`][crate::output::VectorPlot] instead.
 pub struct PsPlot(Vec<u8>);

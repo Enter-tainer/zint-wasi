@@ -18,16 +18,28 @@ fn has_wasi_sdk() -> bool {
 fn wasi_url(version: impl AsRef<str>) -> String {
     let version = version.as_ref();
     #[cfg(all(target_os = "linux", target_arch = "aarch64"))]
-    return format!("https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-{version}/wasi-sdk-{version}.0-arm64-linux.tar.gz");
+    return format!(
+        "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-{version}/wasi-sdk-{version}.0-arm64-linux.tar.gz"
+    );
     #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
-    return format!("https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-{version}/wasi-sdk-{version}.0-x86_64-linux.tar.gz");
+    return format!(
+        "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-{version}/wasi-sdk-{version}.0-x86_64-linux.tar.gz"
+    );
     #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
-    return format!("https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-{version}/wasi-sdk-{version}.0-arm64-macos.tar.gz");
+    return format!(
+        "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-{version}/wasi-sdk-{version}.0-arm64-macos.tar.gz"
+    );
     #[cfg(all(target_os = "macos", target_arch = "x86_64"))]
-    return format!("https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-{version}/wasi-sdk-{version}.0-x86_64-macos.tar.gz");
+    return format!(
+        "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-{version}/wasi-sdk-{version}.0-x86_64-macos.tar.gz"
+    );
     #[cfg(all(target_os = "windows", target_arch = "x86_64"))]
-    return format!("https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-{version}/wasi-sdk-{version}.0-x86_64-windows.tar.gz");
-    panic!("no prebuild WASI SDK available for current platform; please build and specify `WASI_SDK_PATH` environment variable manually")
+    return format!(
+        "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-{version}/wasi-sdk-{version}.0-x86_64-windows.tar.gz"
+    );
+    panic!(
+        "no prebuild WASI SDK available for current platform; please build and specify `WASI_SDK_PATH` environment variable manually"
+    )
 }
 
 pub fn action_ensure_wasi_sdk(_args: &[String]) -> ActionResult {
@@ -129,15 +141,25 @@ pub fn action_stub_plugin(args: &[String]) -> ActionResult {
 fn binaryen_url(version: impl AsRef<str>) -> String {
     let version = version.as_ref();
     #[cfg(all(target_os = "linux", target_arch = "aarch64"))]
-    return format!("https://github.com/WebAssembly/binaryen/releases/download/version_{version}/binaryen-version_{version}-arm64-linux.tar.gz");
+    return format!(
+        "https://github.com/WebAssembly/binaryen/releases/download/version_{version}/binaryen-version_{version}-arm64-linux.tar.gz"
+    );
     #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
-    return format!("https://github.com/WebAssembly/binaryen/releases/download/version_{version}/binaryen-version_{version}-x86_64-linux.tar.gz");
+    return format!(
+        "https://github.com/WebAssembly/binaryen/releases/download/version_{version}/binaryen-version_{version}-x86_64-linux.tar.gz"
+    );
     #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
-    return format!("https://github.com/WebAssembly/binaryen/releases/download/version_{version}/binaryen-version_{version}-arm64-macos.tar.gz");
+    return format!(
+        "https://github.com/WebAssembly/binaryen/releases/download/version_{version}/binaryen-version_{version}-arm64-macos.tar.gz"
+    );
     #[cfg(all(target_os = "macos", target_arch = "x86_64"))]
-    return format!("https://github.com/WebAssembly/binaryen/releases/download/version_{version}/binaryen-version_{version}-x86_64-macos.tar.gz");
+    return format!(
+        "https://github.com/WebAssembly/binaryen/releases/download/version_{version}/binaryen-version_{version}-x86_64-macos.tar.gz"
+    );
     #[cfg(all(target_os = "windows", target_arch = "x86_64"))]
-    return format!("https://github.com/WebAssembly/binaryen/releases/download/version_{version}/binaryen-version_{version}-x86_64-windows.tar.gz");
+    return format!(
+        "https://github.com/WebAssembly/binaryen/releases/download/version_{version}/binaryen-version_{version}-x86_64-windows.tar.gz"
+    );
     panic!("no prebuild binaryen available for current platform")
 }
 
@@ -188,12 +210,24 @@ pub fn action_opt_plugin(args: &[String]) -> ActionResult {
         base_path.join(state!(PLUGIN_STUB_OPT_WASM, default: "plugin_stub_opt.wasm"));
     let target_path = state_path!(TYPST_PKG).join(state!(PLUGIN_WASM_OUT, default: "plugin.wasm"));
 
-    let stub_hash = state!(PLUGIN_WASM_STUB_HASH, default: "");
-    let input_changed = state!(PLUGIN_WASM_HASH) != stub_hash;
-    if !exists(&stub_opt_path) || input_changed {
+    // Re-optimize if the optimized wasm is missing or older than the stub.
+    let needs_update = !exists(&stub_opt_path) || {
+        let stub_modified = std::fs::metadata(&stub_path)
+            .and_then(|m| m.modified())
+            .ok();
+        let opt_modified = std::fs::metadata(&stub_opt_path)
+            .and_then(|m| m.modified())
+            .ok();
+        match (stub_modified, opt_modified) {
+            (Some(s), Some(o)) => s > o,
+            _ => true,
+        }
+    };
+    if needs_update {
         action_expect!(wasm_opt(stub_path, &stub_opt_path));
         action_expect!(std::fs::copy(stub_opt_path, &target_path));
     }
+    let stub_hash = state!(PLUGIN_WASM_STUB_HASH, default: "");
     GlobalState::set("PLUGIN_WASM_HASH", stub_hash);
     summary!(
         "- Optimized WASM size: {}",
@@ -220,13 +254,7 @@ pub fn action_build_manual(_args: &[String]) -> ActionResult {
                     manual_target.as_os_str(),
                 ],
             );
-            cmd(
-                "git",
-                [
-                    OsStr::new("add"),
-                    manual_target.as_os_str(),
-                ],
-            );
+            cmd("git", [OsStr::new("add"), manual_target.as_os_str()]);
         } else {
             cmd(
                 "git",
@@ -287,17 +315,53 @@ pub fn action_copy_license(_args: &[String]) -> ActionResult {
 fn typst_url(version: impl AsRef<str>) -> (String, &'static str, &'static str) {
     let version = version.as_ref();
     #[cfg(all(target_os = "linux", target_arch = "aarch64"))]
-    return (format!("https://github.com/typst/typst/releases/download/v{version}/typst-aarch64-unknown-linux-musl.tar.xz"), "typst-aarch64-unknown-linux-musl", "tar.xz");
+    return (
+        format!(
+            "https://github.com/typst/typst/releases/download/v{version}/typst-aarch64-unknown-linux-musl.tar.xz"
+        ),
+        "typst-aarch64-unknown-linux-musl",
+        "tar.xz",
+    );
     #[cfg(all(target_os = "linux", target_arch = "arm"))]
-    return (format!("https://github.com/typst/typst/releases/download/v{version}/typst-armv7-unknown-linux-musleabi.tar.xz"), "typst-armv7-unknown-linux-musleabi", "tar.xz");
+    return (
+        format!(
+            "https://github.com/typst/typst/releases/download/v{version}/typst-armv7-unknown-linux-musleabi.tar.xz"
+        ),
+        "typst-armv7-unknown-linux-musleabi",
+        "tar.xz",
+    );
     #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
-    return (format!("https://github.com/typst/typst/releases/download/v{version}/typst-x86_64-unknown-linux-musl.tar.xz "), "typst-x86_64-unknown-linux-musl", "tar.xz");
+    return (
+        format!(
+            "https://github.com/typst/typst/releases/download/v{version}/typst-x86_64-unknown-linux-musl.tar.xz "
+        ),
+        "typst-x86_64-unknown-linux-musl",
+        "tar.xz",
+    );
     #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
-    return (format!("https://github.com/typst/typst/releases/download/v{version}/typst-aarch64-apple-darwin.tar.xz"), "typst-aarch64-apple-darwin", "tar.xz");
+    return (
+        format!(
+            "https://github.com/typst/typst/releases/download/v{version}/typst-aarch64-apple-darwin.tar.xz"
+        ),
+        "typst-aarch64-apple-darwin",
+        "tar.xz",
+    );
     #[cfg(all(target_os = "macos", target_arch = "x86_64"))]
-    return (format!("https://github.com/typst/typst/releases/download/v{version}/typst-x86_64-apple-darwin.tar.xz"), "typst-x86_64-apple-darwin", "tar.xz");
+    return (
+        format!(
+            "https://github.com/typst/typst/releases/download/v{version}/typst-x86_64-apple-darwin.tar.xz"
+        ),
+        "typst-x86_64-apple-darwin",
+        "tar.xz",
+    );
     #[cfg(all(target_os = "windows", target_arch = "x86_64"))]
-    return (format!("https://github.com/typst/typst/releases/download/v{version}/typst-x86_64-pc-windows-msvc.zip"), "typst-x86_64-pc-windows-msvc", "zip");
+    return (
+        format!(
+            "https://github.com/typst/typst/releases/download/v{version}/typst-x86_64-pc-windows-msvc.zip"
+        ),
+        "typst-x86_64-pc-windows-msvc",
+        "zip",
+    );
     panic!("no prebuild binaryen available for current platform")
 }
 

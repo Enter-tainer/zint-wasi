@@ -1,5 +1,4 @@
 use crate::{
-    color::Color,
     error::Error,
     options::{rotation::Rotation, DisplayOptions},
     output::{PlotKind, PlotResult},
@@ -7,18 +6,31 @@ use crate::{
 use std::{ffi::CStr, marker::PhantomData};
 use zint_sys::*;
 
+/// Semantic color mapping for vector output elements.
+///
+/// Instead of embedding resolved RGBA values, each element carries a semantic
+/// tag so the rendering side (e.g. Typst) can fill in the actual colors at
+/// render time, enabling support for rich color spaces (CMYK, Oklab, etc.).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ColorMapping {
+    Foreground,
+    Background,
+    Palette(i32),
+}
+
 /// Generic vector output that can be used as a plot output when raw primitives
 /// are necessary.
+#[derive(serde::Serialize)]
 pub struct VectorPlot {
     pub width: f32,
     pub height: f32,
 
     pub geometry: VectorGeometry,
-
-    pub background: Color,
 }
 
 /// List of shapes the code is composed of.
+#[derive(serde::Serialize)]
 pub struct VectorGeometry {
     pub rectangles: Vec<Rect>,
     pub hexagons: Vec<Hexagon>,
@@ -53,8 +65,6 @@ impl<'a> PlotResult<'a> for VectorPlot {
                     .map(|data| Circle::from_zint_data(data, options))
                     .collect(),
             },
-
-            background: options.background,
         })
     }
 }
@@ -101,72 +111,73 @@ impl<'s, T: LinkedListNode + 's> Iterator for LinkedListIter<'s, T> {
     }
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, serde::Serialize)]
 pub struct Rect {
     pub x: f32,
     pub y: f32,
     pub height: f32,
     pub width: f32,
-    pub color: Color,
+    pub color: ColorMapping,
 }
 
 impl Rect {
-    fn from_zint_data(value: &zint_vector_rect, options: &DisplayOptions) -> Self {
+    fn from_zint_data(value: &zint_vector_rect, _options: &DisplayOptions) -> Self {
         Self {
             x: value.x,
             y: value.y,
             height: value.height,
             width: value.width,
-            color: to_color(value.colour, options.foreground),
+            color: to_color_mapping(value.colour),
         }
     }
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, serde::Serialize)]
 pub struct Circle {
     pub x: f32,
     pub y: f32,
     pub diameter: f32,
     pub width: f32,
-    pub color: Color,
+    pub color: ColorMapping,
 }
 
 impl Circle {
-    fn from_zint_data(value: &zint_vector_circle, options: &DisplayOptions) -> Self {
+    fn from_zint_data(value: &zint_vector_circle, _options: &DisplayOptions) -> Self {
         Self {
             x: value.x,
             y: value.y,
             diameter: value.diameter,
             width: value.width,
-            color: to_color(value.colour, options.foreground),
+            color: to_color_mapping(value.colour),
         }
     }
 }
 
 /// Color is always foreground.
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, serde::Serialize)]
 pub struct Hexagon {
     pub x: f32,
     pub y: f32,
     pub diameter: f32,
     pub rotation: Rotation,
-    pub color: Color,
+    pub color: ColorMapping,
 }
 
 impl Hexagon {
-    fn from_zint_data(value: &zint_vector_hexagon, options: &DisplayOptions) -> Self {
+    fn from_zint_data(value: &zint_vector_hexagon, _options: &DisplayOptions) -> Self {
         Self {
             x: value.x,
             y: value.y,
             diameter: value.diameter,
             rotation: unsafe { std::mem::transmute::<i32, Rotation>(value.rotation) },
-            color: options.foreground,
+            color: ColorMapping::Foreground,
         }
     }
 }
 
 /// Horizontal alignment of the text
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, serde::Serialize)]
+#[serde(into = "i32")]
 #[repr(i32)]
 pub enum HorizontalAlign {
     Center = 0,
@@ -174,8 +185,14 @@ pub enum HorizontalAlign {
     Right = 2,
 }
 
+impl From<HorizontalAlign> for i32 {
+    fn from(value: HorizontalAlign) -> Self {
+        value as i32
+    }
+}
+
 /// Color is always foreground.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize)]
 #[repr(C)]
 pub struct Text {
     pub x: f32,
@@ -186,11 +203,11 @@ pub struct Text {
     pub rotation: Rotation,
     pub horizontal_align: HorizontalAlign,
     pub text: String,
-    pub color: Color,
+    pub color: ColorMapping,
 }
 
 impl Text {
-    fn from_zint_data(value: &zint_vector_string, options: &DisplayOptions) -> Self {
+    fn from_zint_data(value: &zint_vector_string, _options: &DisplayOptions) -> Self {
         let text = unsafe {
             // TODO: In code, vector_add_string seems to always be called with utf-8 or symbol->text.
             CStr::from_ptr(value.text as *const i8)
@@ -207,26 +224,18 @@ impl Text {
             rotation: unsafe { std::mem::transmute::<i32, Rotation>(value.rotation) },
             horizontal_align: unsafe { std::mem::transmute::<i32, HorizontalAlign>(value.halign) },
             text: text.to_string(),
-            color: options.foreground,
+            color: ColorMapping::Foreground,
         }
     }
 }
 
-/// Plotted vectors don't store actual color values, but instead an integer that
-/// represents what the color should be in the target format.
+/// Converts zint's internal color integer mapping to a [`ColorMapping`].
 ///
-/// This function remaps those to [`Color`]s.
-fn to_color(mapping: i32, foreground: Color) -> Color {
+/// Mapping -1 means foreground; positive integers are palette indices
+/// (1=cyan, 2=blue, 3=magenta, 4=red, 5=yellow, 6=green, 7=black, 8=white).
+fn to_color_mapping(mapping: i32) -> ColorMapping {
     match mapping {
-        -1 => foreground,
-        1 => Color::new(0, 0xFF, 0xFF, 0xFF), // Cyan
-        2 => Color::new(0, 0, 0xFF, 0xFF),    // Blue
-        3 => Color::new(0xFF, 0, 0xFF, 0xFF), // Magenta
-        4 => Color::new(0xFF, 0, 0, 0xFF),    // Red
-        5 => Color::new(0xFF, 0xFF, 0, 0xFF), // Yellow
-        6 => Color::new(0, 0xFF, 0, 0xFF),    // Green
-        7 => Color::BLACK,                    // Black
-        8 => Color::WHITE,                    // White
-        _ => Color::BLACK,
+        -1 => ColorMapping::Foreground,
+        idx => ColorMapping::Palette(idx),
     }
 }

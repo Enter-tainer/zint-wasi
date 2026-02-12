@@ -1,19 +1,16 @@
-use zint_wasm_rs::{
-    color::Color,
+use zint_rs::{
+    Color, Symbol,
     options::{
-        rotation::Rotation, symbology::Symbology, DisplayOptions, EncodingOptions, Options,
-        WarningHandling,
+        DisplayOptions, GenericOptions, WarningHandling, rotation::Rotation, symbology::Symbology,
     },
     output::SvgPlot,
-    segment::{Segment, ECI},
-    symbol::Symbol,
+    segment::{ECI, Segment},
 };
 
 pub fn main() {
     let mut symbol = Symbol::encode_segments(
-        Symbology::EAN13,
+        GenericOptions::from_symbology(Symbology::EAN13),
         &[Segment::new(b"6975004310001", ECI::NONE)],
-        &EncodingOptions::default(),
     )
     .expect("unable to encode EAN-13 symbol");
     let plot: SvgPlot = symbol

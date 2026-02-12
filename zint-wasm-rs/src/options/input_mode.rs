@@ -33,6 +33,7 @@ impl InputMode {
         self.bits() as std::ffi::c_int
     }
 
+    #[allow(dead_code)]
     pub(crate) fn validate(&self) -> Option<ValidationFailure> {
         // DATA is 0 so it can't be checked as UNICODE overwrites it
         if self.contains(Self::UNICODE) && self.contains(Self::GS1) {
@@ -139,7 +140,7 @@ impl<'de> Deserialize<'de> for InputMode {
                         None => {
                             return Err(de::Error::custom(Error::UnknownInputOption(
                                 el.to_string(),
-                            )))
+                            )));
                         }
                     }
                 }
@@ -175,14 +176,14 @@ impl<'de> Deserialize<'de> for InputMode {
                                 _ => {
                                     return Err(de::Error::custom(Error::InvalidInputMode(
                                         ValidationFailure::UnknownFormat,
-                                    )))
+                                    )));
                                 }
                             }
                         }
                         None => {
                             return Err(de::Error::custom(Error::UnknownOutputOption(
                                 key.to_string(),
-                            )))
+                            )));
                         }
                     }
                 }

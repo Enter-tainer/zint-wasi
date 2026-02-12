@@ -79,6 +79,7 @@ pub fn path_from_str(path: impl AsRef<str>) -> syn::Path {
     }
 }
 
+#[allow(dead_code)]
 pub fn is_path_one_of<I, S>(a: &Path, items: I) -> bool
 where
     I: IntoIterator<Item = S>,
@@ -90,5 +91,5 @@ where
             return true;
         }
     }
-    return false;
+    false
 }

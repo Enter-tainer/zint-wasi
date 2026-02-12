@@ -1,10 +1,10 @@
 use std::str::FromStr;
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use crate::error::Error;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
 #[repr(C)]
 pub struct Color {
     pub r: u8,
@@ -121,10 +121,11 @@ impl<'de> Deserialize<'de> for Color {
             where
                 A: de::SeqAccess<'de>,
             {
-                if let Some(size) = seq.size_hint() {
-                    if size != 3 && size != 4 {
-                        return Err(de::Error::invalid_length(size, &self));
-                    }
+                if let Some(size) = seq.size_hint()
+                    && size != 3
+                    && size != 4
+                {
+                    return Err(de::Error::invalid_length(size, &self));
                 }
 
                 let r = seq.next_element()?.ok_or(de::Error::missing_field("r"))?;

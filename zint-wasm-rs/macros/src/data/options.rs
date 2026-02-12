@@ -8,7 +8,7 @@ pub enum SymbologyOptionsDeclaration {
     Inline {
         name_override: Option<Ident>,
         lifetime: Option<Lifetime>,
-        brace_token: token::Brace,
+        _brace_token: token::Brace,
         entries: Punctuated<SymbologyEntryOption, Token![,]>,
     },
 }
@@ -39,7 +39,7 @@ impl Parse for SymbologyOptionsDeclaration {
             return Ok(Self::Inline {
                 name_override,
                 lifetime,
-                brace_token,
+                _brace_token: brace_token,
                 entries,
             });
         }
@@ -65,6 +65,7 @@ impl Parse for SymbologyOptionsDeclaration {
     }
 }
 
+#[allow(dead_code)]
 pub enum BindingAlias {
     Name(Ident, Option<Lifetime>),
     None(Token![_]),

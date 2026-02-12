@@ -6,10 +6,10 @@ use std::fmt::Display;
 use zint_sys::{internal, zint_symbol};
 
 /// Default zint SVG export.
-/// 
+///
 /// This plotting target will use default zint SVG output and store it in a byte
 /// buffer.
-/// 
+///
 /// If you need access to vector primitives, use
 /// [`VectorPlot`][crate::output::VectorPlot] instead.
 pub struct SvgPlot(Vec<u8>);

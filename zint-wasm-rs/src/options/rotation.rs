@@ -1,7 +1,8 @@
 /// Symbol rotation breakpoints.
-/// 
+///
 /// Rotations that aren't 90° multiples aren't supported by zint.
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, serde::Serialize)]
+#[serde(into = "i32")]
 #[repr(i32)]
 pub enum Rotation {
     #[default]

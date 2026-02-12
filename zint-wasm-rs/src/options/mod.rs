@@ -1,9 +1,14 @@
-use self::{
-    input_mode::InputMode, option3::Option3, output_options::OutputOptions,
+use self::{input_mode::InputMode, option3::Option3, output_options::OutputOptions};
+use crate::{
+    color::Color,
+    error::Error,
+    options::{
+        rotation::Rotation,
+        symbology::{SymbolOptionError, Symbology},
+    },
+    segment::Segment,
 };
-use crate::{color::Color, error::Error, options::{rotation::Rotation, symbology::{SymbolOptionError, Symbology}}, segment::Segment};
 use zint_sys::zint_symbol;
-use std::borrow::Cow;
 
 pub mod capability;
 pub mod input_mode;
@@ -12,7 +17,6 @@ pub mod output_options;
 pub mod rotation;
 pub mod symbology;
 pub mod values;
-
 
 #[derive(Debug, Clone, Copy)]
 pub enum WarningHandling {
@@ -27,7 +31,7 @@ pub enum WarningHandling {
 pub use symbology::SymbolOptions;
 
 /// Data necessary for encoding the symbol.
-/// 
+///
 /// This struct represents a union of all options that are passed to Zint. If
 /// you know what the target symbol will be at compile-time, prefer using
 /// [`SymbolOptions`] instead.
