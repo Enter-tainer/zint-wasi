@@ -46,6 +46,8 @@ fn main() -> Result<()> {
         let sdk_bin = sdk_path.join("bin");
         let sdk_sysroot = sdk_path.join("share/wasi-sysroot");
 
+        // SAFETY: build.rs runs in a single-threaded context during cargo build.
+        // No other threads are reading these environment variables concurrently.
         unsafe {
             env::set_var("CC", sdk_bin.join("clang"));
             env::set_var("AR", sdk_bin.join("ar"));

@@ -68,9 +68,11 @@ impl Symbol {
     ) -> Result<Self, Error> {
         let options = options.into();
 
-        // SAFETY: Segment is a transparent wrapper of zint_seg
-        let segments: &[zint_seg] =
-            unsafe { std::mem::transmute::<&[Segment<'_>], &[zint_seg]>(data) };
+        // SAFETY: Segment is a #[repr(transparent)] wrapper of zint_seg,
+        // so &[Segment] and &[zint_seg] have the same layout.
+        let segments: &[zint_seg] = unsafe {
+            std::slice::from_raw_parts(data.as_ptr() as *const zint_seg, data.len())
+        };
         let segment_count = segments.len();
         let max_segments = if options.supports_eci() {
             zint_sys::ZINT_MAX_SEG_COUNT as usize
@@ -86,7 +88,11 @@ impl Symbol {
         let segments = segments.as_ptr();
 
         let result_ptr = make_zint_symbol(options.symbology);
-        let result = unsafe { result_ptr.as_mut().unwrap_unchecked() };
+        let result = unsafe {
+            result_ptr
+                .as_mut()
+                .expect("make_zint_symbol returned null")
+        };
         options.apply(result)?;
 
         let result = ZintResult::from(
@@ -151,7 +157,11 @@ impl Symbol {
         &'a mut self,
         options: &'a DisplayOptions,
     ) -> Result<R, Error> {
-        let result: &'a mut zint_symbol = unsafe { self.inner.as_mut().unwrap_unchecked() };
+        let result: &'a mut zint_symbol = unsafe {
+            self.inner
+                .as_mut()
+                .expect("Symbol::inner should never be null")
+        };
         options.apply(result)?;
 
         match R::KIND {

@@ -188,10 +188,20 @@ impl ZintResult {
                     message: Some("symbol is null".to_string()),
                 });
             }
-            let symbol = unsafe { symbol.as_ref().unwrap_unchecked() };
+            let symbol = unsafe {
+                symbol
+                    .as_ref()
+                    .expect("symbol should not be null at this point")
+            };
             let message = unsafe {
-                let error_text = std::mem::transmute::<&[i8], &[u8]>(&symbol.errtxt);
-                CStr::from_bytes_until_nul(error_text).unwrap_unchecked()
+                // SAFETY: i8 and u8 have the same size and alignment;
+                // we're just reinterpreting the signed byte slice as unsigned.
+                let error_text = std::slice::from_raw_parts(
+                    symbol.errtxt.as_ptr() as *const u8,
+                    symbol.errtxt.len(),
+                );
+                CStr::from_bytes_until_nul(error_text)
+                    .expect("errtxt should contain a nul terminator")
             };
             let message = Some(message.to_string_lossy().to_string());
             if value <= ZintWarningKind::LAST {

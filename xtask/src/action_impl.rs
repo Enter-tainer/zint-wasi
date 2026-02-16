@@ -70,6 +70,9 @@ pub fn action_ensure_wasi_sdk(_args: &[String]) -> ActionResult {
 
     let wasi_sdk_path = action_expect!(extract_path.canonicalize());
 
+    // SAFETY: This is called during single-threaded build setup, before any
+    // multi-threaded operations begin. No other threads are reading environment
+    // variables concurrently.
     unsafe {
         std::env::set_var(WASI_PATH_VAR, wasi_sdk_path);
     }

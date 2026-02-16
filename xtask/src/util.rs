@@ -42,8 +42,12 @@ impl SliceReplace<[u8]> for Vec<u8> {
 }
 impl SliceReplace for OsStr {
     fn replace_slices(&self, from: &OsStr, to: &OsStr) -> OsString {
+        // SAFETY: The result is constructed by replacing encoded bytes from one
+        // OsStr with encoded bytes from another OsStr. Since both `from` and `to`
+        // are valid OsStr, and we're only replacing complete encoded byte sequences
+        // (not splitting within multi-byte characters), the result maintains the
+        // OsStr encoding invariants.
         unsafe {
-            // SAFETY: All inputs were encoded
             OsString::from_encoded_bytes_unchecked(
                 self.as_encoded_bytes()
                     .replace_slices(from.as_encoded_bytes(), to.as_encoded_bytes()),

@@ -4,7 +4,6 @@ use std::{
     fmt::{Debug, Display},
     hash::{Hash, Hasher},
     io::{self, Read, Seek},
-    mem::MaybeUninit,
     os::unix::ffi::OsStringExt,
     path::{Path, PathBuf},
     process as proc,
@@ -577,16 +576,13 @@ where
 {
     let file = std::fs::File::open(path)?;
     let mut file = std::io::BufReader::new(file);
-    let mut buffer: MaybeUninit<[u8; 1024]> = MaybeUninit::uninit();
-    unsafe {
-        let buffer = buffer.as_mut_ptr().as_mut().unwrap_unchecked();
-        loop {
-            let count = file.read(buffer)?;
-            if count == 0 {
-                break;
-            }
-            buffer[..count].hash(state)
+    let mut buffer = [0u8; 1024];
+    loop {
+        let count = file.read(&mut buffer)?;
+        if count == 0 {
+            break;
         }
+        buffer[..count].hash(state)
     }
     Ok(())
 }
@@ -716,12 +712,10 @@ pub enum CommandError {
 
 impl CommandError {
     pub fn new(code: i32) -> Self {
-        assert!(code != 0, "exit code 0 doesn't indicate an error");
-        unsafe {
-            Self::ExitError {
-                program: None,
-                code: std::num::NonZeroI32::new_unchecked(code),
-            }
+        Self::ExitError {
+            program: None,
+            code: std::num::NonZeroI32::new(code)
+                .expect("exit code 0 doesn't indicate an error"),
         }
     }
     pub fn interrupt(interrupt: i32) -> Self {

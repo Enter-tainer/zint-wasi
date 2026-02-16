@@ -23,10 +23,11 @@ pub(crate) mod util {
     /// Panics if the destination buffer isn't large enough to contain the source string.
     pub fn copy_into_cstr<S: AsRef<str>>(src: S, dest: &mut [::std::os::raw::c_char]) {
         let s = CString::new(src.as_ref()).unwrap();
-        let src: &[::std::ffi::c_char] = unsafe {
-            // Safety: C string is a sequence of c_chars
-            std::mem::transmute(s.as_bytes_with_nul())
-        };
+        let bytes = s.as_bytes_with_nul();
+        // SAFETY: c_char and u8 have the same size and alignment;
+        // we're just reinterpreting the byte slice as c_char slice.
+        let src: &[::std::ffi::c_char] =
+            unsafe { std::slice::from_raw_parts(bytes.as_ptr() as *const _, bytes.len()) };
         if dest.len() < src.len() {
             panic!("target buffer too small")
         }
