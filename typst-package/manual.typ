@@ -192,9 +192,9 @@ The following values are valid for the `options` dictionary:
   [Symbol-specific options (see #l("https://zint.org.uk/manual")[manual])],
   typst-val("0"),
   [hrt],
-  typst-type("dictionary"),
-  [Options for Human Readable Text (HRT) (see #l("https://typst.app/docs/reference/text/text/")[text] function)],
-  [current],
+  typst-type("bool"),
+  [Show Human Readable Text (HRT)],
+  typst-val("true"),
   detailed(<input_mode>, "input-mode"),
   typst-type(
     "int,string,array,dictionary",

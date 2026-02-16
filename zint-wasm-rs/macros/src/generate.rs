@@ -285,11 +285,30 @@ pub fn gen_symbol_options_enum(declaration: &SymbologyDeclaration) -> Result<Tok
         }
     }
 
+    let mut symbology_arms: Vec<Arm> = Vec::with_capacity(declaration.variants.len());
+
     for it in &declaration.variants {
         variants.push(gen_symbol_option_variant(it));
         if it.options().is_some() {
             match_arms.push(gen_symbol_config(it));
         }
+
+        // Generate a match arm: SymbolOptions::Variant { .. } => Symbology::Variant
+        let variant_name = &it.name;
+        let has_fields = it.options_struct_name().is_some();
+        let pat: Pat = if has_fields {
+            parse_quote!(SymbolOptions::#variant_name(..))
+        } else {
+            parse_quote!(SymbolOptions::#variant_name)
+        };
+        symbology_arms.push(Arm {
+            attrs: vec![],
+            pat,
+            guard: None,
+            fat_arrow_token: Default::default(),
+            body: Box::new(parse_quote!(Symbology::#variant_name)),
+            comma: Some(Default::default()),
+        });
     }
 
     Ok(quote::quote! {
@@ -303,12 +322,10 @@ pub fn gen_symbol_options_enum(declaration: &SymbologyDeclaration) -> Result<Tok
             type Error = SymbolOptionError;
 
             fn try_from(value: SymbolOptions<'o>) -> Result<Self, SymbolOptionError> {
-                // SAFETY: SymbolOptions discriminant is defined to be the same as Symbology discriminant.
-                let mut result = GenericOptions::from_symbology(unsafe {
-                    std::mem::transmute::<std::mem::Discriminant<SymbolOptions<'o>>, Symbology>(
-                        std::mem::discriminant(&value)
-                    )
-                });
+                let symbology = match &value {
+                    #(#symbology_arms)*
+                };
+                let mut result = GenericOptions::from_symbology(symbology);
                 match value {
                     #(#match_arms),*,
                     _ => {}

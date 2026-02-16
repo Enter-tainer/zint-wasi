@@ -42,7 +42,7 @@ impl<'a> PlotResult<'a> for VectorPlot {
     const KIND: PlotKind = PlotKind::Vector;
 
     fn from_symbol(
-        symbol: &'a zint_sys::zint_symbol,
+        symbol: &'a mut zint_sys::zint_symbol,
         options: &crate::options::DisplayOptions,
     ) -> Result<Self, crate::error::Error> {
         let vector_data = unsafe { symbol.vector.as_ref().ok_or(Error::MissingVectorData)? };
@@ -169,7 +169,13 @@ impl Hexagon {
             x: value.x,
             y: value.y,
             diameter: value.diameter,
-            rotation: unsafe { std::mem::transmute::<i32, Rotation>(value.rotation) },
+            rotation: match value.rotation {
+                0 => Rotation::Deg0,
+                90 => Rotation::Deg90,
+                180 => Rotation::Deg180,
+                270 => Rotation::Deg270,
+                other => panic!("unexpected rotation value: {other}"),
+            },
             color: ColorMapping::Foreground,
         }
     }
@@ -221,8 +227,19 @@ impl Text {
             font_size: value.fsize,
             width: value.width,
             length: value.length,
-            rotation: unsafe { std::mem::transmute::<i32, Rotation>(value.rotation) },
-            horizontal_align: unsafe { std::mem::transmute::<i32, HorizontalAlign>(value.halign) },
+            rotation: match value.rotation {
+                0 => Rotation::Deg0,
+                90 => Rotation::Deg90,
+                180 => Rotation::Deg180,
+                270 => Rotation::Deg270,
+                other => panic!("unexpected rotation value: {other}"),
+            },
+            horizontal_align: match value.halign {
+                0 => HorizontalAlign::Center,
+                1 => HorizontalAlign::Left,
+                2 => HorizontalAlign::Right,
+                other => panic!("unexpected halign value: {other}"),
+            },
             text: text.to_string(),
             color: ColorMapping::Foreground,
         }

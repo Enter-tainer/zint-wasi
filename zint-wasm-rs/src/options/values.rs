@@ -73,7 +73,8 @@ pub enum MaxiCodeMode<'o> {
     ///
     /// The first nine codewords of data provided to Zint are placed in the
     /// Primary Message and the rest of the codewords are placed in the
-    /// Secondary Message. Zint doesn't
+    /// Secondary Message. Zint doesn't automatically split the data between
+    /// the Primary and Secondary Messages.
     ///
     /// This mode provides for a total of 93 codewords for data. If the bar code
     /// data consists of only characters from MaxiCode Code Set A, the number of

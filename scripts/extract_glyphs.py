@@ -13,18 +13,17 @@ Outputs:
 """
 
 import io
+import os
 import re
 import sys
-
-sys.path.insert(0, "/tmp/fonttools-lib")
 
 from fontTools.ttLib import TTFont
 from fontTools.pens.recordingPen import RecordingPen
 
 
-ZINT_ROOT = "/home/ubuntu/freeman/data/threads/zint-wasi-pr-24-push/zint-wasi"
-NORMAL_TTF_H = f"{ZINT_ROOT}/zint-wasm-sys/zint/backend/fonts/normal_ttf.h"
-UPCEAN_TTF_H = f"{ZINT_ROOT}/zint-wasm-sys/zint/backend/fonts/upcean_ttf.h"
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+NORMAL_TTF_H = os.path.join(REPO_ROOT, "zint-wasm-sys", "zint", "backend", "fonts", "normal_ttf.h")
+UPCEAN_TTF_H = os.path.join(REPO_ROOT, "zint-wasm-sys", "zint", "backend", "fonts", "upcean_ttf.h")
 
 # Characters needed for barcode HRT
 CHARSET = (
@@ -228,8 +227,8 @@ def main():
 
     output_content = "\n".join(output)
 
-    # Write to workspace
-    output_path = "/home/ubuntu/freeman/data/threads/zint-wasi-pr-24-push/data/workspaces/glyph-native/typst-package/glyphs.typ"
+    # Write to typst-package in the repo root
+    output_path = os.path.join(REPO_ROOT, "typst-package", "glyphs.typ")
     with open(output_path, "w") as f:
         f.write(output_content)
     print(f"\nWritten to {output_path}")

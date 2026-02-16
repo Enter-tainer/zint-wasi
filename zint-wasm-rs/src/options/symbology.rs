@@ -1065,7 +1065,11 @@ impl Symbology {
         if result == 1 {
             panic!("Symbology value is invalid");
         }
-        // SAFETY: zint always insterts a nul byte at the end
+        // Truncate buffer to the first nul byte (inclusive) so that
+        // from_vec_with_nul_unchecked's precondition is satisfied.
+        let nul_pos = read_buffer.iter().position(|&b| b == 0).expect("missing nul byte");
+        read_buffer.truncate(nul_pos + 1);
+        // SAFETY: buffer now ends with exactly one nul byte and contains no interior nuls.
         let read_buffer = unsafe { CString::from_vec_with_nul_unchecked(read_buffer) };
         let result = unsafe { read_buffer.to_str().unwrap_unchecked() };
         result.to_string()
@@ -1077,7 +1081,7 @@ impl Symbology {
     }
 
     /// Returns the scale needed for this symbol to be `xdim` X-dimension
-    /// (in milimeters) at `dots_per_mm`.
+    /// (in millimeters) at `dots_per_mm`.
     ///
     /// If `xdim` or `dots_per_mm` are zero, negative or too large, a
     /// [`UnitConversionError`] is returned.
@@ -1103,7 +1107,7 @@ impl Symbology {
         })
     }
 
-    /// Returns estimate X-dimension (in milimeters) for given `scale` and
+    /// Returns estimate X-dimension (in millimeters) for given `scale` and
     /// `dots_per_mm`.
     ///
     /// If `scale` or `dots_per_mm` are zero, negative or too large, a
@@ -1134,8 +1138,8 @@ impl Symbology {
         })
     }
 
-    /// Returns required dots per milimeter to draw a barcode of specified
-    /// `xdim` X-dimension (in milimeters), at a given `scale`.
+    /// Returns required dots per millimeter to draw a barcode of specified
+    /// `xdim` X-dimension (in millimeters), at a given `scale`.
     ///
     /// If `scale` or `xdim` are zero, negative or too large, a
     /// [`UnitConversionError`] is returned.

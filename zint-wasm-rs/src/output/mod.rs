@@ -32,7 +32,7 @@ pub trait PlotResult<'a>: Sized {
     const KIND: PlotKind;
 
     fn from_symbol(
-        symbol: &'a zint_sys::zint_symbol,
+        symbol: &'a mut zint_sys::zint_symbol,
         options: &DisplayOptions,
     ) -> Result<Self, crate::error::Error>;
 }

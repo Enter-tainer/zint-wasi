@@ -64,7 +64,7 @@ impl ECI {
     /// Windows-1251 (Cyrillic)
     pub const WINDOWS_1251_CYRILLIC: ECI = ECI(22);
     /// Windows-1252 (Western Europe)
-    pub const WINDOWS_1256_WESTERN_EUROPE: ECI = ECI(23);
+    pub const WINDOWS_1252_WESTERN_EUROPE: ECI = ECI(23);
     /// Windows-1256 (Arabic)
     pub const WINDOWS_1256_ARABIC: ECI = ECI(24);
     /// UTF-16 Big Endian
@@ -172,7 +172,7 @@ impl<'d> Segment<'d> {
 
     #[inline]
     pub fn is_empty(&self) -> bool {
-        self.inner.length != 0
+        self.inner.length == 0
     }
 
     pub fn eci(&self) -> ECI {

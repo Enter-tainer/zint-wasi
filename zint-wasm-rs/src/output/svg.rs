@@ -18,10 +18,10 @@ impl<'a> PlotResult<'a> for SvgPlot {
     const KIND: PlotKind = PlotKind::Vector;
 
     fn from_symbol(
-        symbol: &'a zint_sys::zint_symbol,
+        symbol: &'a mut zint_sys::zint_symbol,
         options: &crate::options::DisplayOptions,
     ) -> Result<Self, Error> {
-        let symbol_ptr = std::ptr::from_ref(symbol) as *mut zint_symbol;
+        let symbol_ptr = symbol as *mut zint_symbol;
         let result = ZintResult::from(
             unsafe { internal::zint_svg_plot(symbol_ptr, 0) } as u32,
             symbol_ptr,

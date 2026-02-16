@@ -17,7 +17,7 @@ pub struct Symbol {
 #[inline(always)]
 fn make_zint_symbol(symbology: Symbology) -> *mut zint_symbol {
     let result_ptr = unsafe { zint_sys::ZBarcode_Create() };
-    let result = unsafe { result_ptr.as_mut().unwrap_unchecked() };
+    let result = unsafe { result_ptr.as_mut().expect("ZBarcode_Create returned null") };
     result.symbology = symbology as i32;
     // must be set
     result.outfile[0] = '\0' as i8;

@@ -100,7 +100,7 @@ bitflags::bitflags! {
     #[serde(transparent)]
     pub struct QRMatrixOption: u32 {
         /// Increase non-ASCII data density
-        const FULL_MULITIBYTE = ZINT_FULL_MULTIBYTE;
+        const FULL_MULTIBYTE = ZINT_FULL_MULTIBYTE;
 
         /// [Mask 0](QRMask::Mask0) option
         const MASK_0 = (QRMask::Mask0 as u32 + 1) << 8;
@@ -294,7 +294,7 @@ impl<'de> Deserialize<'de> for Option3 {
                     "dm-dmre" | "dmre" | "rect" => Option3::from(DataMatrixOption::DMRE),
                     "dm-iso-144" | "iso-144" => Option3::from(DataMatrixOption::ISO144),
                     "zint-full-multibyte" | "full-multibyte" => {
-                        Option3::from(QRMatrixOption::FULL_MULITIBYTE)
+                        Option3::from(QRMatrixOption::FULL_MULTIBYTE)
                     }
                     "ultra-compression" | "compression" => {
                         Option3::from(UltracodeOption::Compression)

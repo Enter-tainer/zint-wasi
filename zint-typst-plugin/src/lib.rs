@@ -41,7 +41,12 @@ pub fn gen_with_options(options: &[u8], text: &[u8]) -> Result<Vec<u8>> {
     // by the user, we use ECI::NONE to indicate "no explicit ECI", which is the same
     // numeric value but semantically means "use default encoding".
     let eci = match eci_value {
-        Some(val) => ECI::new(val as u32).map_err(|e| Error::InvalidEci(e.to_string()))?,
+        Some(val) => {
+            if val < 0 {
+                return Err(Error::InvalidEci(format!("ECI value must be non-negative, got {val}")));
+            }
+            ECI::new(val as u32).map_err(|e| Error::InvalidEci(e.to_string()))?
+        }
         None => ECI::NONE,
     };
 

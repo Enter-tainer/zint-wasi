@@ -50,6 +50,9 @@ build/
 # Cache
 .cache
 
+# IDE
+.vscode/
+
 ### Linux ###
 *~
 

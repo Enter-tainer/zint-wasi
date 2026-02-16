@@ -15,7 +15,7 @@ impl<'a> PlotResult<'a> for DynamicImage {
     const KIND: PlotKind = PlotKind::Raster;
 
     fn from_symbol(
-        symbol: &'a zint_sys::zint_symbol,
+        symbol: &'a mut zint_sys::zint_symbol,
         _options: &DisplayOptions,
     ) -> Result<Self, crate::error::Error> {
         let width = symbol.bitmap_width as u32;

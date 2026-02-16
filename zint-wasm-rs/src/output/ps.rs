@@ -18,10 +18,10 @@ impl<'a> PlotResult<'a> for PsPlot {
     const KIND: PlotKind = PlotKind::Vector;
 
     fn from_symbol(
-        symbol: &'a zint_sys::zint_symbol,
+        symbol: &'a mut zint_sys::zint_symbol,
         options: &crate::options::DisplayOptions,
     ) -> Result<Self, Error> {
-        let symbol_ptr = std::ptr::from_ref(symbol) as *mut zint_symbol;
+        let symbol_ptr = symbol as *mut zint_symbol;
         let result = ZintResult::from(
             unsafe { internal::zint_ps_plot(symbol_ptr, 0) } as u32,
             symbol_ptr,
@@ -49,7 +49,7 @@ impl<'a> PlotResult<'a> for PsPlot {
 
 impl AsRef<str> for PsPlot {
     fn as_ref(&self) -> &str {
-        // SAFETY: zint produces UTF-8 output for SVG
+        // SAFETY: zint produces UTF-8 output for PostScript
         unsafe { std::str::from_utf8_unchecked(&self.0) }
     }
 }

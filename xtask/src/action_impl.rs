@@ -333,7 +333,7 @@ fn typst_url(version: impl AsRef<str>) -> (String, &'static str, &'static str) {
     #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
     return (
         format!(
-            "https://github.com/typst/typst/releases/download/v{version}/typst-x86_64-unknown-linux-musl.tar.xz "
+            "https://github.com/typst/typst/releases/download/v{version}/typst-x86_64-unknown-linux-musl.tar.xz"
         ),
         "typst-x86_64-unknown-linux-musl",
         "tar.xz",
@@ -362,7 +362,7 @@ fn typst_url(version: impl AsRef<str>) -> (String, &'static str, &'static str) {
         "typst-x86_64-pc-windows-msvc",
         "zip",
     );
-    panic!("no prebuild binaryen available for current platform")
+    panic!("no prebuilt Typst available for current platform")
 }
 
 // should be only used for CI
