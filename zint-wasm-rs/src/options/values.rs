@@ -1,4 +1,58 @@
 use crate::segment::Segment;
+
+/// Check digit mode for Code 11.
+///
+/// Code 11 uses a modulo-11 algorithm. The default is two check digits.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub enum Code11CheckDigits {
+    /// Two modulo-11 check digits (default).
+    #[default]
+    Two,
+    /// One modulo-11 check digit.
+    One,
+    /// No check digit.
+    None,
+}
+
+/// Check digit mode for Code 39, Extended Code 39, and LOGMARS.
+///
+/// The standard does not require a check digit, but an optional modulo-43
+/// check digit can be added.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub enum Code39CheckDigit {
+    /// No check digit (default).
+    #[default]
+    None,
+    /// Add a modulo-43 check digit, shown in the Human Readable Text.
+    Visible,
+    /// Add a modulo-43 check digit, hidden from the Human Readable Text.
+    Hidden,
+}
+
+/// Number of channels for Channel Code (3-8).
+///
+/// Channel Code is a highly compressed numeric symbology. The number of
+/// channels determines the maximum value that can be encoded:
+/// 3→26, 4→292, 5→3493, 6→44072, 7→576688, 8→7742862.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub struct ChannelCount(pub(crate) u8);
+
+impl ChannelCount {
+    /// Automatic channel count — zint infers from input length.
+    pub fn auto() -> Self {
+        Self(0)
+    }
+
+    /// Create a channel count, or `None` if not in range 3-8.
+    pub fn new(count: u8) -> Option<Self> {
+        if (3..=8).contains(&count) {
+            Some(Self(count))
+        } else {
+            None
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy)]
 pub enum ModuloScheme {
     Luhn,
@@ -202,8 +256,11 @@ pub enum QRErrorCorrection {
     H,
 }
 
-/// Size of the QR code.
-/// 
+/// Size of the QR code (version 1-40).
+///
+/// Each version increases the symbol size by 4 modules per side, from
+/// 21×21 (version 1) to 177×177 (version 40).
+///
 /// The maximum capacity of a QR Code symbol (version 40) is 7089 numeric
 /// digits, 4296 alphanumeric characters or 2953 bytes of data.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -341,61 +398,66 @@ pub enum PZNVersion {
 ///
 /// Default level is determined automatically by zint based on the amount of
 /// data being encoded.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-#[repr(u8)]
-pub enum PDF417ErrorCorrection {
-    /// `2^1 = 2` error correction codewords.
-    L0 = 0,
-    /// `2^2 = 4` error correction codewords.
-    L1 = 1,
-    /// `2^3 = 8` error correction codewords.
-    L2 = 2,
-    /// `2^4 = 16` error correction codewords.
-    L3 = 3,
-    /// `2^5 = 32` error correction codewords.
-    L4 = 4,
-    /// `2^6 = 64` error correction codewords.
-    L5 = 5,
-    /// `2^7 = 128` error correction codewords.
-    L6 = 6,
-    /// `2^8 = 256` error correction codewords.
-    L7 = 7,
-    /// `2^9 = 512` error correction codewords.
-    L8 = 8,
+///
+/// Valid levels:
+/// - Level 0: `2^1 = 2` error correction codewords
+/// - Level 1: `2^2 = 4` error correction codewords
+/// - Level 2: `2^3 = 8` error correction codewords
+/// - Level 3: `2^4 = 16` error correction codewords
+/// - Level 4: `2^5 = 32` error correction codewords
+/// - Level 5: `2^6 = 64` error correction codewords
+/// - Level 6: `2^7 = 128` error correction codewords
+/// - Level 7: `2^8 = 256` error correction codewords
+/// - Level 8: `2^9 = 512` error correction codewords
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub struct PDF417ErrorCorrection(pub(crate) u8);
+
+impl PDF417ErrorCorrection {
+    /// Automatic error correction (zint chooses based on data).
+    pub fn auto() -> Self { Self(0) }
+    /// Set error correction level (0-8), or `None` if out of range.
+    pub fn l(level: u8) -> Option<Self> {
+        if level <= 8 { Some(Self(level)) } else { None }
+    }
 }
 
 /// Number of data columns for MicroPDF417.
 ///
 /// MicroPDF417 supports 1 to 4 data columns.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[repr(u8)]
-pub enum MicroPDF417Columns {
-    /// 1 data column.
-    One = 1,
-    /// 2 data columns.
-    Two = 2,
-    /// 3 data columns.
-    Three = 3,
-    /// 4 data columns.
-    Four = 4,
+/// If not specified, zint selects the column count automatically.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub struct MicroPDF417Columns(pub(crate) u8);
+
+impl MicroPDF417Columns {
+    /// Automatic column count.
+    pub fn auto() -> Self { Self(0) }
+    /// Set column count (1-4), or `None` if out of range.
+    pub fn new(columns: u8) -> Option<Self> {
+        if (1..=4).contains(&columns) { Some(Self(columns)) } else { None }
+    }
 }
 
 /// Error correction level for Aztec Code and HIBC Aztec Code.
 ///
 /// Specifies the minimum percentage of symbol area used for error correction.
-/// If both [`AztecErrorCorrection`] and a symbol size are specified, the size
+/// If both an error correction level and a symbol size are specified, the size
 /// takes precedence and this option is ignored.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[repr(u8)]
-pub enum AztecErrorCorrection {
-    /// At least 10% + 3 codewords of error correction.
-    L1 = 1,
-    /// At least 23% + 3 codewords of error correction.
-    L2 = 2,
-    /// At least 36% + 3 codewords of error correction.
-    L3 = 3,
-    /// At least 50% + 3 codewords of error correction.
-    L4 = 4,
+///
+/// Valid levels:
+/// - Level 1: at least 10% + 3 codewords of error correction
+/// - Level 2: at least 23% + 3 codewords of error correction
+/// - Level 3: at least 36% + 3 codewords of error correction
+/// - Level 4: at least 50% + 3 codewords of error correction
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub struct AztecErrorCorrection(pub(crate) u8);
+
+impl AztecErrorCorrection {
+    /// Automatic error correction.
+    pub fn auto() -> Self { Self(0) }
+    /// Set error correction level (1-4), or `None` if out of range.
+    pub fn l(level: u8) -> Option<Self> {
+        if (1..=4).contains(&level) { Some(Self(level)) } else { None }
+    }
 }
 
 /// Symbol size for Aztec Code and HIBC Aztec Code.
@@ -430,6 +492,162 @@ impl AztecSize {
     pub fn is_compact(self) -> bool {
         self.0 <= 4
     }
+}
+
+/// Error correction level for Grid Matrix.
+///
+/// Specifies the approximate percentage of symbol area used for error
+/// correction. If both an error correction level and a symbol size are
+/// specified, Zint makes a best-fit attempt to satisfy both conditions;
+/// the level may be reduced if the data requires it.
+///
+/// Default is approximately 30% (level 3).
+///
+/// Valid levels:
+/// - Level 1: ~10% error correction
+/// - Level 2: ~20% error correction
+/// - Level 3: ~30% error correction
+/// - Level 4: ~40% error correction
+/// - Level 5: ~50% error correction
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub struct GridMatrixErrorCorrection(pub(crate) u8);
+
+impl GridMatrixErrorCorrection {
+    /// Automatic error correction (approximately 30%).
+    pub fn auto() -> Self { Self(0) }
+    /// Set error correction level (1-5), or `None` if out of range.
+    pub fn l(level: u8) -> Option<Self> {
+        if (1..=5).contains(&level) { Some(Self(level)) } else { None }
+    }
+}
+
+/// Error correction level for Han Xin Code (ISO 20830).
+///
+/// Specifies the approximate percentage of symbol data used for error
+/// correction. Higher levels increase error recovery but reduce data capacity.
+///
+/// Default is level 1 (~8%).
+///
+/// Valid levels:
+/// - Level 1: ~8% error correction
+/// - Level 2: ~15% error correction
+/// - Level 3: ~23% error correction
+/// - Level 4: ~30% error correction
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub struct HanXinErrorCorrection(pub(crate) u8);
+
+impl HanXinErrorCorrection {
+    /// Automatic error correction (level 1, ~8%).
+    pub fn auto() -> Self { Self(0) }
+    /// Set error correction level (1-4), or `None` if out of range.
+    pub fn l(level: u8) -> Option<Self> {
+        if (1..=4).contains(&level) { Some(Self(level)) } else { None }
+    }
+}
+
+/// Mask pattern for Han Xin Code (ISO 20830).
+///
+/// Han Xin uses four masking patterns to minimise unwanted visual patterns
+/// in the symbol. The best mask is selected automatically by Zint; set this
+/// option only if a specific mask is required.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(u8)]
+pub enum HanXinMask {
+    /// Non-masking — no mask is applied.
+    Mask0 = 0,
+    #[doc = include_str!("../../../assets/masks/mask000.svg")]
+    ///
+    /// Modules alternate between dark and light based on the sum of their
+    /// row and column coordinates.
+    ///
+    /// Formula: `(i + j) mod 2 = 0`
+    Mask1 = 1,
+    #[doc = include_str!("../../../assets/masks/hanxin_mask10.svg")]
+    ///
+    /// Applies a mask based on combined row/column modular arithmetic.
+    ///
+    /// Formula: `((i + j) mod 3 + (j mod 3)) mod 2 = 0`
+    Mask2 = 2,
+    #[doc = include_str!("../../../assets/masks/hanxin_mask11.svg")]
+    ///
+    /// Applies a mask using cross-modular row and column indices.
+    ///
+    /// Formula: `(i mod j + j mod i + i mod 3 + j mod 3) mod 2 = 0`
+    Mask3 = 3,
+}
+
+/// Mask pattern for DotCode.
+///
+/// DotCode has two sets of four masks, designated 0–3 and 0′–3′ (the
+/// "prime" set is identical to the first set but with corners lit).
+/// Masks 0-3 correspond to the first set; masks 4-7 correspond to the
+/// prime set.
+///
+/// The best mask is selected automatically by Zint; set this option only if
+/// a specific mask is required.
+///
+/// The raw API value is `(N + 1) << 8` where N is 0-7.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(u8)]
+pub enum DotCodeMask {
+    /// Mask 0 — no change (adds successive multiples of 0).
+    Mask0 = 0,
+    /// Mask 1 — adds successive multiples of 3 to each codeword value,
+    /// modulo 113.
+    Mask1 = 1,
+    /// Mask 2 — adds successive multiples of 7 to each codeword value,
+    /// modulo 113.
+    Mask2 = 2,
+    /// Mask 3 — adds successive multiples of 17 to each codeword value,
+    /// modulo 113.
+    Mask3 = 3,
+    /// Mask 0′ (prime) — same as Mask 0 with corners lit.
+    Mask0Prime = 4,
+    /// Mask 1′ (prime) — same as Mask 1 with corners lit.
+    Mask1Prime = 5,
+    /// Mask 2′ (prime) — same as Mask 2 with corners lit.
+    Mask2Prime = 6,
+    /// Mask 3′ (prime) — same as Mask 3 with corners lit.
+    Mask3Prime = 7,
+}
+
+/// Symbol version (size) for Code One.
+///
+/// There are two families of Code One symbols:
+/// - **Fixed-ratio** (roughly square) versions A–H, which vary in physical
+///   size and data capacity.
+/// - **Variable-width** versions S and T, whose width is determined by the
+///   amount of data; version S is restricted to numeric-only input.
+///
+/// Corresponds to zint `option_2` values 1-10.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[repr(u8)]
+pub enum CodeOneSize {
+    /// Version A — 16×18 modules, up to 22 numeric or 13 alphanumeric characters.
+    A = 1,
+    /// Version B — 22×22 modules, up to 44 numeric or 27 alphanumeric characters.
+    B = 2,
+    /// Version C — 28×32 modules, up to 104 numeric or 64 alphanumeric characters.
+    C = 3,
+    /// Version D — 40×42 modules, up to 217 numeric or 135 alphanumeric characters.
+    D = 4,
+    /// Version E — 52×54 modules, up to 435 numeric or 271 alphanumeric characters.
+    E = 5,
+    /// Version F — 70×76 modules, up to 886 numeric or 553 alphanumeric characters.
+    F = 6,
+    /// Version G — 104×98 modules, up to 1755 numeric or 1096 alphanumeric characters.
+    G = 7,
+    /// Version H — 148×134 modules, up to 3550 numeric or 2218 alphanumeric characters.
+    H = 8,
+    /// Version S — 8 rows × variable width, up to 18 numeric characters.
+    ///
+    /// Numeric data only. Width is determined automatically by the data length.
+    /// Structured Append is not supported with version S.
+    S = 9,
+    /// Version T — 16 rows × variable width, up to 90 numeric or 55 alphanumeric characters.
+    ///
+    /// Width is determined automatically by the data length.
+    T = 10,
 }
 
 /// Symbol size for Royal Mail 2D Mailmark (CMDM).

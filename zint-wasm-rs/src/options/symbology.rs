@@ -96,38 +96,70 @@ symbol_data! {
     #[non_exhaustive]
     #[repr(i32)]
     pub enum Symbology {
-        /// Code 11
+        /// Code 11, developed by Intermec in 1977 for Bell Labs.
+        ///
+        /// A high-density barcode used to track small telephone components.
+        /// Encodes digits `0-9` and the dash character (`-`) up to a maximum
+        /// of 140 characters.
+        ///
+        /// Two modulo-11 check digits are added by default. One or zero check
+        /// digits can be selected via [`check_digits`][Code11Options::check_digits].
+        ///
+        /// Corresponds to zint `option_2`: 0 = two check digits (default),
+        /// 1 = one check digit, 2 = no check digit.
         Code11 = {
             raw: BARCODE_CODE11,
             kebab_case: "code11",
             options: {
                 /// Number of modulo-11 check digits to add to the symbol.
-                check_digits: usize = 2,
+                ///
+                /// Defaults to [`Two`][values::Code11CheckDigits::Two] (two
+                /// check digits). Use [`One`][values::Code11CheckDigits::One]
+                /// or [`None`][values::Code11CheckDigits::None] to reduce
+                /// or suppress check digit generation.
+                ///
+                /// Corresponds to zint `option_2`.
+                check_digits: values::Code11CheckDigits,
             },
             apply_options: |result, options| {
                 result.option_2 = Some(match options.check_digits {
-                    0 => 2,
-                    1 => 1,
-                    2 => 0,
-                    other => {
-                        return Err(SymbolOptionError {
-                            option_name: "check_digits",
-                            value: other.to_string(),
-                            reason: "more than 2 check digits not supported by Code 11".to_string()
-                        });
-                    }
+                    values::Code11CheckDigits::Two  => 0,
+                    values::Code11CheckDigits::One  => 1,
+                    values::Code11CheckDigits::None => 2,
                 });
                 Ok(())
             },
         },
-        /// 2 of 5 Standard (Matrix)
+        /// Standard Code 2 of 5 (Matrix Code 2 of 5).
+        ///
+        /// Also known as Code 2 of 5 Matrix, used in industrial applications
+        /// and photo development. Encodes numeric input (digits 0-9) up to a
+        /// maximum of 112 digits.
+        ///
+        /// No check digit is added by default. An optional check digit can be
+        /// added via [`check_digit`][C25Options::check_digit], and suppressed
+        /// from the Human Readable Text via
+        /// [`hide_check_digit`][C25Options::hide_check_digit].
+        ///
+        /// Corresponds to zint `option_2`: 0 = no check digit (default),
+        /// 1 = visible check digit, 2 = hidden check digit.
         C25Standard = {
             raw: BARCODE_C25STANDARD,
             kebab_case: "c25-standard",
             options: C25Options {
-                /// Whether to add a check digit to 2 of 5 code.
+                /// Whether to add a modulo-10 check digit to the symbol.
+                ///
+                /// When `false` (default) no check digit is appended.
+                /// When `true` a check digit is appended; its visibility in
+                /// the Human Readable Text is controlled by
+                /// [`hide_check_digit`][C25Options::hide_check_digit].
                 check_digit: bool,
-                /// Whether to hide the check digit from Human Readable Text (HRT).
+                /// Whether to hide the check digit from the Human Readable
+                /// Text (HRT).
+                ///
+                /// Only effective when [`check_digit`][C25Options::check_digit]
+                /// is `true`. When `true` the check digit is still encoded in
+                /// the symbol but omitted from the HRT.
                 hide_check_digit: bool,
             },
             apply_options: |result, options| {
@@ -139,39 +171,104 @@ symbol_data! {
                 Ok(())
             }
         },
-        /// 2 of 5 Interleaved
+        /// Interleaved Code 2 of 5 (ISO/IEC 16390).
+        ///
+        /// A high-density barcode that interleaves pairs of digits, and
+        /// therefore can only encode an even number of digits (0-9). If an
+        /// odd number of digits is supplied, Zint prepends a leading zero.
+        /// A maximum of 62 digit pairs (124 digits) can be encoded.
+        ///
+        /// No check digit is added by default; see
+        /// [`C25Options`] for check digit control.
         C25Inter = {
             raw: BARCODE_C25INTER,
             kebab_case: "c25-inter",
             options: C25Options,
         },
-        /// 2 of 5 IATA
+        /// IATA Code 2 of 5.
+        ///
+        /// Used by the International Air Transport Association (IATA) for
+        /// baggage handling. Encodes numeric input (digits 0-9) up to a
+        /// maximum of 80 digits.
+        ///
+        /// No check digit is added by default; see
+        /// [`C25Options`] for check digit control.
         C25IATA = {
             raw: BARCODE_C25IATA,
             kebab_case: "c25-iata",
             options: C25Options,
         },
-        /// 2 of 5 Data Logic
+        /// Code 2 of 5 Data Logic.
+        ///
+        /// A variant of Code 2 of 5 used in data logic applications. Encodes
+        /// numeric input (digits 0-9) up to a maximum of 113 digits.
+        ///
+        /// No check digit is added by default; see
+        /// [`C25Options`] for check digit control.
         C25Logic = {
             raw: BARCODE_C25LOGIC,
             kebab_case: "c25-logic",
             options: C25Options,
         },
-        /// 2 of 5 Industrial
+        /// Industrial Code 2 of 5.
+        ///
+        /// A variant of Code 2 of 5 used in industrial applications. Encodes
+        /// numeric input (digits 0-9) up to a maximum of 79 digits.
+        ///
+        /// No check digit is added by default; see
+        /// [`C25Options`] for check digit control.
         C25Ind = {
             raw: BARCODE_C25IND,
             kebab_case: "c25-ind",
             options: C25Options,
         },
-        /// Code 39
+        /// Standard Code 39 (ISO/IEC 16388), introduced in 1975 by Intermec.
+        ///
+        /// Encodes digits `0-9`, uppercase letters `A-Z`, dash (`-`), full
+        /// stop (`.`), space, asterisk (`*`), dollar (`$`), slash (`/`),
+        /// plus (`+`), and percent (`%`). Input up to 86 characters.
+        ///
+        /// The standard does not require a check digit, but an optional
+        /// modulo-43 check digit can be added via
+        /// [`check_digit`][Code39Options::check_digit].
         Code39 = {
             raw: BARCODE_CODE39,
             kebab_case: "code39",
+            options: Code39Options {
+                /// Optional modulo-43 check digit.
+                ///
+                /// Defaults to [`None`][values::Code39CheckDigit::None]
+                /// (no check digit). Set to
+                /// [`Visible`][values::Code39CheckDigit::Visible] to append
+                /// a check digit shown in the Human Readable Text, or
+                /// [`Hidden`][values::Code39CheckDigit::Hidden] to encode
+                /// it without showing it in the HRT.
+                ///
+                /// Corresponds to zint `option_2`: 0 = none, 1 = visible,
+                /// 2 = hidden.
+                check_digit: values::Code39CheckDigit,
+            },
+            apply_options: |result, options| {
+                result.option_2 = Some(match options.check_digit {
+                    values::Code39CheckDigit::None    => 0,
+                    values::Code39CheckDigit::Visible => 1,
+                    values::Code39CheckDigit::Hidden  => 2,
+                });
+                Ok(())
+            },
         },
-        /// Extended Code 39
+        /// Extended Code 39 (Code 39e / Code 39+).
+        ///
+        /// Expands on Standard Code 39 to encode the full 7-bit ASCII
+        /// character set by representing each character as one or two
+        /// Code 39 characters. Input up to 86 characters.
+        ///
+        /// The check digit options are the same as for
+        /// [`Code39`][Symbology::Code39].
         ExCode39 = {
             raw: BARCODE_EXCODE39,
             kebab_case: "ex-code39",
+            options: Code39Options,
         },
         /// Variable length EAN variant (deprecated).
         ///
@@ -400,11 +497,65 @@ symbol_data! {
             category: "gs1",
             alias: "EAN128",
         },
-        /// Codabar
+        /// Codabar (EN 798), also known as Rationalized Codabar, Code 27,
+        /// 2 of 7 Code, NW-7, USD-4, and Monarch.
+        ///
+        /// Developed in 1972 by Pitney Bowes-Alpex. Adopted by the American
+        /// Blood Commission in 1979 as the standard barcode for blood products.
+        ///
+        /// Encodes up to 103 characters. The input must start and end with
+        /// a start/stop character `A`-`D`, and between those characters may
+        /// contain digits `0-9`, dash (`-`), dollar (`$`), colon (`:`),
+        /// slash (`/`), full stop (`.`), or plus (`+`).
+        ///
+        /// No check character is generated by default. A modulo-16 check
+        /// character can be added via
+        /// [`check_digit`][CodabarOptions::check_digit].
         Codabar = {
             raw: BARCODE_CODABAR,
+            kebab_case: "codabar",
+            options: {
+                /// Optional modulo-16 check character.
+                ///
+                /// Defaults to [`None`][values::Code39CheckDigit::None]
+                /// (no check character). Set to
+                /// [`Hidden`][values::Code39CheckDigit::Hidden] to add a
+                /// hidden check character (not shown in HRT), or
+                /// [`Visible`][values::Code39CheckDigit::Visible] to include
+                /// it in the Human Readable Text.
+                ///
+                /// Corresponds to zint `option_2`: 0 = none, 1 = hidden,
+                /// 2 = visible. Note: the ordering of hidden/visible is
+                /// reversed compared to Code 39.
+                check_digit: values::Code39CheckDigit,
+            },
+            apply_options: |result, options| {
+                result.option_2 = Some(match options.check_digit {
+                    values::Code39CheckDigit::None    => 0,
+                    values::Code39CheckDigit::Hidden  => 1,
+                    values::Code39CheckDigit::Visible => 2,
+                });
+                Ok(())
+            },
         },
-        /// Code 128
+        /// Standard Code 128 (ISO/IEC 15417), developed in 1981 by Computer
+        /// Identics.
+        ///
+        /// One of the most widely used 1D barcode symbologies. Supports full
+        /// ASCII text and ISO/IEC 8859-1 (Latin-1) characters. Zint
+        /// automatically selects between Code Sets A, B, and C to minimize
+        /// symbol width and adds a hidden modulo-103 check digit.
+        ///
+        /// Manual Code Set selection is available via
+        /// `input_mode |= EXTRA_ESCAPE_MODE` using escape sequences `\^A`,
+        /// `\^B`, `\^C`, and `\^@`. The special `\^1` escape inserts an
+        /// FNC1 function code anywhere in the data.
+        ///
+        /// Maximum capacity is 102 symbol characters (e.g. 202 all-numeric
+        /// or 101 all-uppercase characters). Sizes above 120 digits are not
+        /// recommended.
+        ///
+        /// This symbology has no configurable options.
         #[default]
         Code128 = {
             raw: BARCODE_CODE128,
@@ -436,22 +587,129 @@ symbol_data! {
             raw: BARCODE_DPIDENT,
             category: "postal",
         },
-        /// Code 16k
+        /// Code 16K (EN 12323), invented by Ted Williams for LaserLight
+        /// Systems in 1988.
+        ///
+        /// A stacked symbology based on Code 128 that arranges data in up
+        /// to 16 fixed-width rows. Maximum capacity is 77 characters or 154
+        /// numeric digits. Includes two modulo-107 check digits and supports
+        /// ISO/IEC 8859-1 and GS1 data encoding.
+        ///
+        /// The minimum number of rows can be set via
+        /// [`min_rows`][Code16kOptions::min_rows] (valid range 2-16). When
+        /// binding is enabled, the row separator bar height (in X-dimensions,
+        /// range 1-4) can be adjusted via
+        /// [`separator`][Code16kOptions::separator].
         Code16k = {
             raw: BARCODE_CODE16K,
             kebab_case: "code16k",
+            options: {
+                /// Minimum number of rows to use. Valid range: 2-16 (default:
+                /// the minimum needed to encode the data).
+                ///
+                /// Values of 1 or above 16 are rejected by zint with an error.
+                ///
+                /// Corresponds to zint `option_1`.
+                min_rows: Option<u8>,
+                /// Row separator bar height in multiples of the X-dimension.
+                /// Valid range: 1-4 (default 1).
+                ///
+                /// Only relevant when `output_options |= BARCODE_BIND` is set.
+                /// Corresponds to zint `option_3`.
+                separator: Option<u8>,
+            },
+            apply_options: |result, options| {
+                if let Some(rows) = options.min_rows {
+                    result.option_1 = Some(
+                        require_range_inclusive("min_rows", rows as std::ffi::c_int, 2, 16)?
+                    );
+                }
+                if let Some(sep) = options.separator {
+                    result.option_3 = Some(
+                        require_range_inclusive("separator", sep as std::ffi::c_int, 1, 4)?
+                    );
+                }
+                Ok(())
+            },
         },
-        /// Code 49
+        /// Code 49, developed at Intermec in 1987.
+        ///
+        /// An early stacked symbology that influenced Code 16K. Encodes full
+        /// 7-bit ASCII input up to 49 characters or 81 numeric digits. GS1
+        /// data encoding is supported.
+        ///
+        /// The minimum number of rows can be set via
+        /// [`min_rows`][Code49Options::min_rows] (valid range 2-8). When
+        /// binding is enabled, the row separator bar height (in X-dimensions,
+        /// range 1-4) can be adjusted via
+        /// [`separator`][Code49Options::separator].
         Code49 = {
             raw: BARCODE_CODE49,
             kebab_case: "code49",
+            options: {
+                /// Minimum number of rows to use. Valid range: 2-8 (default:
+                /// the minimum needed to encode the data).
+                ///
+                /// A value of 1 or a value greater than 8 is rejected by
+                /// zint with an error.
+                ///
+                /// Corresponds to zint `option_1`.
+                min_rows: Option<u8>,
+                /// Row separator bar height in multiples of the X-dimension.
+                /// Valid range: 1-4 (default 1).
+                ///
+                /// Only relevant when `output_options |= BARCODE_BIND` is set.
+                /// Corresponds to zint `option_3`.
+                separator: Option<u8>,
+            },
+            apply_options: |result, options| {
+                if let Some(rows) = options.min_rows {
+                    result.option_1 = Some(
+                        require_range_inclusive("min_rows", rows as std::ffi::c_int, 2, 8)?
+                    );
+                }
+                if let Some(sep) = options.separator {
+                    result.option_3 = Some(
+                        require_range_inclusive("separator", sep as std::ffi::c_int, 1, 4)?
+                    );
+                }
+                Ok(())
+            },
         },
-        /// Code 93
+        /// Code 93, a variation of Extended Code 39.
+        ///
+        /// Supports the full 7-bit ASCII character set, accepting up to 123
+        /// characters. Two check characters are computed and appended by Zint
+        /// using a weighted modulo-47 algorithm. By default the check
+        /// characters are not shown in the Human Readable Text.
         Code93 = {
             raw: BARCODE_CODE93,
             kebab_case: "code93",
+            options: {
+                /// Whether to show the two check characters in the Human
+                /// Readable Text (HRT).
+                ///
+                /// When `false` (default), the check characters are encoded
+                /// in the symbol but omitted from the HRT. When `true`, the
+                /// two check characters are appended to the HRT.
+                ///
+                /// Corresponds to zint `option_2 = 1`.
+                show_check_digits: bool,
+            },
+            apply_options: |result, options| {
+                if options.show_check_digits {
+                    result.option_2 = Some(1);
+                }
+                Ok(())
+            },
         },
-        /// Flattermarken
+        /// Flattermarken (Flat Marks), a German postal barcode.
+        ///
+        /// Input must be a single character: `A`, `B`, `C`, `D`, or `E`.
+        /// Lowercase input is automatically converted to uppercase.
+        ///
+        /// This symbology has no configurable options; all encoding is
+        /// determined by the input character.
         Flat = {
             raw: BARCODE_FLAT,
         },
@@ -510,7 +768,12 @@ symbol_data! {
             kebab_case: "dbar-exp",
             category: "gs1",
         },
-        /// Telepen Alpha
+        /// Telepen Alpha, developed by SB Electronic Systems Limited.
+        ///
+        /// Encodes ASCII text input up to a maximum of 69 characters.
+        /// A hidden modulo-127 check digit is automatically added by Zint.
+        ///
+        /// This symbology has no configurable options.
         Telepen = {
             raw: BARCODE_TELEPEN,
         },
@@ -635,14 +898,17 @@ symbol_data! {
             raw: BARCODE_POSTNET,
             category: "postal",
         },
-        /// MSI Plessey is based on [`Plessey`][Symbology::Plessey] and
-        /// developed by MSE Data Corporation.
-        /// 
-        /// MSI Plessey has a range of check digit options that are selectable
-        /// by setting [`check_digits`][MSIPlesseyOptions::check_digits].
-        /// 
-        /// Numeric (digits 0-9) input can be encoded, up to a maximum of 65
-        /// digits.
+        /// MSI Plessey, based on [`Plessey`][Symbology::Plessey] and developed
+        /// by MSI Data Corporation.
+        ///
+        /// Encodes numeric input (digits `0-9`) up to a maximum of 92 digits.
+        ///
+        /// A variety of check digit schemes are available via
+        /// [`check_digits`][MSIPlesseyOptions::check_digits], including
+        /// Modulo-10 (Luhn), Modulo-11 (IBM and NCR variants), and
+        /// combinations of two check digits. The check digit(s) can be
+        /// hidden from the Human Readable Text via
+        /// [`hide_check_digit`][MSIPlesseyOptions::hide_check_digit].
         MSIPlessey = {
             raw: BARCODE_MSI_PLESSEY,
             options: {
@@ -662,14 +928,32 @@ symbol_data! {
                 Ok(())
             },
         },
-        /// Facing Identification Mark
+        /// Facing Identification Mark (FIM), a USPS barcode.
+        ///
+        /// Used by the United States Postal Service for optical facing and
+        /// cancellation of letter mail. Input must be a single character:
+        /// `A`, `B`, `C`, `D`, or `E` (lowercase is accepted and converted
+        /// to uppercase automatically).
+        ///
+        /// This symbology has no configurable options.
         FIM = {
             raw: BARCODE_FIM,
         },
-        /// LOGMARS
+        /// LOGMARS (Logistics Applications of Automated Marking and Reading
+        /// Symbols), used by the U.S. Department of Defense.
+        ///
+        /// A Code 39 variant defined in MIL-STD-1189 Rev. B. Encodes the
+        /// same character set as Code 39 (digits `0-9`, uppercase letters
+        /// `A-Z`, and the special characters `-.$/+%` and space) but uses
+        /// wider bars and is limited to a maximum of 30 characters.
+        ///
+        /// An optional modulo-43 check digit can be added via
+        /// [`check_digit`][Code39Options::check_digit], which works
+        /// identically to the Code 39 option.
         LOGMARS = {
             raw: BARCODE_LOGMARS,
-            alias: "Logmars"
+            alias: "Logmars",
+            options: Code39Options,
         },
         /// Pharmacode One-Track, developed by Laetus for pharmaceutical
         /// product identification.
@@ -740,18 +1024,76 @@ symbol_data! {
             kebab_case: "cepnet",
             category: "postal",
         },
-        /// PDF417
+        /// PDF417 (ISO 15438).
+        ///
+        /// A two-dimensional stacked symbology heavily used in the parcel
+        /// industry. Supports up to 925 codewords, allowing a maximum of 1850
+        /// text characters or 2710 digits (at error correction level 0).
+        ///
+        /// Encodes Latin-1 (ISO 8859-1) data by default; ECI encoding is also
+        /// supported.
+        ///
+        /// Three layout parameters may be specified independently:
+        /// - [`columns`][PDF417Options::columns] — number of data columns (1-30).
+        /// - [`rows`][PDF417Options::rows] — number of rows (3-90).
+        /// - [`error_correction`][PDF417Options::error_correction] — error
+        ///   correction level (0-8); number of EC codewords = `2^(level + 1)`.
+        ///
+        /// Zint will increase `columns` or `rows` automatically if the data
+        /// requires it. The product `columns × rows` must not exceed 928.
+        ///
+        /// Structured Append of up to 99,999 symbols is supported.
         PDF417 = {
             raw: BARCODE_PDF417,
             kebab_case: "pdf417",
             category: "2d",
+            options: {
+                /// Error correction level.
+                ///
+                /// Number of error correction codewords equals `2^(level + 1)`.
+                /// Set to `None` to let Zint choose automatically based on
+                /// data length.
+                error_correction: values::PDF417ErrorCorrection,
+                /// Number of data columns (1-30). Set to `None` for automatic.
+                ///
+                /// Zint will increase this if necessary to fit the data.
+                columns: Option<u8>,
+                /// Number of rows (3-90). Set to `None` for automatic.
+                ///
+                /// Zint will increase this if necessary to fit the data. The
+                /// product `columns × rows` must not exceed 928.
+                rows: Option<u8>,
+            },
+            apply_options: |result, options| {
+                if options.error_correction.0 > 0 {
+                    result.option_1 = Some(options.error_correction.0 as std::ffi::c_int);
+                }
+                if let Some(cols) = options.columns {
+                    result.option_2 = Some(
+                        require_range_inclusive("columns", cols, 1u8, 30)? as std::ffi::c_int
+                    );
+                }
+                if let Some(rows) = options.rows {
+                    result.option_3 = Some(
+                        require_range_inclusive("rows", rows, 3u8, 90)? as std::ffi::c_int
+                    );
+                }
+                Ok(())
+            },
         },
-        /// Compact PDF417 (Truncated PDF417)
+        /// Compact PDF417 (Truncated PDF417) (ISO 15438).
+        ///
+        /// A narrower variant of PDF417 that omits some per-row overhead to
+        /// produce a more compact symbol at the cost of reduced robustness.
+        ///
+        /// All layout and error correction options are identical to
+        /// [`PDF417`][Symbology::PDF417]; see that entry for details.
         PDF417Comp = {
             raw: BARCODE_PDF417COMP,
             kebab_case: "pdf417-comp",
             category: "2d",
             alias: "PDF417Trunc",
+            options: PDF417Options,
         },
         /// MaxiCode symbology is designed for the identification of parcels.
         /// 
@@ -940,19 +1282,152 @@ symbol_data! {
             kebab_case: "rm4scc",
             category: "postal",
         },
-        /// Data Matrix (ECC200)
+        /// Data Matrix (ISO 16022, ECC200).
+        ///
+        /// A two-dimensional matrix symbology that can encode a large amount of
+        /// data in a small area. Encodes Latin-1 (ISO 8859-1) data by default;
+        /// ECI and GS1 data encoding are also supported. Only ECC 200 symbols
+        /// are supported (the older ECC 000-140 formats have been removed from
+        /// Zint).
+        ///
+        /// The symbol size can be set via [`size`][DataMatrixOptions::size]
+        /// (1-30 for standard square/rectangular symbols, 31-48 for Data Matrix
+        /// Rectangular Extension (DMRE) symbols). When automatic size selection
+        /// is used, the shape can be constrained via
+        /// [`shape`][DataMatrixOptions::shape].
+        ///
+        /// For version 24 (144×144 symbols), Zint uses a "de facto" codeword
+        /// placement by default. Setting [`iso_144`][DataMatrixOptions::iso_144]
+        /// to `true` uses the now-clarified ISO/IEC standard placement instead.
+        ///
+        /// The largest standard symbol (version 24, 144×144) can encode 3116
+        /// digits, 2335 alphanumeric characters, or 1555 bytes of data.
+        ///
+        /// Structured Append of up to 16 symbols is supported.
         DataMatrix = {
             raw: BARCODE_DATAMATRIX,
             category: "2d",
+            options: {
+                /// Symbol size version (1-48).
+                ///
+                /// Versions 1-24 are standard square symbols (10×10 to 144×144).
+                /// Versions 25-30 are standard rectangular symbols.
+                /// Versions 31-48 are Data Matrix Rectangular Extension (DMRE)
+                /// symbols.
+                ///
+                /// Set to `None` for automatic size selection. When `None`, the
+                /// [`shape`][DataMatrixOptions::shape] option controls which
+                /// symbol families are considered.
+                ///
+                /// See zint manual Tables 25 and 26 for a full list of symbol
+                /// sizes.
+                size: Option<u8>,
+                /// Shape preference for automatic symbol size selection.
+                ///
+                /// Ignored when [`size`][DataMatrixOptions::size] is set.
+                shape: values::DataMatrixShape,
+                /// Use ISO/IEC standard codeword placement for version 24
+                /// (144×144) symbols.
+                ///
+                /// By default Zint uses a "de facto" placement for 144×144
+                /// symbols. Set this to `true` to use the now-clarified
+                /// ISO/IEC standard placement instead.
+                ///
+                /// Has no effect on any symbol size other than version 24.
+                ///
+                /// Corresponds to zint `option_3 |= DM_ISO_144`.
+                iso_144: bool,
+            },
+            apply_options: |result, options| {
+                if let Some(size) = options.size {
+                    let size = require_range_inclusive("size", size, 1u8, 48)?;
+                    result.option_2 = Some(size as std::ffi::c_int);
+                }
+                let mut opt3: u32 = 0;
+                match options.shape {
+                    values::DataMatrixShape::Any => {}
+                    values::DataMatrixShape::Square => {
+                        opt3 |= DM_SQUARE;
+                    }
+                    values::DataMatrixShape::AllowDMRE => {
+                        opt3 |= DM_DMRE;
+                    }
+                }
+                if options.iso_144 {
+                    opt3 |= DM_ISO_144;
+                }
+                if opt3 != 0 {
+                    result.option_3 = Some(opt3 as std::ffi::c_int);
+                }
+                Ok(())
+            },
         },
-        /// Vehicle Identification Number
+        /// Vehicle Identification Number (VIN), a Code 39 variant.
+        ///
+        /// Used for vehicle identification numbers. Requires exactly 17
+        /// characters consisting of digits `0-9` and uppercase letters `A-Z`
+        /// excluding `I`, `O`, and `Q`.
+        ///
+        /// For North American VINs (first character `'1'` to `'5'`), Zint
+        /// verifies the check character at position 9.
+        ///
+        /// An invisible import prefix character `'I'` can be prepended by
+        /// setting [`import_prefix`][VINOptions::import_prefix] to `true`.
         VIN = {
             raw: BARCODE_VIN,
+            options: {
+                /// Prepend an invisible import character `'I'` to the symbol.
+                ///
+                /// When `true`, an `'I'` character is encoded as the first
+                /// character of the symbol (before the VIN data). The prefix
+                /// does not appear in the Human Readable Text.
+                ///
+                /// Corresponds to zint `option_2 = 1`.
+                import_prefix: bool,
+            },
+            apply_options: |result, options| {
+                if options.import_prefix {
+                    result.option_2 = Some(1);
+                }
+                Ok(())
+            },
         },
-        /// Codablock-F
+        /// Codablock-F.
+        ///
+        /// A stacked symbology based on Code 128, capable of encoding Latin-1
+        /// data up to a maximum of 2726 symbol characters (up to 2726 ASCII,
+        /// 5452 numeric, or 1363 extended ASCII / ISO 8859-1 characters).
+        ///
+        /// The symbol width (number of data columns, 9-67) can be set via
+        /// [`columns`][CodablockFOptions::columns]. The symbol height (number
+        /// of rows, 1-44) can be set via [`rows`][CodablockFOptions::rows].
+        ///
+        /// GS1 data encoding is not currently supported by Zint for this
+        /// symbology.
         CodablockF = {
             raw: BARCODE_CODABLOCKF,
             category: "2d",
+            options: {
+                /// Number of rows (1-44). Set to `None` for automatic
+                /// selection based on data length.
+                rows: Option<u8>,
+                /// Number of data columns (9-67). Set to `None` for automatic
+                /// selection.
+                columns: Option<u8>,
+            },
+            apply_options: |result, options| {
+                if let Some(rows) = options.rows {
+                    result.option_1 = Some(
+                        require_range_inclusive("rows", rows, 1u8, 44)? as std::ffi::c_int
+                    );
+                }
+                if let Some(cols) = options.columns {
+                    result.option_2 = Some(
+                        require_range_inclusive("columns", cols, 9u8, 67)? as std::ffi::c_int
+                    );
+                }
+                Ok(())
+            },
         },
         /// NVE-18 (SSCC-18, Serial Shipping Container Code), a GS1-128 variant.
         ///
@@ -1089,11 +1564,34 @@ symbol_data! {
             raw: BARCODE_PLANET,
             category: "postal",
         },
-        /// MicroPDF417
+        /// MicroPDF417 (ISO 24728).
+        ///
+        /// A compact variant of PDF417 intended for applications where symbol
+        /// size must be minimised. Symbol size ranges over 1–4 data columns and
+        /// 4–44 rows. The maximum capacity is 250 alphanumeric characters or
+        /// 366 digits. Error correction is fixed by symbol size.
+        ///
+        /// The number of data columns can be set via
+        /// [`columns`][MicroPDF417Options::columns] (1-4); the number of rows
+        /// is determined automatically by the amount of data. Encodes Latin-1
+        /// data by default; ECI encoding is also supported.
+        ///
+        /// Structured Append of up to 99,999 symbols is supported.
         MicroPDF417 = {
             raw: BARCODE_MICROPDF417,
             kebab_case: "micro-pdf417",
             category: "2d",
+            options: {
+                /// Number of data columns (1-4). Set to `None` for automatic
+                /// selection based on data length.
+                columns: values::MicroPDF417Columns,
+            },
+            apply_options: |result, options| {
+                if options.columns.0 > 0 {
+                    result.option_2 = Some(options.columns.0 as std::ffi::c_int);
+                }
+                Ok(())
+            },
         },
         /// USPS Intelligent Mail (also known as OneCode), used by the United
         /// States Postal Service since 2009 as a replacement for both
@@ -1117,17 +1615,46 @@ symbol_data! {
             category: "postal",
             alias: "OneCode"
         },
-        /// Plessey (Code) symbology was developed by the Plessey Company Ltd.
-        /// in the UK.
-        /// 
-        /// The symbol can encode data consisting of digits (0-9) or letters A-F
-        /// up to a maximum of 65 characters and includes a CRC check digit.
+        /// UK Plessey (Plessey Code), developed by the Plessey Company Ltd.
+        ///
+        /// Encodes hexadecimal data: digits `0-9` and letters `A-F`, up to a
+        /// maximum of 67 characters. The symbol always includes two hidden
+        /// CRC check digits.
+        ///
+        /// The hidden CRC check digits can optionally be shown in the Human
+        /// Readable Text via
+        /// [`show_check_digits`][PlesseyOptions::show_check_digits].
         Plessey = {
             raw: BARCODE_PLESSEY,
+            options: {
+                /// Whether to show the two CRC check digits in the Human
+                /// Readable Text (HRT).
+                ///
+                /// When `false` (default), the check digits are encoded in
+                /// the symbol but omitted from the HRT. When `true`, they
+                /// are appended to the HRT.
+                ///
+                /// Corresponds to zint `option_2 = 1`.
+                show_check_digits: bool,
+            },
+            apply_options: |result, options| {
+                if options.show_check_digits {
+                    result.option_2 = Some(1);
+                }
+                Ok(())
+            },
         },
 
         // Tbarcode 8 codes
-        /// Telepen Numeric
+        /// Telepen Numeric, a compressed numeric variant of Telepen Alpha.
+        ///
+        /// Allows compression of numeric data into a Telepen symbol. Input
+        /// consists of digit pairs or pairs of a digit followed by `X` (e.g.
+        /// `"466333"` and `"466X33"` are valid; `"46X333"` is not, since
+        /// `"X3"` is not a valid pair). Up to 136 digits can be encoded.
+        /// A hidden modulo-127 check digit is automatically added by Zint.
+        ///
+        /// This symbology has no configurable options.
         TelepenNum = {
             raw: BARCODE_TELEPEN_NUM,
         },
@@ -1164,10 +1691,50 @@ symbol_data! {
             raw: BARCODE_KIX,
             category: "postal",
         },
-        /// Aztec Code
+        /// Aztec Code (ISO 24778).
+        ///
+        /// A matrix symbology with a distinctive square bullseye finder pattern.
+        /// Zint can generate both Compact Aztec Code (small bullseye, versions 1-4)
+        /// and full-range Aztec Code symbols (versions 5-36), and by default
+        /// selects the smallest symbol automatically.
+        ///
+        /// Error correction codewords normally fill at least 23% of the symbol.
+        /// Two mutually exclusive options change this behaviour:
+        /// - [`size`][AztecOptions::size] — pin the exact symbol version (1-36);
+        ///   when set, the error correction level is ignored.
+        /// - [`error_correction`][AztecOptions::error_correction] — set the
+        ///   minimum error correction level (1-4); Zint selects the smallest
+        ///   symbol that meets the requirement.
+        ///
+        /// Maximum capacity: approximately 3823 numeric, 3067 alphabetic, or
+        /// 1914 bytes of data. ECI encoding is supported.
+        ///
+        /// Structured Append of up to 26 symbols is supported.
         Aztec = {
             raw: BARCODE_AZTEC,
             category: "2d",
+            options: {
+                /// Minimum error correction level.
+                ///
+                /// Ignored when [`size`][AztecOptions::size] is set.
+                /// Set to `None` for the default (≥23% + 3 codewords).
+                error_correction: values::AztecErrorCorrection,
+                /// Explicit symbol size version (1-36).
+                ///
+                /// Versions 1-4 are compact (small bullseye) symbols; 5-36 are
+                /// full-range symbols. When set,
+                /// [`error_correction`][AztecOptions::error_correction]
+                /// is ignored.
+                size: Option<values::AztecSize>,
+            },
+            apply_options: |result, options| {
+                if let Some(size) = options.size {
+                    result.option_2 = Some(size.version() as std::ffi::c_int);
+                } else if options.error_correction.0 > 0 {
+                    result.option_1 = Some(options.error_correction.0 as std::ffi::c_int);
+                }
+                Ok(())
+            },
         },
         /// DAFT Code — a generic 4-state barcode format where the data
         /// encoding is supplied by an external program.
@@ -1287,42 +1854,13 @@ symbol_data! {
         /// symbols are supported (the older ECC 000-140 formats have been
         /// removed from zint).
         ///
-        /// The symbol size can be set using [`size`][HIBCDMOptions::size]
-        /// (1-30 for standard, 31-48 for DMRE rectangular). The automatic
-        /// size selection shape can be controlled with
-        /// [`shape`][HIBCDMOptions::shape].
+        /// Supports the same size, shape, and ISO 144 options as standard
+        /// Data Matrix; see [`DataMatrix`][Symbology::DataMatrix] for details.
         HIBCDM = {
             raw: BARCODE_HIBC_DM,
             kebab_case: "hibc-dm",
             category: "healthcare",
-            options: {
-                /// Symbol size (1-30 for standard, 31-48 for DMRE rectangular
-                /// extension). Set to `None` for automatic size selection.
-                ///
-                /// See the zint manual Table 25 and Table 26 for a full list
-                /// of symbol sizes.
-                size: Option<u8>,
-                /// Shape preference for automatic symbol size selection.
-                ///
-                /// Ignored when `size` is explicitly set.
-                shape: values::DataMatrixShape,
-            },
-            apply_options: |result, options| {
-                if let Some(size) = options.size {
-                    let size = require_range_inclusive("size", size, 1u8, 48)?;
-                    result.option_2 = Some(size as std::ffi::c_int);
-                }
-                match options.shape {
-                    values::DataMatrixShape::Any => {}
-                    values::DataMatrixShape::Square => {
-                        result.option_3 = Some(DM_SQUARE as std::ffi::c_int);
-                    }
-                    values::DataMatrixShape::AllowDMRE => {
-                        result.option_3 = Some(DM_DMRE as std::ffi::c_int);
-                    }
-                }
-                Ok(())
-            },
+            options: DataMatrixOptions,
         },
         /// HIBC QR Code — Health Industry Barcode (HIBC) variant of QR Code.
         ///
@@ -1348,34 +1886,7 @@ symbol_data! {
             raw: BARCODE_HIBC_PDF,
             kebab_case: "hibc-pdf",
             category: "healthcare",
-            options: {
-                /// Error correction level.
-                ///
-                /// Number of error correction codewords equals `2^(level + 1)`.
-                /// Set to `None` to let zint choose automatically based on
-                /// data length.
-                error_correction: Option<values::PDF417ErrorCorrection>,
-                /// Number of data columns (1-30). Set to `None` for automatic.
-                columns: Option<u8>,
-                /// Number of rows (3-90). Set to `None` for automatic.
-                rows: Option<u8>,
-            },
-            apply_options: |result, options| {
-                if let Some(ecc) = options.error_correction {
-                    result.option_1 = Some(ecc as std::ffi::c_int);
-                }
-                if let Some(cols) = options.columns {
-                    result.option_2 = Some(
-                        require_range_inclusive("columns", cols, 1u8, 30)? as std::ffi::c_int
-                    );
-                }
-                if let Some(rows) = options.rows {
-                    result.option_3 = Some(
-                        require_range_inclusive("rows", rows, 3u8, 90)? as std::ffi::c_int
-                    );
-                }
-                Ok(())
-            },
+            options: PDF417Options,
         },
         /// HIBC MicroPDF417 — Health Industry Barcode (HIBC) variant of
         /// MicroPDF417.
@@ -1394,17 +1905,7 @@ symbol_data! {
             kebab_case: "hibc-micro-pdf",
             category: "healthcare",
             alias: "HIBCMicPDF",
-            options: {
-                /// Number of data columns (1-4). Set to `None` for automatic
-                /// selection based on data length.
-                columns: Option<values::MicroPDF417Columns>,
-            },
-            apply_options: |result, options| {
-                if let Some(cols) = options.columns {
-                    result.option_2 = Some(cols as std::ffi::c_int);
-                }
-                Ok(())
-            },
+            options: MicroPDF417Options,
         },
         /// HIBC Codablock-F — Health Industry Barcode (HIBC) variant of
         /// Codablock-F.
@@ -1419,27 +1920,7 @@ symbol_data! {
             raw: BARCODE_HIBC_BLOCKF,
             category: "healthcare",
             alias: "HIBCBlockF",
-            options: {
-                /// Number of rows (1-44). Set to `None` for automatic
-                /// selection based on data length.
-                rows: Option<u8>,
-                /// Number of data columns (9-67). Set to `None` for automatic
-                /// selection.
-                columns: Option<u8>,
-            },
-            apply_options: |result, options| {
-                if let Some(rows) = options.rows {
-                    result.option_1 = Some(
-                        require_range_inclusive("rows", rows, 1u8, 44)? as std::ffi::c_int
-                    );
-                }
-                if let Some(cols) = options.columns {
-                    result.option_2 = Some(
-                        require_range_inclusive("columns", cols, 9u8, 67)? as std::ffi::c_int
-                    );
-                }
-                Ok(())
-            },
+            options: CodablockFOptions,
         },
         /// HIBC Aztec Code — Health Industry Barcode (HIBC) variant of
         /// Aztec Code (ISO 24778).
@@ -1448,10 +1929,10 @@ symbol_data! {
         /// check digit as required by the HIBCC standard.
         ///
         /// Two mutually exclusive options control symbol sizing:
-        /// - [`error_correction`][HIBCAztecOptions::error_correction] — set
+        /// - [`error_correction`][AztecOptions::error_correction] — set
         ///   the minimum error correction level (1-4); zint selects the
         ///   smallest symbol that meets it.
-        /// - [`size`][HIBCAztecOptions::size] — pin the exact symbol version
+        /// - [`size`][AztecOptions::size] — pin the exact symbol version
         ///   (1-36, where 1-4 are compact symbols); `error_correction` is
         ///   ignored when `size` is set.
         ///
@@ -1460,41 +1941,133 @@ symbol_data! {
         HIBCAztec = {
             raw: BARCODE_HIBC_AZTEC,
             category: "healthcare",
-            options: {
-                /// Minimum error correction level.
-                ///
-                /// Ignored when [`size`][HIBCAztecOptions::size] is set.
-                /// Set to `None` for the default (~23% + 3 codewords).
-                error_correction: Option<values::AztecErrorCorrection>,
-                /// Explicit symbol size version (1-36).
-                ///
-                /// Versions 1-4 are compact symbols; 5-36 are full-range.
-                /// When set, [`error_correction`][HIBCAztecOptions::error_correction]
-                /// is ignored.
-                size: Option<values::AztecSize>,
-            },
-            apply_options: |result, options| {
-                if let Some(size) = options.size {
-                    result.option_2 = Some(size.version() as std::ffi::c_int);
-                } else if let Some(ecc) = options.error_correction {
-                    result.option_1 = Some(ecc as std::ffi::c_int);
-                }
-                Ok(())
-            },
+            options: AztecOptions,
         },
 
         // Tbarcode 10 codes
-        /// DotCode
+        /// DotCode.
+        ///
+        /// A two-dimensional symbology that uses a rectangular grid of dots to
+        /// encode up to approximately 1220 characters or 2940 numeric digits.
+        /// Approximately 33% of the symbol is comprised of error correction
+        /// codewords. ECI and GS1 data encoding are supported.
+        ///
+        /// By default Zint produces a roughly square symbol. The symbol width
+        /// can be adjusted via [`columns`][DotCodeOptions::columns] (5-200).
+        ///
+        /// The mask pattern can be set manually via
+        /// [`mask`][DotCodeOptions::mask]; Zint selects the best mask
+        /// automatically if not specified.
+        ///
+        /// When rendering to raster images (BMP, GIF, PCX, PNG, TIF), set the
+        /// scale to a larger value (approximately 10) for dots to be plotted
+        /// correctly.
+        ///
+        /// Structured Append of up to 35 symbols is supported.
         DotCode = {
             raw: BARCODE_DOTCODE,
             kebab_case: "dotcode",
             category: "2d",
+            options: {
+                /// Symbol width in columns (5-200).
+                ///
+                /// Zint selects a roughly square width automatically if not set.
+                columns: Option<u8>,
+                /// Mask pattern to use.
+                ///
+                /// Zint selects the best mask automatically. Override only if
+                /// a specific mask is required.
+                ///
+                /// Corresponds to zint `option_3 = (N + 1) << 8` where N is 0-7.
+                mask: Option<values::DotCodeMask>,
+            },
+            apply_options: |result, options| {
+                if let Some(cols) = options.columns {
+                    result.option_2 = Some(
+                        require_range_inclusive("columns", cols, 5u8, 200)? as std::ffi::c_int
+                    );
+                }
+                if let Some(mask) = options.mask {
+                    result.option_3 = Some(((mask as u32 + 1) << 8) as std::ffi::c_int);
+                }
+                Ok(())
+            },
         },
-        /// Han Xin (Chinese Sensible) Code
+        /// Han Xin Code (ISO 20830), also known as Chinese Sensible Code.
+        ///
+        /// Capable of encoding characters in Latin-1 or GB 18030 (a UTF-based
+        /// encoding optimised for Chinese characters). ECI encoding is also
+        /// supported. GS1 data encoding is not yet implemented.
+        ///
+        /// The symbol size can be set via [`size`][HanXinOptions::size] (1-84).
+        /// The largest symbol (version 84, 189×189) can encode 7827 digits, 4350
+        /// ASCII characters, 2175 Chinese characters, or 3261 bytes.
+        ///
+        /// The error correction level can be set via
+        /// [`error_correction`][HanXinOptions::error_correction] (1-4,
+        /// approximately 8%-30%).
+        ///
+        /// Non-ASCII data density can be maximised using
+        /// [`full_multibyte`][HanXinOptions::full_multibyte]; verify reader
+        /// support before enabling.
+        ///
+        /// The mask pattern can be set manually via
+        /// [`mask`][HanXinOptions::mask]; Zint selects the best mask
+        /// automatically if not specified.
         HanXin = {
             raw: BARCODE_HANXIN,
             kebab_case: "hanxin",
             category: "2d",
+            options: {
+                /// Error correction level (1-4).
+                ///
+                /// Higher levels provide more error recovery at the cost of
+                /// reduced data capacity. Set to `None` for the default
+                /// (level 1, ~8%).
+                error_correction: values::HanXinErrorCorrection,
+                /// Symbol size version (1-84).
+                ///
+                /// Zint selects the smallest symbol that fits the data
+                /// automatically if not set.
+                ///
+                /// See zint manual Table 44 for a full list of symbol sizes.
+                size: Option<u8>,
+                /// Enable Hanzi compression for maximum density with non-ASCII
+                /// data.
+                ///
+                /// When `true`, enables Kanji/Hanzi compression for Latin-1 and
+                /// binary data (`option_3 |= ZINT_FULL_MULTIBYTE`). Verify that
+                /// the target barcode reader supports this before enabling.
+                full_multibyte: bool,
+                /// Manual mask pattern selection (0-3).
+                ///
+                /// Zint selects the best mask automatically. Override only if
+                /// a specific mask is required.
+                ///
+                /// Corresponds to zint `option_3 = (N + 1) << 8` where N is 0-3.
+                /// Can be combined with `full_multibyte`.
+                mask: Option<values::HanXinMask>,
+            },
+            apply_options: |result, options| {
+                if options.error_correction.0 > 0 {
+                    result.option_1 = Some(options.error_correction.0 as std::ffi::c_int);
+                }
+                if let Some(size) = options.size {
+                    let size = require_range_inclusive("size", size, 1u8, 84)?;
+                    result.option_2 = Some(size as std::ffi::c_int);
+                }
+                let mut opt3: u32 = 0;
+                if options.full_multibyte {
+                    opt3 |= ZINT_FULL_MULTIBYTE;
+                }
+                if let Some(mask) = options.mask {
+                    opt3 |= (mask as u32 + 1) << 8;
+                }
+                if opt3 != 0 {
+                    result.option_3 = Some(opt3 as std::ffi::c_int);
+                }
+                Ok(())
+            },
         },
 
         // Tbarcode 11 codes
@@ -1622,13 +2195,29 @@ symbol_data! {
         },
 
         // Zint specific codes
-        /// Aztec Runes
+        /// Aztec Runes (ISO 24778 Annex A).
+        ///
+        /// A truncated form of compact Aztec Code for encoding a single integer
+        /// in the range 0 to 255. Includes Reed-Solomon error correction.
+        ///
+        /// Input must be a decimal integer in the range `"0"` to `"255"`.
+        /// Structured Append is not supported.
+        ///
+        /// This symbology has no configurable options; all encoding is
+        /// determined by the input value.
         AzRune = {
             raw: BARCODE_AZRUNE,
             kebab_case: "azrune",
             category: "2d",
         },
-        /// Code 32
+        /// Code 32, a Code 39 variant used by the Italian Ministry of Health
+        /// ("Ministero della Sanità") for pharmaceutical product identification.
+        ///
+        /// Requires numeric input up to 8 digits in length. Zint automatically
+        /// computes and appends a check digit.
+        ///
+        /// This symbology has no configurable options; all encoding is
+        /// determined by the input data.
         Code32 = {
             raw: BARCODE_CODE32,
             kebab_case: "code32",
@@ -1944,20 +2533,137 @@ symbol_data! {
                 Ok(())
             },
         },
-        /// Channel Code
+        /// Channel Code, a highly compressed numeric barcode.
+        ///
+        /// Encodes a single non-negative integer using between 3 and 8
+        /// channels. The channel count can be set explicitly via
+        /// [`channels`][ChannelOptions::channels]; if left as
+        /// [`Auto`][values::ChannelCount::Auto], it is derived from the
+        /// length of the input string.
+        ///
+        /// Maximum encodable values by channel count:
+        ///
+        /// | Channels | Max value |
+        /// |----------|-----------|
+        /// | 3        | 26        |
+        /// | 4        | 292       |
+        /// | 5        | 3493      |
+        /// | 6        | 44072     |
+        /// | 7        | 576688    |
+        /// | 8        | 7742862   |
         Channel = {
             raw: BARCODE_CHANNEL,
+            options: {
+                /// Number of channels to use (3-8).
+                ///
+                /// Default is automatic — zint infers the channel count from
+                /// the input length (e.g. a 3-character input generates a
+                /// 4-channel symbol).
+                channels: values::ChannelCount,
+            },
+            apply_options: |result, options| {
+                if options.channels.0 > 0 {
+                    result.option_2 = Some(options.channels.0 as std::ffi::c_int);
+                }
+                Ok(())
+            },
         },
-        /// Code One
+        /// Code One.
+        ///
+        /// A matrix symbology developed in 1992 that encodes data in a manner
+        /// similar to Data Matrix. Supports the Latin-1 character set, GS1 data,
+        /// and the ECI mechanism.
+        ///
+        /// Two families of symbols are available, selected via
+        /// [`size`][CodeOneOptions::size]:
+        /// - **Fixed-ratio** versions A–H: roughly square, varying size and capacity.
+        /// - **Variable-width** versions S and T: width is determined by data
+        ///   length; version S is restricted to numeric data only.
+        ///
+        /// Structured Append of up to 128 symbols is supported (not available
+        /// with version S or GS1 data).
         CodeOne = {
             raw: BARCODE_CODEONE,
             kebab_case: "code-one",
             category: "2d",
+            options: {
+                /// Symbol version to use.
+                ///
+                /// Zint selects the smallest symbol that fits the data
+                /// automatically if not set.
+                ///
+                /// See [`CodeOneSize`][values::CodeOneSize] for the full list of
+                /// versions and their capacities.
+                size: Option<values::CodeOneSize>,
+            },
+            apply_options: |result, options| {
+                if let Some(size) = options.size {
+                    result.option_2 = Some(size as std::ffi::c_int);
+                }
+                Ok(())
+            },
         },
-        /// Grid Matrix
+        /// Grid Matrix.
+        ///
+        /// A two-dimensional symbology that groups modules in a chequerboard
+        /// pattern. Supports the GB 2312 standard set by default, which includes
+        /// Hanzi, ASCII, and a subset of ISO 8859-1 characters. Input should be
+        /// entered as UTF-8; Zint converts to GB 2312 automatically. Up to
+        /// approximately 1529 alphanumeric characters or 2751 digits may be
+        /// encoded. The ECI mechanism is also supported.
+        ///
+        /// Symbol size and error correction level can each be specified
+        /// independently. When both are specified Zint makes a best-fit attempt
+        /// to satisfy both, potentially reducing the error correction level to
+        /// accommodate the data.
+        ///
+        /// Non-ASCII data density can be maximised using
+        /// [`full_multibyte`][GridMatrixOptions::full_multibyte]; verify reader
+        /// support before enabling.
+        ///
+        /// Structured Append of up to 16 symbols is supported.
         GridMatrix = {
             raw: BARCODE_GRIDMATRIX,
             category: "2d",
+            options: {
+                /// Error correction level (1-5).
+                ///
+                /// Approximately 10%-50% of the symbol is used for error
+                /// correction. Zint selects a default level based on data
+                /// length if not set.
+                ///
+                /// See [`GridMatrixErrorCorrection`][values::GridMatrixErrorCorrection]
+                /// for level definitions.
+                error_correction: values::GridMatrixErrorCorrection,
+                /// Symbol size version (1-13).
+                ///
+                /// Symbol sizes range from 18×18 (version 1) to 162×162
+                /// (version 13). Zint selects the smallest symbol that fits
+                /// the data automatically if not set.
+                ///
+                /// See zint manual Table 42 for a full list of symbol sizes.
+                size: Option<u8>,
+                /// Enable Hanzi compression for maximum density with non-ASCII
+                /// data.
+                ///
+                /// When `true`, enables Kanji/Hanzi compression for Latin-1 and
+                /// binary data (`option_3 = ZINT_FULL_MULTIBYTE`). Verify that
+                /// the target barcode reader supports this before enabling.
+                full_multibyte: bool,
+            },
+            apply_options: |result, options| {
+                if options.error_correction.0 > 0 {
+                    result.option_1 = Some(options.error_correction.0 as std::ffi::c_int);
+                }
+                if let Some(size) = options.size {
+                    let size = require_range_inclusive("size", size, 1u8, 13)?;
+                    result.option_2 = Some(size as std::ffi::c_int);
+                }
+                if options.full_multibyte {
+                    result.option_3 = Some(ZINT_FULL_MULTIBYTE as std::ffi::c_int);
+                }
+                Ok(())
+            },
         },
         /// UPNQR (Univerzalnega Plačilnega Naloga QR — Universal Payment
         /// Order QR), a QR Code variant used by Združenje Bank Slovenije
@@ -2025,14 +2731,30 @@ symbol_data! {
             kebab_case: "rmqr",
             category: "2d",
         },
-        /// IBM BC412 (SEMI T1-95)
+        /// BC412 (SEMI T1-95), designed by IBM for marking silicon wafers.
+        ///
+        /// Each character is represented by 4 bars of a single size
+        /// interleaved with 4 spaces of varying sizes that total 8 (hence
+        /// "4 bars in 12"). Zint implements the SEMI T1-95 standard.
+        ///
+        /// Input must be alphanumeric (excluding the letter `O`) and between
+        /// 7 and 18 characters long. Lowercase input is automatically
+        /// converted to uppercase. Zint appends a single check character
+        /// in the 2nd character position.
+        ///
+        /// This symbology has no configurable options; all encoding is
+        /// determined by the input data.
         BC412 = {
             raw: BARCODE_BC412,
             kebab_case: "bc412",
         },
-        /// DX Film Edge Barcode on 35mm and APS films
+        /// DX Film Edge Barcode, used on 35mm and APS photographic films.
+        ///
+        /// This symbology has no configurable options; all encoding is
+        /// determined by the input data.
         DXFilmEdge = {
             raw: BARCODE_DXFILMEDGE,
+            kebab_case: "dx-film-edge",
         },
     }
 }
@@ -2337,7 +3059,7 @@ impl Display for Symbology {
             Self::Mailmark4S => "Royal Mail 4-State Mailmark",
             Self::AzRune => "Aztec Runes",
             Self::Code32 => "Code 32",
-            Self::EANXCC => "Legacy",
+            Self::EANXCC => "EAN Composite",
             Self::GS1128CC => "GS1-128 Composite",
             Self::DBarOmnCC => "GS1 DataBar Omnidirectional Composite",
             Self::DBarLtdCC => "GS1 DataBar Limited Composite",
