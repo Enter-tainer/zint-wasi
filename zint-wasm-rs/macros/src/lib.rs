@@ -10,6 +10,8 @@ use syn::parse_macro_input;
 
 mod data;
 mod generate;
+#[cfg(feature = "_gen_symbology_summary")]
+mod summary;
 mod util;
 
 #[proc_macro]
@@ -39,5 +41,9 @@ pub fn symbol_data(input: TokenStream) -> TokenStream {
     };
 
     result.extend([structs, config_enum]);
+
+    #[cfg(feature = "_gen_symbology_summary")]
+    result.extend([summary::gen_symbology_summary(&declaration)]);
+
     result.into()
 }

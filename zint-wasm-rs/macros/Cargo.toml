@@ -6,8 +6,14 @@ edition = "2024"
 [lib]
 proc-macro = true
 
+[features]
+_gen_symbology_summary = ["dep:serde", "dep:serde_json"]
+
 [dependencies]
 proc-macro2 = "1.0"
 
 syn = {version = "2.0", features = ["full"]}
 quote = "1"
+
+serde = { version = "1", features = ["derive"], optional = true }
+serde_json = { version = "1", optional = true }

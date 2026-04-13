@@ -161,6 +161,13 @@ impl SymbologyVariant {
         }
     }
 
+    pub fn meta(&self, key: &str) -> Option<&LitStr> {
+        self.entries.iter().find_map(|e| match e {
+            SymbologyEntry::Meta { name, value } if name == key => Some(value),
+            _ => None,
+        })
+    }
+
     pub fn aliases(&self) -> Option<&[LitStr]> {
         let raw = self.get_entry(SymbologyEntry::ALIAS_NAME)?;
         match raw {
@@ -257,19 +264,27 @@ pub enum SymbologyEntry {
         name: Ident,
         closure: ApplyOptionClosure,
     },
+    /// Metadata entries (category, typst, etc.) — string values consumed only
+    /// by the summary generator and ignored during normal codegen.
+    Meta {
+        name: Ident,
+        value: LitStr,
+    },
 }
 impl SymbologyEntry {
     pub const RAW_NAME: &'static str = "raw";
     pub const OPTIONS_NAME: &'static str = "options";
     pub const ALIAS_NAME: &'static str = "alias";
     pub const APPLY_OPTION_NAME: &'static str = "apply_options";
+    pub const META_NAMES: &'static [&'static str] = &["category", "kebab_case"];
 
     pub fn name(&self) -> &Ident {
         match self {
             SymbologyEntry::Raw { name, .. }
             | SymbologyEntry::Options { name, .. }
             | SymbologyEntry::Aliases { name, .. }
-            | SymbologyEntry::ApplyOption { name, .. } => name,
+            | SymbologyEntry::ApplyOption { name, .. }
+            | SymbologyEntry::Meta { name, .. } => name,
         }
     }
 }
@@ -314,6 +329,12 @@ impl Parse for SymbologyEntry {
                 name,
                 closure: input.parse()?,
             },
+            meta if SymbologyEntry::META_NAMES.contains(&meta) && attrs.is_empty() => {
+                Self::Meta {
+                    name,
+                    value: input.parse()?,
+                }
+            }
             _ if !attrs.is_empty() => {
                 let span = attrs.first().unwrap().span();
                 return Err(Error::new(

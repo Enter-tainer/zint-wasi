@@ -99,6 +99,7 @@ symbol_data! {
         /// Code 11
         Code11 = {
             raw: BARCODE_CODE11,
+            kebab_case: "code11",
             options: {
                 /// Number of modulo-11 check digits to add to the symbol.
                 check_digits: usize = 2,
@@ -122,6 +123,7 @@ symbol_data! {
         /// 2 of 5 Standard (Matrix)
         C25Standard = {
             raw: BARCODE_C25STANDARD,
+            kebab_case: "c25-standard",
             options: C25Options {
                 /// Whether to add a check digit to 2 of 5 code.
                 check_digit: bool,
@@ -140,47 +142,57 @@ symbol_data! {
         /// 2 of 5 Interleaved
         C25Inter = {
             raw: BARCODE_C25INTER,
+            kebab_case: "c25-inter",
             options: C25Options,
         },
         /// 2 of 5 IATA
         C25IATA = {
             raw: BARCODE_C25IATA,
+            kebab_case: "c25-iata",
             options: C25Options,
         },
         /// 2 of 5 Data Logic
         C25Logic = {
             raw: BARCODE_C25LOGIC,
+            kebab_case: "c25-logic",
             options: C25Options,
         },
         /// 2 of 5 Industrial
         C25Ind = {
             raw: BARCODE_C25IND,
+            kebab_case: "c25-ind",
             options: C25Options,
         },
         /// Code 39
         Code39 = {
             raw: BARCODE_CODE39,
+            kebab_case: "code39",
         },
         /// Extended Code 39
         ExCode39 = {
             raw: BARCODE_EXCODE39,
+            kebab_case: "ex-code39",
         },
         /// Variable length EAN variant
         #[deprecated(note = "will be removed; use specialized EAN code variants")]
         EANX = {
             raw: BARCODE_EANX,
+            category: "retail",
             options: UPCEOptions,
         },
         /// Variable length EAN variant with digit check
         #[deprecated(note = "will be removed; use specialized EAN CHK code variants")]
         EANXChk = {
             raw: BARCODE_EANX_CHK,
+            category: "retail",
             options: UPCEOptions,
         },
         /// Variable length composite EAN variant
         #[deprecated(note = "will be removed; use specialized EAN CC code variants")]
         EANXCC = {
             raw: BARCODE_EANX_CC,
+            kebab_case: "eanx-cc",
+            category: "retail",
             options: UPCEOptions,
         },
         /// EAN/UPC 2-digit
@@ -189,6 +201,7 @@ symbol_data! {
         /// appended to other one-dimensional barcodes.
         EAN2 = {
             raw: BARCODE_EAN_2ADDON,
+            category: "retail",
             alias: "EAN2Addon",
             options: UPCEOptions,
         },
@@ -198,6 +211,7 @@ symbol_data! {
         /// appended to other one-dimensional barcodes.
         EAN5 = {
             raw: BARCODE_EAN_5ADDON,
+            category: "retail",
             alias: "EAN5Addon",
             options: UPCEOptions,
         },
@@ -207,6 +221,7 @@ symbol_data! {
         /// '+' character as a separator after EAN-8 data.
         EAN8 = {
             raw: BARCODE_EAN8,
+            category: "retail",
             alias: "GTIN8",
             options: UPCEOptions,
         },
@@ -220,6 +235,7 @@ symbol_data! {
         /// '+' character as a separator after EAN-13 data.
         EAN13 = {
             raw: BARCODE_EAN13,
+            category: "retail",
             alias: "GTIN13",
             options: UPCEOptions,
         },
@@ -232,22 +248,27 @@ symbol_data! {
         /// '+' character as a separator after EAN-14 data.
         EAN14 = {
             raw: BARCODE_EAN14,
+            category: "retail",
             alias: "GTIN14",
             options: UPCEOptions,
         },
         /// EAN-8 Composite
         EAN8CC = {
             raw: BARCODE_EAN8_CC,
+            category: "retail",
             options: UPCEOptions,
         },
         /// EAN-13 Composite
         EAN13CC = {
             raw: BARCODE_EAN13_CC,
+            category: "retail",
             options: UPCEOptions,
         },
         /// GS1-128
         GS1128 = {
             raw: BARCODE_GS1_128,
+            kebab_case: "gs1-128",
+            category: "gs1",
             alias: "EAN128",
         },
         /// Codabar
@@ -258,30 +279,36 @@ symbol_data! {
         #[default]
         Code128 = {
             raw: BARCODE_CODE128,
+            kebab_case: "code128",
         },
         /// Deutsche Post Leitcode is based on Interleaved Code 2 of 5 and is
         /// used by Deutsche Post for mailing purposes. Leitcode requires a
         /// 13-digit numerical input and includes a check digit.
         DPLEIT = {
             raw: BARCODE_DPLEIT,
+            category: "postal",
         },
         /// Deutsche Post Identcode is based on Interleaved Code 2 of 5 and is
         /// used by Deutsche Post for mailing purposes. Identcode requires
         /// 11-digit numerical input and includes a check digit.
         DPIDENT = {
             raw: BARCODE_DPIDENT,
+            category: "postal",
         },
         /// Code 16k
         Code16k = {
             raw: BARCODE_CODE16K,
+            kebab_case: "code16k",
         },
         /// Code 49
         Code49 = {
             raw: BARCODE_CODE49,
+            kebab_case: "code49",
         },
         /// Code 93
         Code93 = {
             raw: BARCODE_CODE93,
+            kebab_case: "code93",
         },
         /// Flattermarken
         Flat = {
@@ -290,15 +317,21 @@ symbol_data! {
         /// GS1 DataBar Omnidirectional
         DBarOmn = {
             raw: BARCODE_DBAR_OMN,
+            kebab_case: "dbar-omn",
+            category: "gs1",
             alias: "RSS14"
         },
         /// GS1 DataBar Limited
         DBarLtd = {
             raw: BARCODE_DBAR_LTD,
+            kebab_case: "dbar-ltd",
+            category: "gs1",
         },
         /// GS1 DataBar Expanded
         DBarExp = {
             raw: BARCODE_DBAR_EXP,
+            kebab_case: "dbar-exp",
+            category: "gs1",
         },
         /// Telepen Alpha
         Telepen = {
@@ -315,6 +348,7 @@ symbol_data! {
         /// [`UPCAChk`][Symbology::UPCAChk] can be used.
         UPCA = {
             raw: BARCODE_UPCA,
+            category: "retail",
             options: {
                 /// Gap between the main symbol and an add-on in multiples of the X-dimension.
                 addon_gap: usize = 9,
@@ -333,11 +367,13 @@ symbol_data! {
         /// See [`UPCA`][Symbology::UPCA] for details.
         UPCAChk = {
             raw: BARCODE_UPCA_CHK,
+            category: "retail",
             options: UPCAOptions,
         },
         /// UPC-E
         UPCE = {
             raw: BARCODE_UPCE,
+            category: "retail",
             options: {
                 /// Gap between the main symbol and an add-on in multiples of the X-dimension.
                 addon_gap: usize = 7,
@@ -354,11 +390,13 @@ symbol_data! {
         /// UPC-E including check digit
         UPCEChk = {
             raw: BARCODE_UPCE_CHK,
+            category: "retail",
             options: UPCEOptions,
         },
         /// USPS (U.S. Postal Service) POSTNET
         Postnet = {
             raw: BARCODE_POSTNET,
+            category: "postal",
         },
         /// MSI Plessey is based on [`Plessey`][Symbology::Plessey] and
         /// developed by MSE Data Corporation.
@@ -399,26 +437,35 @@ symbol_data! {
         /// Pharmacode One-Track
         Pharma = {
             raw: BARCODE_PHARMA,
+            category: "healthcare",
         },
         /// Pharmazentralnummer
         PZN = {
             raw: BARCODE_PZN,
+            category: "healthcare",
         },
         /// Pharmacode Two-Track
         PharmaTwo = {
             raw: BARCODE_PHARMA_TWO,
+            category: "healthcare",
         },
         /// Brazilian CEPNet Postal Code
         CEPNet = {
             raw: BARCODE_CEPNET,
+            kebab_case: "cepnet",
+            category: "postal",
         },
         /// PDF417
         PDF417 = {
             raw: BARCODE_PDF417,
+            kebab_case: "pdf417",
+            category: "2d",
         },
         /// Compact PDF417 (Truncated PDF417)
         PDF417Comp = {
             raw: BARCODE_PDF417COMP,
+            kebab_case: "pdf417-comp",
+            category: "2d",
             alias: "PDF417Trunc",
         },
         /// MaxiCode symbology is designed for the identification of parcels.
@@ -433,6 +480,8 @@ symbol_data! {
         /// [`MaxiCodeMode`][values::MaxiCodeMode] variants for details.
         MaxiCode = {
             raw: BARCODE_MAXICODE,
+            kebab_case: "maxicode",
+            category: "2d",
             options: <'o> {
                 /// MaxiCode mode and corresponding options to use for encoding.
                 /// 
@@ -479,6 +528,8 @@ symbol_data! {
         /// QR Code
         QRCode = {
             raw: BARCODE_QRCODE,
+            kebab_case: "qrcode",
+            category: "2d",
             options: {
                 error_correction: Option<values::QRErrorCorrection>,
                 size: Option<values::QRSize>,
@@ -510,23 +561,28 @@ symbol_data! {
         /// Code 128 (Suppress Code Set C)
         Code128AB = {
             raw: BARCODE_CODE128AB,
+            kebab_case: "code128ab",
             alias: "CODE128B"
         },
         /// Australia Post Standard Customer
         AusPost = {
             raw: BARCODE_AUSPOST,
+            category: "postal",
         },
         /// Australia Post Reply Paid
         AusReply = {
             raw: BARCODE_AUSREPLY,
+            category: "postal",
         },
         /// Australia Post Routing
         AusRoute = {
             raw: BARCODE_AUSROUTE,
+            category: "postal",
         },
         /// Australia Post Redirection
         AusRedirect = {
             raw: BARCODE_AUSREDIRECT,
+            category: "postal",
         },
         /// ISBN
         /// 
@@ -537,15 +593,19 @@ symbol_data! {
         /// character as with UPC symbols.
         ISBNX = {
             raw: BARCODE_ISBNX,
+            category: "retail",
             options: UPCEOptions,
         },
         /// Royal Mail 4-State Customer Code
         RM4SCC = {
             raw: BARCODE_RM4SCC,
+            kebab_case: "rm4scc",
+            category: "postal",
         },
         /// Data Matrix (ECC200)
         DataMatrix = {
             raw: BARCODE_DATAMATRIX,
+            category: "2d",
         },
         /// Vehicle Identification Number
         VIN = {
@@ -554,45 +614,61 @@ symbol_data! {
         /// Codablock-F
         CodablockF = {
             raw: BARCODE_CODABLOCKF,
+            category: "2d",
         },
         /// NVE-18 (SSCC-18)
         NVE18 = {
             raw: BARCODE_NVE18,
+            kebab_case: "nve18",
+            category: "retail",
         },
         /// Japanese Postal Code
         JapanPost = {
             raw: BARCODE_JAPANPOST,
+            category: "postal",
         },
         /// Korea Post
         KoreaPost = {
             raw: BARCODE_KOREAPOST,
+            category: "postal",
         },
         /// GS1 DataBar Stacked
         DBarStk = {
             raw: BARCODE_DBAR_STK,
+            kebab_case: "dbar-stk",
+            category: "gs1",
             alias: "RSS14Stk"
         },
         /// GS1 DataBar Stacked Omnidirectional
         DBarOmnStk = {
             raw: BARCODE_DBAR_OMNSTK,
+            kebab_case: "dbar-omn-stk",
+            category: "gs1",
             alias: "RSS14StackOmni"
         },
         /// GS1 DataBar Expanded Stacked
         #[serde(alias = "RSSExpStack")]
         DBarExpStk = {
             raw: BARCODE_DBAR_EXPSTK,
+            kebab_case: "dbar-exp-stk",
+            category: "gs1",
         },
         /// USPS PLANET
         Planet = {
             raw: BARCODE_PLANET,
+            category: "postal",
         },
         /// MicroPDF417
         MicroPDF417 = {
             raw: BARCODE_MICROPDF417,
+            kebab_case: "micro-pdf417",
+            category: "2d",
         },
         /// USPS Intelligent Mail (OneCode)
         USPSIMail = {
             raw: BARCODE_USPS_IMAIL,
+            kebab_case: "usps-imail",
+            category: "postal",
             alias: "OneCode"
         },
         /// Plessey (Code) symbology was developed by the Plessey Company Ltd.
@@ -614,86 +690,116 @@ symbol_data! {
         /// input (digits 0-9).
         ITF14 = {
             raw: BARCODE_ITF14,
+            kebab_case: "itf14",
+            category: "retail",
         },
         /// Dutch Post KIX Code
         KIX = {
             raw: BARCODE_KIX,
+            category: "postal",
         },
         /// Aztec Code
         Aztec = {
             raw: BARCODE_AZTEC,
+            category: "2d",
         },
         /// DAFT Code
         DAFT = {
             raw: BARCODE_DAFT,
+            category: "postal",
         },
         /// DPD Code
         DPD = {
             raw: BARCODE_DPD,
+            category: "postal",
         },
         /// Micro QR Code
         MicroQR = {
             raw: BARCODE_MICROQR,
+            kebab_case: "micro-qr",
+            category: "2d",
         },
 
         // Tbarcode 9 codes
         /// HIBC (Health Industry Barcode) Code 128
         HIBC128 = {
             raw: BARCODE_HIBC_128,
+            category: "healthcare",
         },
         /// HIBC Code 39
         HIBC39 = {
             raw: BARCODE_HIBC_39,
+            category: "healthcare",
         },
         /// HIBC Data Matrix
         HIBCDM = {
             raw: BARCODE_HIBC_DM,
+            kebab_case: "hibc-dm",
+            category: "healthcare",
         },
         /// HIBC QR Code
         HIBCQR = {
             raw: BARCODE_HIBC_QR,
+            kebab_case: "hibc-qr",
+            category: "healthcare",
         },
         /// HIBC PDF417
         HIBCPDF = {
             raw: BARCODE_HIBC_PDF,
+            kebab_case: "hibc-pdf",
+            category: "healthcare",
         },
         /// HIBC MicroPDF417
         HIBCMicroPDF = {
             raw: BARCODE_HIBC_MICPDF,
+            kebab_case: "hibc-micro-pdf",
+            category: "healthcare",
             alias: "HIBCMicPDF"
         },
         /// HIBC Codablock-F
         HIBCCodablockF = {
             raw: BARCODE_HIBC_BLOCKF,
+            category: "healthcare",
             alias: "HIBCBlockF"
         },
         /// HIBC Aztec Code
         HIBCAztec = {
             raw: BARCODE_HIBC_AZTEC,
+            category: "healthcare",
         },
 
         // Tbarcode 10 codes
         /// DotCode
         DotCode = {
             raw: BARCODE_DOTCODE,
+            kebab_case: "dotcode",
+            category: "2d",
         },
         /// Han Xin (Chinese Sensible) Code
         HanXin = {
             raw: BARCODE_HANXIN,
+            kebab_case: "hanxin",
+            category: "2d",
         },
 
         // Tbarcode 11 codes
         /// Royal Mail 2D Mailmark (CMDM) (Data Matrix)
         Mailmark2D = {
             raw: BARCODE_MAILMARK_2D,
+            kebab_case: "mailmark-2d",
+            category: "postal",
         },
         /// Universal Postal Union S10
         UPUS10 = {
             raw: BARCODE_UPU_S10,
+            kebab_case: "upus10",
+            category: "postal",
         },
         /// Royal Mail 4-State Mailmark
         Mailmark4S = {
             raw: BARCODE_MAILMARK_4S,
+            kebab_case: "mailmark-4s",
+            category: "postal",
             alias: "Mailmark"
         },
 
@@ -701,52 +807,73 @@ symbol_data! {
         /// Aztec Runes
         AzRune = {
             raw: BARCODE_AZRUNE,
+            kebab_case: "azrune",
+            category: "2d",
         },
         /// Code 32
         Code32 = {
             raw: BARCODE_CODE32,
+            kebab_case: "code32",
         },
         /// GS1-128 Composite
         GS1128CC = {
             raw: BARCODE_GS1_128_CC,
+            kebab_case: "gs1-128-cc",
+            category: "gs1",
             alias: "EAN128CC",
         },
         /// GS1 DataBar Omnidirectional Composite
         DBarOmnCC = {
             raw: BARCODE_DBAR_OMN_CC,
+            kebab_case: "dbar-omn-cc",
+            category: "gs1",
             alias: "RSS14CC",
         },
         /// GS1 DataBar Limited Composite
         DBarLtdCC = {
             raw: BARCODE_DBAR_LTD_CC,
+            kebab_case: "dbar-ltd-cc",
+            category: "gs1",
             alias: "RSSLtdCC",
         },
         /// GS1 DataBar Expanded Composite
         DBarExpCC = {
             raw: BARCODE_DBAR_EXP_CC,
+            kebab_case: "dbar-exp-cc",
+            category: "gs1",
             alias: "RSSExpCC",
         },
         /// UPC-A Composite
         UPCACC = {
             raw: BARCODE_UPCA_CC,
+            kebab_case: "upca-cc",
+            category: "retail",
         },
         /// UPC-E Composite
         UPCECC = {
             raw: BARCODE_UPCE_CC,
+            kebab_case: "upce-cc",
+            category: "retail",
         },
         /// GS1 DataBar Stacked Composite
         DBarStkCC = {
             raw: BARCODE_DBAR_STK_CC,
+            kebab_case: "dbar-stk-cc",
+            category: "gs1",
             alias: "RSS14StackCC",
         },
         /// GS1 DataBar Stacked Omnidirectional Composite
         DBarOmnStkCC = {
             raw: BARCODE_DBAR_OMNSTK_CC,
+            kebab_case: "dbar-omn-stk-cc",
+            category: "gs1",
             alias: "RSS14OmniCC",
         },
         /// GS1 DataBar Expanded Stacked Composite
         DBarExpStkCC = {
             raw: BARCODE_DBAR_EXPSTK_CC,
+            kebab_case: "dbar-exp-stk-cc",
+            category: "gs1",
             alias: "RSSExpStackCC",
         },
         /// Channel Code
@@ -756,20 +883,25 @@ symbol_data! {
         /// Code One
         CodeOne = {
             raw: BARCODE_CODEONE,
+            kebab_case: "code-one",
+            category: "2d",
         },
         /// Grid Matrix
         GridMatrix = {
             raw: BARCODE_GRIDMATRIX,
+            category: "2d",
         },
         /// UPNQR (Univerzalnega Plačilnega Naloga QR)
         UPNQR = {
             raw: BARCODE_UPNQR,
+            category: "postal",
         },
         /// Ultracode symbology uses a grid of coloured elements to encode data.
         /// 
         /// ECI and GS1 modes are supported.
         Ultra = {
             raw: BARCODE_ULTRA,
+            category: "2d",
             options: {
                 /// Specifies amount of symbol holding error correction data.
                 error_correction: values::UltracodeErrorCorrection,
@@ -800,10 +932,13 @@ symbol_data! {
         /// Rectangular Micro QR Code (rMQR)
         RMQR = {
             raw: BARCODE_RMQR,
+            kebab_case: "rmqr",
+            category: "2d",
         },
         /// IBM BC412 (SEMI T1-95)
         BC412 = {
             raw: BARCODE_BC412,
+            kebab_case: "bc412",
         },
         /// DX Film Edge Barcode on 35mm and APS films
         DXFilmEdge = {

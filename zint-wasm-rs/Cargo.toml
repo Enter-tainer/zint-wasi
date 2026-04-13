@@ -14,6 +14,8 @@ svg = ["display", "vector", "zint-sys/svg"]
 ps = ["display", "vector", "zint-sys/ps"]
 emf = ["display", "vector", "zint-sys/emf"]
 
+_gen_symbology_summary = ["zint-rs-macros/_gen_symbology_summary"]
+
 [dependencies]
 zint-rs-macros = {path = "./macros"}
 
