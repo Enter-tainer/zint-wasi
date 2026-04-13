@@ -317,47 +317,135 @@ pub enum QRMask {
     Mask7 = 0b111,
 }
 
-// bitflags::bitflags! {
-//     /// QR, Han Xin, Grid Matrix specific options
-//     #[derive(Debug, Clone, Copy)]
-//     pub struct QRMatrixOption: u32 {
-//         /// Increase non-ASCII data density
-//         const FULL_MULITIBYTE = ZINT_FULL_MULTIBYTE;
+/// Version (format) of Pharmazentralnummer (PZN) to encode.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub enum PZNVersion {
+    /// PZN8 (current standard since 2013).
+    ///
+    /// Encodes up to 7 digits, zero-padded on the left. An 8-digit input is
+    /// accepted in which case Zint validates the supplied check digit.
+    #[default]
+    PZN8,
+    /// PZN7 (obsolete since 2013).
+    ///
+    /// Encodes up to 7 digits. A modulo-11 check digit is added, or if 7
+    /// digits are supplied the check digit is validated.
+    PZN7,
+}
 
-//         /// [Mask 0](QRMask::Mask0) option
-//         const MASK_0 = (QRMask::Mask0 as u32 + 1) << 8;
-//         /// [Mask 1](QRMask::Mask1) option
-//         const MASK_1 = (QRMask::Mask1 as u32 + 1) << 8;
-//         /// [Mask 2](QRMask::Mask2) option
-//         const MASK_2 = (QRMask::Mask2 as u32 + 1) << 8;
-//         /// [Mask 3](QRMask::Mask3) option
-//         const MASK_3 = (QRMask::Mask3 as u32 + 1) << 8;
-//         /// [Mask 4](QRMask::Mask4) option
-//         const MASK_4 = (QRMask::Mask4 as u32 + 1) << 8;
-//         /// [Mask 5](QRMask::Mask5) option
-//         const MASK_5 = (QRMask::Mask5 as u32 + 1) << 8;
-//         /// [Mask 6](QRMask::Mask6) option
-//         const MASK_6 = (QRMask::Mask6 as u32 + 1) << 8;
-//         /// [Mask 7](QRMask::Mask7) option
-//         const MASK_7 = (QRMask::Mask7 as u32 + 1) << 8;
-//     }
-// }
+/// Error correction level for PDF417 and HIBC PDF417.
+///
+/// The number of codewords used for error correction is determined by
+/// `2^(level + 1)`. Higher levels provide more error recovery but reduce
+/// data capacity.
+///
+/// Default level is determined automatically by zint based on the amount of
+/// data being encoded.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[repr(u8)]
+pub enum PDF417ErrorCorrection {
+    /// `2^1 = 2` error correction codewords.
+    L0 = 0,
+    /// `2^2 = 4` error correction codewords.
+    L1 = 1,
+    /// `2^3 = 8` error correction codewords.
+    L2 = 2,
+    /// `2^4 = 16` error correction codewords.
+    L3 = 3,
+    /// `2^5 = 32` error correction codewords.
+    L4 = 4,
+    /// `2^6 = 64` error correction codewords.
+    L5 = 5,
+    /// `2^7 = 128` error correction codewords.
+    L6 = 6,
+    /// `2^8 = 256` error correction codewords.
+    L7 = 7,
+    /// `2^9 = 512` error correction codewords.
+    L8 = 8,
+}
 
-// impl From<QRMask> for QRMatrixOption {
-//     fn from(mask: QRMask) -> Self {
-//         QRMatrixOption::from_bits_retain((mask as u32 + 1) << 8)
-//     }
-// }
-// impl TryFrom<u32> for QRMatrixOption {
-//     type Error = Error;
-//     fn try_from(value: u32) -> Result<Self, Self::Error> {
-//         let mask = QRMatrixOption::from_bits_truncate(value);
-//         match mask {
-//             invalid if invalid.bits() != value => Err(Error::UnknownOption {
-//                 which: "option_3",
-//                 value: Box::new(value),
-//             }),
-//             valid => Ok(valid),
-//         }
-//     }
-// }
+/// Number of data columns for MicroPDF417.
+///
+/// MicroPDF417 supports 1 to 4 data columns.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(u8)]
+pub enum MicroPDF417Columns {
+    /// 1 data column.
+    One = 1,
+    /// 2 data columns.
+    Two = 2,
+    /// 3 data columns.
+    Three = 3,
+    /// 4 data columns.
+    Four = 4,
+}
+
+/// Error correction level for Aztec Code and HIBC Aztec Code.
+///
+/// Specifies the minimum percentage of symbol area used for error correction.
+/// If both [`AztecErrorCorrection`] and a symbol size are specified, the size
+/// takes precedence and this option is ignored.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(u8)]
+pub enum AztecErrorCorrection {
+    /// At least 10% + 3 codewords of error correction.
+    L1 = 1,
+    /// At least 23% + 3 codewords of error correction.
+    L2 = 2,
+    /// At least 36% + 3 codewords of error correction.
+    L3 = 3,
+    /// At least 50% + 3 codewords of error correction.
+    L4 = 4,
+}
+
+/// Symbol size for Aztec Code and HIBC Aztec Code.
+///
+/// Values 1-4 are compact (small bullseye) symbols; values 5-36 are
+/// full-range symbols. If a size is specified, the error correction level
+/// option is ignored.
+///
+/// See the zint manual for a full table of symbol sizes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub struct AztecSize(u8);
+
+impl AztecSize {
+    /// Creates an Aztec size from a version number in 1-36.
+    ///
+    /// Returns `None` if `version` is 0 or greater than 36.
+    pub fn from_version(version: u8) -> Option<Self> {
+        if version >= 1 && version <= 36 {
+            Some(Self(version))
+        } else {
+            None
+        }
+    }
+
+    /// Returns the raw version number (1-36).
+    pub fn version(self) -> u8 {
+        self.0
+    }
+
+    /// Returns `true` if this is a compact (small bullseye) symbol
+    /// (versions 1-4).
+    pub fn is_compact(self) -> bool {
+        self.0 <= 4
+    }
+}
+
+/// Shape mode for Data Matrix and HIBC Data Matrix automatic size selection.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub enum DataMatrixShape {
+    /// Allow any shape (default). Zint selects the smallest symbol.
+    #[default]
+    Any,
+    /// Force square symbols only (versions 1-24, sizes 10×10 to 144×144).
+    ///
+    /// Corresponds to zint `option_3 = DM_SQUARE`.
+    Square,
+    /// Allow Data Matrix Rectangular Extension (DMRE) symbols in addition to
+    /// standard rectangular symbols. Has no effect when a specific size is
+    /// chosen via `option_2`.
+    ///
+    /// Corresponds to zint `option_3 = DM_DMRE`.
+    AllowDMRE,
+}

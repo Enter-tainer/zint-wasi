@@ -434,17 +434,57 @@ symbol_data! {
             raw: BARCODE_LOGMARS,
             alias: "Logmars"
         },
-        /// Pharmacode One-Track
+        /// Pharmacode One-Track, developed by Laetus for pharmaceutical
+        /// product identification.
+        ///
+        /// Encodes whole numbers between 3 and 131070 inclusive. Input is
+        /// the numeric value as a decimal string.
+        ///
+        /// This symbology has no configurable options; all encoding is
+        /// determined by the input data.
+        ///
         Pharma = {
             raw: BARCODE_PHARMA,
             category: "healthcare",
         },
-        /// Pharmazentralnummer
+        /// Pharmazentralnummer (PZN) — a Code 39 based symbology used by
+        /// the pharmaceutical industry in Germany for product identification.
+        ///
+        /// By default encodes in PZN8 format (current standard since 2013):
+        /// a 7-digit number to which a modulo-11 check digit is appended.
+        /// Inputs shorter than 7 digits are zero-padded. An 8-digit input
+        /// is accepted in which case Zint validates the check digit.
+        ///
+        /// PZN7 format (obsolete since 2013) can be selected via
+        /// [`version`][PZNOptions::version].
+        ///
         PZN = {
             raw: BARCODE_PZN,
             category: "healthcare",
+            options: {
+                /// Selects PZN format version.
+                ///
+                /// Defaults to [`PZN8`][values::PZNVersion::PZN8] (current
+                /// standard). Set to [`PZN7`][values::PZNVersion::PZN7] for
+                /// the obsolete 7-digit format.
+                version: values::PZNVersion,
+            },
+            apply_options: |result, options| {
+                if options.version == values::PZNVersion::PZN7 {
+                    result.option_2 = Some(1);
+                }
+                Ok(())
+            },
         },
-        /// Pharmacode Two-Track
+        /// Pharmacode Two-Track, developed by Laetus as an alternative to
+        /// Pharmacode One-Track for pharmaceutical product identification.
+        ///
+        /// Encodes whole numbers between 4 and 64570080 inclusive. Input is
+        /// the numeric value as a decimal string.
+        ///
+        /// This symbology has no configurable options; all encoding is
+        /// determined by the input data.
+        ///
         PharmaTwo = {
             raw: BARCODE_PHARMA_TWO,
             category: "healthcare",
@@ -721,51 +761,234 @@ symbol_data! {
         },
 
         // Tbarcode 9 codes
-        /// HIBC (Health Industry Barcode) Code 128
+        /// HIBC Code 128 — Health Industry Barcode (HIBC) variant of Code 128.
+        ///
+        /// Automatically prepends a `'+'` character and appends a modulo-49
+        /// check digit to a standard Code 128 symbol, as required by the
+        /// Health Industry Barcode Council (HIBCC) standard.
+        ///
+        /// Supports full ASCII input (same character set as Code 128). This
+        /// is a pass-through encoding wrapper: no additional options are
+        /// available beyond those on the input data itself.
         HIBC128 = {
             raw: BARCODE_HIBC_128,
             category: "healthcare",
         },
-        /// HIBC Code 39
+        /// HIBC Code 39 — Health Industry Barcode (HIBC) variant of Code 39.
+        ///
+        /// Automatically prepends a `'+'` character and appends a modulo-49
+        /// check digit to a standard Code 39 symbol, as required by the
+        /// Health Industry Barcode Council (HIBCC) standard.
+        ///
+        /// Supports the standard Code 39 character set (A-Z, 0-9, and
+        /// `-`, `.`, ` `, `$`, `/`, `+`, `%`). This is a pass-through
+        /// encoding wrapper: no additional options are available.
         HIBC39 = {
             raw: BARCODE_HIBC_39,
             category: "healthcare",
         },
-        /// HIBC Data Matrix
+        /// HIBC Data Matrix — Health Industry Barcode (HIBC) variant of
+        /// Data Matrix (ECC200).
+        ///
+        /// Automatically prepends a `'+'` character and appends a modulo-49
+        /// check digit as required by the HIBCC standard. Only ECC 200
+        /// symbols are supported (the older ECC 000-140 formats have been
+        /// removed from zint).
+        ///
+        /// The symbol size can be set using [`size`][HIBCDMOptions::size]
+        /// (1-30 for standard, 31-48 for DMRE rectangular). The automatic
+        /// size selection shape can be controlled with
+        /// [`shape`][HIBCDMOptions::shape].
         HIBCDM = {
             raw: BARCODE_HIBC_DM,
             kebab_case: "hibc-dm",
             category: "healthcare",
+            options: {
+                /// Symbol size (1-30 for standard, 31-48 for DMRE rectangular
+                /// extension). Set to `None` for automatic size selection.
+                ///
+                /// See the zint manual Table 25 and Table 26 for a full list
+                /// of symbol sizes.
+                size: Option<u8>,
+                /// Shape preference for automatic symbol size selection.
+                ///
+                /// Ignored when `size` is explicitly set.
+                shape: values::DataMatrixShape,
+            },
+            apply_options: |result, options| {
+                if let Some(size) = options.size {
+                    let size = require_range_inclusive("size", size, 1u8, 48)?;
+                    result.option_2 = Some(size as std::ffi::c_int);
+                }
+                match options.shape {
+                    values::DataMatrixShape::Any => {}
+                    values::DataMatrixShape::Square => {
+                        result.option_3 = Some(DM_SQUARE as std::ffi::c_int);
+                    }
+                    values::DataMatrixShape::AllowDMRE => {
+                        result.option_3 = Some(DM_DMRE as std::ffi::c_int);
+                    }
+                }
+                Ok(())
+            },
         },
-        /// HIBC QR Code
+        /// HIBC QR Code — Health Industry Barcode (HIBC) variant of QR Code.
+        ///
+        /// Automatically prepends a `'+'` character and appends a modulo-49
+        /// check digit as required by the HIBCC standard.
+        ///
+        /// Supports the same encoding options as standard QR Code: error
+        /// correction level, symbol version (size), full-multibyte mode, and
         HIBCQR = {
             raw: BARCODE_HIBC_QR,
             kebab_case: "hibc-qr",
             category: "healthcare",
+            options: QRCodeOptions,
         },
-        /// HIBC PDF417
+        /// HIBC PDF417 — Health Industry Barcode (HIBC) variant of PDF417.
+        ///
+        /// Automatically prepends a `'+'` character and appends a modulo-49
+        /// check digit as required by the HIBCC standard.
+        ///
+        /// Supports the same layout options as standard PDF417: number of
+        /// columns (1-30), rows (3-90), and error correction level (0-8).
         HIBCPDF = {
             raw: BARCODE_HIBC_PDF,
             kebab_case: "hibc-pdf",
             category: "healthcare",
+            options: {
+                /// Error correction level.
+                ///
+                /// Number of error correction codewords equals `2^(level + 1)`.
+                /// Set to `None` to let zint choose automatically based on
+                /// data length.
+                error_correction: Option<values::PDF417ErrorCorrection>,
+                /// Number of data columns (1-30). Set to `None` for automatic.
+                columns: Option<u8>,
+                /// Number of rows (3-90). Set to `None` for automatic.
+                rows: Option<u8>,
+            },
+            apply_options: |result, options| {
+                if let Some(ecc) = options.error_correction {
+                    result.option_1 = Some(ecc as std::ffi::c_int);
+                }
+                if let Some(cols) = options.columns {
+                    result.option_2 = Some(
+                        require_range_inclusive("columns", cols, 1u8, 30)? as std::ffi::c_int
+                    );
+                }
+                if let Some(rows) = options.rows {
+                    result.option_3 = Some(
+                        require_range_inclusive("rows", rows, 3u8, 90)? as std::ffi::c_int
+                    );
+                }
+                Ok(())
+            },
         },
-        /// HIBC MicroPDF417
+        /// HIBC MicroPDF417 — Health Industry Barcode (HIBC) variant of
+        /// MicroPDF417.
+        ///
+        /// Automatically prepends a `'+'` character and appends a modulo-49
+        /// check digit as required by the HIBCC standard.
+        ///
+        /// MicroPDF417 is a compact variant of PDF417 with fixed error
+        /// correction (determined by symbol size). The number of data columns
+        /// (1-4) can be set; the number of rows is determined automatically
+        /// by the amount of data.
+        ///
+        /// Maximum capacity is 250 alphanumeric characters or 366 digits.
         HIBCMicroPDF = {
             raw: BARCODE_HIBC_MICPDF,
             kebab_case: "hibc-micro-pdf",
             category: "healthcare",
-            alias: "HIBCMicPDF"
+            alias: "HIBCMicPDF",
+            options: {
+                /// Number of data columns (1-4). Set to `None` for automatic
+                /// selection based on data length.
+                columns: Option<values::MicroPDF417Columns>,
+            },
+            apply_options: |result, options| {
+                if let Some(cols) = options.columns {
+                    result.option_2 = Some(cols as std::ffi::c_int);
+                }
+                Ok(())
+            },
         },
-        /// HIBC Codablock-F
+        /// HIBC Codablock-F — Health Industry Barcode (HIBC) variant of
+        /// Codablock-F.
+        ///
+        /// Automatically prepends a `'+'` character and appends a modulo-49
+        /// check digit to the encoded data as required by the HIBCC standard.
+        ///
+        /// Codablock-F is a stacked Code 128 symbology. The symbol width
+        /// (number of columns, 9-67) and height (number of rows, 1-44) can
+        /// be configured.
         HIBCCodablockF = {
             raw: BARCODE_HIBC_BLOCKF,
             category: "healthcare",
-            alias: "HIBCBlockF"
+            alias: "HIBCBlockF",
+            options: {
+                /// Number of rows (1-44). Set to `None` for automatic
+                /// selection based on data length.
+                rows: Option<u8>,
+                /// Number of data columns (9-67). Set to `None` for automatic
+                /// selection.
+                columns: Option<u8>,
+            },
+            apply_options: |result, options| {
+                if let Some(rows) = options.rows {
+                    result.option_1 = Some(
+                        require_range_inclusive("rows", rows, 1u8, 44)? as std::ffi::c_int
+                    );
+                }
+                if let Some(cols) = options.columns {
+                    result.option_2 = Some(
+                        require_range_inclusive("columns", cols, 9u8, 67)? as std::ffi::c_int
+                    );
+                }
+                Ok(())
+            },
         },
-        /// HIBC Aztec Code
+        /// HIBC Aztec Code — Health Industry Barcode (HIBC) variant of
+        /// Aztec Code (ISO 24778).
+        ///
+        /// Automatically prepends a `+` character and appends a modulo-49
+        /// check digit as required by the HIBCC standard.
+        ///
+        /// Two mutually exclusive options control symbol sizing:
+        /// - [`error_correction`][HIBCAztecOptions::error_correction] — set
+        ///   the minimum error correction level (1-4); zint selects the
+        ///   smallest symbol that meets it.
+        /// - [`size`][HIBCAztecOptions::size] — pin the exact symbol version
+        ///   (1-36, where 1-4 are compact symbols); `error_correction` is
+        ///   ignored when `size` is set.
+        ///
+        /// By default zint targets ≥23% error correction and chooses symbol
+        /// type and size automatically.
         HIBCAztec = {
             raw: BARCODE_HIBC_AZTEC,
             category: "healthcare",
+            options: {
+                /// Minimum error correction level.
+                ///
+                /// Ignored when [`size`][HIBCAztecOptions::size] is set.
+                /// Set to `None` for the default (~23% + 3 codewords).
+                error_correction: Option<values::AztecErrorCorrection>,
+                /// Explicit symbol size version (1-36).
+                ///
+                /// Versions 1-4 are compact symbols; 5-36 are full-range.
+                /// When set, [`error_correction`][HIBCAztecOptions::error_correction]
+                /// is ignored.
+                size: Option<values::AztecSize>,
+            },
+            apply_options: |result, options| {
+                if let Some(size) = options.size {
+                    result.option_2 = Some(size.version() as std::ffi::c_int);
+                } else if let Some(ecc) = options.error_correction {
+                    result.option_1 = Some(ecc as std::ffi::c_int);
+                }
+                Ok(())
+            },
         },
 
         // Tbarcode 10 codes
