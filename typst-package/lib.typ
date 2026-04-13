@@ -9,18 +9,22 @@
 /// - options (dictionary): Additional options to pass to Zint.
 ///
 ///     See the #l(<options>)[configuration section] for details on available options and how to use them.
-/// - fg-color (color): Foreground color for barcode elements.
-/// - bg-color (color, none): Background color. Set to `none` for transparent.
+/// - background (dictionary): Background styling for the barcode container.
+///     Accepts `fill`, `stroke`, `radius`, `outset`, `inset` — spread into the outer `box()`.
+///     Example: `(fill: white, radius: 4pt, inset: 8pt)`
+/// - foreground (dictionary): Foreground and text styling options. Spread into typst's `text()` for HRT;
+///     `fill` is also used as the foreground color for all barcode elements.
+///     Example: `(font: "OCR-B", fill: blue)`
 /// - ..args (any): Any additional arguments to forward to the container.
 /// -> content
-#let barcode(data, symbology, options: (:), fg-color: black, bg-color: none, ..args) = {
+#let barcode(data, symbology, options: (:), foreground: (fill: black), background: (:), ..args) = {
   let data = data
   if type(data) == str {
     data = bytes(data)
   } else if type(data) == array {
     data = bytes(data)
   }
-  
+
   let zint-options = options
   let ultracode-colors = zint-options.remove("ultracode-colors", default: (
     "1": cmyk(100%, 0%, 0%, 0%),    // Cyan
@@ -32,13 +36,13 @@
     "7": cmyk(0%, 0%, 0%, 100%),    // Black
     "8": cmyk(0%, 0%, 0%, 0%),      // White
   ))
-  ultracode-colors.insert("-1", fg-color)
-  ultracode-colors.insert("0", bg-color)
+  ultracode-colors.insert("-1", foreground.at("fill", default: black))
+  ultracode-colors.insert("0", background.at("fill", default: none))
 
   // Extract typst-side options before passing to zint
   let color(code) = {
     let key = str(code)
-    ultracode-colors.at(key, default: fg-color)
+    ultracode-colors.at(key, default: foreground.fill)
   }
   let result = cbor(zint-wasm.zint_encode(
     cbor.encode((symbology: symbology, ..zint-options)),
@@ -58,7 +62,7 @@
   let h = plot.height
   let geo = plot.geometry
 
-  box(width: w * 1pt, height: h * 1pt, fill: bg-color, ..args.named())[
+  box(width: w * 1pt, height: h * 1pt, ..background, ..args.named())[
     // Rectangles
     #for r in geo.at("rectangles", default: ()) {
       place(dx: r.x * 1pt, dy: r.y * 1pt,
@@ -76,13 +80,14 @@
     #for hex in geo.at("hexagons", default: ()) {
       let r = hex.diameter / 2
       place(dx: hex.x * 1pt, dy: hex.y * 1pt,
-        path(fill: color(hex.color), closed: true,
-          (r * calc.cos(0deg) * 1pt, r * calc.sin(0deg) * 1pt),
-          (r * calc.cos(60deg) * 1pt, r * calc.sin(60deg) * 1pt),
-          (r * calc.cos(120deg) * 1pt, r * calc.sin(120deg) * 1pt),
-          (r * calc.cos(180deg) * 1pt, r * calc.sin(180deg) * 1pt),
-          (r * calc.cos(240deg) * 1pt, r * calc.sin(240deg) * 1pt),
-          (r * calc.cos(300deg) * 1pt, r * calc.sin(300deg) * 1pt),
+        curve(fill: color(hex.color),
+          curve.move((r * calc.cos(0deg) * 1pt, r * calc.sin(0deg) * 1pt)),
+          curve.line((r * calc.cos(60deg) * 1pt, r * calc.sin(60deg) * 1pt)),
+          curve.line((r * calc.cos(120deg) * 1pt, r * calc.sin(120deg) * 1pt)),
+          curve.line((r * calc.cos(180deg) * 1pt, r * calc.sin(180deg) * 1pt)),
+          curve.line((r * calc.cos(240deg) * 1pt, r * calc.sin(240deg) * 1pt)),
+          curve.line((r * calc.cos(300deg) * 1pt, r * calc.sin(300deg) * 1pt)),
+          curve.close(),
         ))
     }
     // Text (HRT) — zint returns (x, y) as (center, baseline)
@@ -98,6 +103,7 @@
               size: s.font_size * 1pt,
               top-edge: "ascender",
               bottom-edge: "descender",
+              ..foreground,
               fill: color(s.color),
               s.text
             )
