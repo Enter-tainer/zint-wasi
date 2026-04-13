@@ -173,98 +173,227 @@ symbol_data! {
             raw: BARCODE_EXCODE39,
             kebab_case: "ex-code39",
         },
-        /// Variable length EAN variant
+        /// Variable length EAN variant (deprecated).
+        ///
+        /// A deprecated catch-all EAN variant that selects between EAN-2, EAN-5,
+        /// EAN-8, and EAN-13 based on input length. Use the specific variants
+        /// ([`EAN8`][Symbology::EAN8], [`EAN13`][Symbology::EAN13]) instead.
         #[deprecated(note = "will be removed; use specialized EAN code variants")]
         EANX = {
             raw: BARCODE_EANX,
             category: "retail",
             options: UPCEOptions,
         },
-        /// Variable length EAN variant with digit check
+        /// Variable length EAN variant with check digit verification (deprecated).
+        ///
+        /// Like [`EANX`][Symbology::EANX] but verifies that the last digit is a
+        /// valid GS1 check digit. Use the specific variants instead.
         #[deprecated(note = "will be removed; use specialized EAN CHK code variants")]
         EANXChk = {
             raw: BARCODE_EANX_CHK,
             category: "retail",
             options: UPCEOptions,
         },
-        /// Variable length composite EAN variant
+        /// Variable length composite EAN variant.
+        ///
+        /// A deprecated catch-all composite EAN variant. Use the specific
+        /// composite variants ([`EAN8CC`][Symbology::EAN8CC],
+        /// [`EAN13CC`][Symbology::EAN13CC]) instead.
         #[deprecated(note = "will be removed; use specialized EAN CC code variants")]
         EANXCC = {
             raw: BARCODE_EANX_CC,
             kebab_case: "eanx-cc",
             category: "retail",
-            options: UPCEOptions,
+            options: EAN13CCOptions,
         },
-        /// EAN/UPC 2-digit
-        /// 
-        /// This symbology is almost never used as standalone and is generally
-        /// appended to other one-dimensional barcodes.
+        /// EAN/UPC 2-digit add-on symbol.
+        ///
+        /// A 2-digit numeric add-on used to supplement EAN and UPC symbols.
+        /// Accepts exactly 2 decimal digits. In retail contexts it is almost
+        /// always embedded in a larger EAN/UPC symbol via the `'+'` separator
+        /// rather than encoded standalone.
+        ///
+        /// Quiet zone indicators can be added via `output_options |=
+        /// EANUPC_GUARD_WHITESPACE`.
+        ///
+        /// This symbology has no configurable options.
         EAN2 = {
             raw: BARCODE_EAN_2ADDON,
             category: "retail",
             alias: "EAN2Addon",
-            options: UPCEOptions,
         },
-        /// EAN/UPC 5-digit
-        /// 
-        /// This symbology is almost never used as standalone and is generally
-        /// appended to other one-dimensional barcodes.
+        /// EAN/UPC 5-digit add-on symbol.
+        ///
+        /// A 5-digit numeric add-on used to supplement EAN and UPC symbols,
+        /// commonly carrying a suggested retail price. Accepts exactly 5
+        /// decimal digits. In retail contexts it is almost always embedded in a
+        /// larger EAN/UPC symbol via the `'+'` separator rather than encoded
+        /// standalone.
+        ///
+        /// Quiet zone indicators can be added via `output_options |=
+        /// EANUPC_GUARD_WHITESPACE`.
+        ///
+        /// This symbology has no configurable options.
         EAN5 = {
             raw: BARCODE_EAN_5ADDON,
             category: "retail",
             alias: "EAN5Addon",
-            options: UPCEOptions,
         },
-        /// EAN-8 (European Article Number) GTIN-8
-        /// 
-        /// In addition EAN-2 and EAN-5 add-on symbols can be added by using the
-        /// '+' character as a separator after EAN-8 data.
+        /// EAN-8 (European Article Number GTIN-8), a compact retail barcode.
+        ///
+        /// EAN-8 encodes a GTIN-8 (8-digit Global Trade Item Number). Up to 7
+        /// digits may be supplied; Zint adds the standard GS1 check digit. An
+        /// 8-digit input including the check digit may also be supplied, in
+        /// which case Zint verifies it.
+        ///
+        /// 2-digit and 5-digit add-on symbols can be appended by using `'+'`
+        /// as a separator (e.g. `"9520000+12"`). When an add-on is used, the
+        /// gap between the main symbol and the add-on can be adjusted with
+        /// [`addon_gap`][UPCEOptions::addon_gap], and the height that the guard
+        /// bars descend below the main bars can be adjusted with
+        /// [`guard_descent`][UPCEOptions::guard_descent].
         EAN8 = {
             raw: BARCODE_EAN8,
             category: "retail",
             alias: "GTIN8",
             options: UPCEOptions,
         },
-        /// EAN-13 (European Article Number) is a standard 13-digit barcode used
-        /// in retail across Europe.
-        /// 
-        /// EAN-13 requires 12-digit numerical input. The check digit is
-        /// calculated by Zint.
-        /// 
-        /// In addition EAN-2 and EAN-5 add-on symbols can be added by using the
-        /// '+' character as a separator after EAN-13 data.
+        /// EAN-13 (European Article Number GTIN-13), the standard retail
+        /// barcode used across Europe and internationally (ISO 15420).
+        ///
+        /// EAN-13 encodes a GTIN-13 (13-digit Global Trade Item Number). Up to
+        /// 12 digits may be supplied; Zint adds the standard GS1 check digit.
+        /// A 13-digit input including the check digit may also be supplied, in
+        /// which case Zint verifies it.
+        ///
+        /// 2-digit and 5-digit add-on symbols can be appended by using `'+'`
+        /// as a separator (e.g. `"952012345678+21"`). When an add-on is used,
+        /// the gap between the main symbol and the add-on can be adjusted with
+        /// [`addon_gap`][UPCEOptions::addon_gap], and the height that the guard
+        /// bars descend below the main bars can be adjusted with
+        /// [`guard_descent`][UPCEOptions::guard_descent].
         EAN13 = {
             raw: BARCODE_EAN13,
             category: "retail",
             alias: "GTIN13",
             options: UPCEOptions,
         },
-        /// EAN-14
-        /// 
-        /// EAN-14 requires 13-digit numerical input. The check digit is
-        /// calculated by Zint.
-        /// 
-        /// In addition EAN-2 and EAN-5 add-on symbols can be added by using the
-        /// '+' character as a separator after EAN-14 data.
+        /// EAN-14, a compact GS1-128 variant used to encode GTIN-14 data.
+        ///
+        /// A 13-digit numeric input is accepted; inputs shorter than 13 digits
+        /// are zero-padded. A 14-digit input including the standard GS1 check
+        /// digit may also be supplied, in which case Zint verifies the check
+        /// digit. If the check digit is not given, Zint adds it automatically.
+        /// The HRT-only Application Identifier `"(01)"` is also added by Zint.
+        ///
+        /// This symbology has no configurable options; all encoding is
+        /// determined by the input data.
         EAN14 = {
             raw: BARCODE_EAN14,
             category: "retail",
             alias: "GTIN14",
-            options: UPCEOptions,
         },
-        /// EAN-8 Composite
+        /// EAN-8 Composite (GS1 Composite, ISO/IEC 24723).
+        ///
+        /// Combines an EAN-8 linear component with a 2D CC-A or CC-B composite
+        /// component carrying supplementary GS1 data. The linear component data
+        /// is supplied via the `primary` field; the 2D component data is
+        /// supplied as the main input.
+        ///
+        /// CC-C is not available for EAN-8 Composite (only GS1-128 Composite
+        /// supports CC-C). When an add-on is appended to the linear component
+        /// via `'+'`, the gap and guard descent can be adjusted.
         EAN8CC = {
             raw: BARCODE_EAN8_CC,
             category: "retail",
-            options: UPCEOptions,
+            options: {
+                /// 2D composite component type.
+                ///
+                /// Selects CC-A or CC-B. `Auto` lets Zint choose the smallest
+                /// type that fits the data. CC-C is not valid for EAN-8 Composite.
+                ///
+                /// Corresponds to zint `option_1`.
+                cc_mode: values::CompositeMode,
+                /// Gap between the main linear symbol and an add-on in multiples
+                /// of the X-dimension. Valid range: 7–12 (default 7).
+                ///
+                /// Only relevant when an add-on is appended to the primary data.
+                /// Corresponds to zint `option_2`.
+                addon_gap: usize = 7,
+                /// Height in X-dimensions that the guard bars descend below the
+                /// main bars. Valid range: 0.0–20.0 (default 5.0).
+                ///
+                /// Corresponds to zint `guard_descent`.
+                guard_descent: f32 = 5.0,
+            },
+            apply_options: |result, options| {
+                let mode: std::ffi::c_int = options.cc_mode.into();
+                if mode != 0 {
+                    result.option_1 = Some(mode);
+                }
+                result.option_2 = Some(require_range_inclusive("addon_gap", options.addon_gap as std::ffi::c_int, 7, 12)?);
+                result.guard_descent =
+                    require_range_inclusive("guard_descent", options.guard_descent, 0.0, 20.0)?;
+                Ok(())
+            },
         },
-        /// EAN-13 Composite
+        /// EAN-13 Composite (GS1 Composite, ISO/IEC 24723).
+        ///
+        /// Combines an EAN-13 linear component with a 2D CC-A or CC-B composite
+        /// component carrying supplementary GS1 data. The linear component data
+        /// is supplied via the `primary` field; the 2D component data is
+        /// supplied as the main input.
+        ///
+        /// CC-C is not available for EAN-13 Composite. When an add-on is
+        /// appended to the linear component via `'+'`, the gap and guard descent
+        /// can be adjusted.
         EAN13CC = {
             raw: BARCODE_EAN13_CC,
             category: "retail",
-            options: UPCEOptions,
+            options: {
+                /// 2D composite component type.
+                ///
+                /// Selects CC-A or CC-B. `Auto` lets Zint choose the smallest
+                /// type that fits the data. CC-C is not valid for EAN-13 Composite.
+                ///
+                /// Corresponds to zint `option_1`.
+                cc_mode: values::CompositeMode,
+                /// Gap between the main linear symbol and an add-on in multiples
+                /// of the X-dimension. Valid range: 7–12 (default 7).
+                ///
+                /// Only relevant when an add-on is appended to the primary data.
+                /// Corresponds to zint `option_2`.
+                addon_gap: usize = 7,
+                /// Height in X-dimensions that the guard bars descend below the
+                /// main bars. Valid range: 0.0–20.0 (default 5.0).
+                ///
+                /// Corresponds to zint `guard_descent`.
+                guard_descent: f32 = 5.0,
+            },
+            apply_options: |result, options| {
+                let mode: std::ffi::c_int = options.cc_mode.into();
+                if mode != 0 {
+                    result.option_1 = Some(mode);
+                }
+                result.option_2 = Some(require_range_inclusive("addon_gap", options.addon_gap as std::ffi::c_int, 7, 12)?);
+                result.guard_descent =
+                    require_range_inclusive("guard_descent", options.guard_descent, 0.0, 20.0)?;
+                Ok(())
+            },
         },
-        /// GS1-128
+        /// GS1-128, a Code 128 variant defined by the GS1 General Specifications.
+        ///
+        /// Previously known as UCC/EAN-128. Data must be in GS1 Application
+        /// Identifier (AI) format (e.g. square-bracket format `"[01]98898765432106"`
+        /// or parenthesis format `"(01)98898765432106"`). Fixed-length AI data
+        /// must be supplied at the correct length. GS1-128 does not support
+        /// extended ASCII (ISO/IEC 8859-1) characters.
+        ///
+        /// Check digits for GTIN data AI `(01)` are not calculated by Zint and
+        /// must be included in the input data.
+        ///
+        /// This symbology has no configurable options; all encoding is
+        /// determined by the input data.
         GS1128 = {
             raw: BARCODE_GS1_128,
             kebab_case: "gs1-128",
@@ -326,20 +455,56 @@ symbol_data! {
         Flat = {
             raw: BARCODE_FLAT,
         },
-        /// GS1 DataBar Omnidirectional
+        /// GS1 DataBar Omnidirectional (ISO/IEC 24724), formerly known as RSS-14.
+        ///
+        /// Encodes a 13-digit GTIN item code. A check digit and HRT-only
+        /// Application Identifier `"(01)"` are added automatically by Zint.
+        /// Input less than 13 digits is zero-padded. A 14-digit input including
+        /// the standard GS1 check digit may be supplied, in which case the check
+        /// digit is verified.
+        ///
+        /// Omnidirectional symbols should have a symbol height of 33 or greater.
+        /// To produce a truncated variant (not scannable by omnidirectional
+        /// scanners) set the symbol height to a value between 13 and 32.
+        ///
+        /// This symbology has no configurable options; all encoding is
+        /// determined by the input data.
         DBarOmn = {
             raw: BARCODE_DBAR_OMN,
             kebab_case: "dbar-omn",
             category: "gs1",
             alias: "RSS14"
         },
-        /// GS1 DataBar Limited
+        /// GS1 DataBar Limited (ISO/IEC 24724), formerly known as RSS Limited.
+        ///
+        /// Encodes a 13-digit GTIN item code. Like [`DBarOmn`][Symbology::DBarOmn],
+        /// a check digit and HRT-only AI `"(01)"` are added by Zint, and a
+        /// 14-digit input with check digit may be supplied for verification.
+        /// Input less than 13 digits is zero-padded.
+        ///
+        /// Limited to data starting with digits 0 or 1 (i.e. values in the
+        /// range 0 to 1999999999999).
+        ///
+        /// This symbology has no configurable options; all encoding is
+        /// determined by the input data.
         DBarLtd = {
             raw: BARCODE_DBAR_LTD,
             kebab_case: "dbar-ltd",
             category: "gs1",
         },
-        /// GS1 DataBar Expanded
+        /// GS1 DataBar Expanded (ISO/IEC 24724), formerly known as RSS Expanded.
+        ///
+        /// A variable-length symbology capable of encoding multiple GS1
+        /// Application Identifiers in a single symbol. Data must be in GS1 AI
+        /// format (e.g. `"[01]98898765432106[3202]012345[15]991231"`). Fixed-
+        /// length AI data must be supplied at the correct length. The maximum
+        /// capacity is 74 numeric digits or 41 alphanumeric characters.
+        ///
+        /// The GTIN-14 check digit for AI `(01)` must be included in the input;
+        /// Zint does not calculate it for this symbology.
+        ///
+        /// This symbology has no configurable options; all encoding is
+        /// determined by the input data.
         DBarExp = {
             raw: BARCODE_DBAR_EXP,
             kebab_case: "dbar-exp",
@@ -349,22 +514,36 @@ symbol_data! {
         Telepen = {
             raw: BARCODE_TELEPEN,
         },
-        /// UPC-A is used in the United States for retail applications. The
-        /// symbol requires an 11-digit article number. The check digit is
-        /// calculated by Zint.
+        /// UPC-A (Universal Product Code Version A, ISO 15420), the standard
+        /// retail barcode used in the United States.
         ///
-        /// In addition EAN-2 and EAN-5 add-on symbols can be added by using the
-        /// '+' character as a separator before EAN-2/EAN-5 data.
+        /// Encodes a GTIN-12 (12-digit Global Trade Item Number). Up to 11
+        /// digits may be supplied; Zint adds the standard GS1 check digit. A
+        /// 12-digit input including the check digit may also be supplied, in
+        /// which case Zint verifies it. Input shorter than 11 digits is
+        /// zero-padded.
         ///
-        /// If input data already includes the check digit,
-        /// [`UPCAChk`][Symbology::UPCAChk] can be used.
+        /// If the input already includes the check digit, use
+        /// [`UPCAChk`][Symbology::UPCAChk] instead (which verifies that the
+        /// last digit is a valid check digit).
+        ///
+        /// 2-digit and 5-digit add-on symbols can be appended by using `'+'`
+        /// as a separator (e.g. `"01234500005+12345"`). Quiet zone indicators
+        /// can be added via `output_options |= EANUPC_GUARD_WHITESPACE`.
         UPCA = {
             raw: BARCODE_UPCA,
             category: "retail",
             options: {
-                /// Gap between the main symbol and an add-on in multiples of the X-dimension.
+                /// Gap between the main symbol and an add-on in multiples of
+                /// the X-dimension. Valid range: 9–12 (default 9).
+                ///
+                /// Only relevant when an add-on is appended via `'+'`.
+                /// Corresponds to zint `option_2`.
                 addon_gap: usize = 9,
-                /// Height in X-dimensions that the guard bars descend below the main bars.
+                /// Height in X-dimensions that the guard bars descend below the
+                /// main bars. Valid range: 0.0–20.0 (default 5.0).
+                ///
+                /// Corresponds to zint `guard_descent`.
                 guard_descent: f32 = 5.0,
             },
             apply_options: |result, options| {
@@ -374,22 +553,45 @@ symbol_data! {
                 Ok(())
             }
         },
-        /// UPC-A variant that expects check digit to be included in input data.
+        /// UPC-A variant that expects the check digit to be included in input.
         ///
-        /// See [`UPCA`][Symbology::UPCA] for details.
+        /// Identical to [`UPCA`][Symbology::UPCA] except Zint verifies that the
+        /// last (12th) digit of the input is a valid GS1 check digit rather
+        /// than computing and appending one.
         UPCAChk = {
             raw: BARCODE_UPCA_CHK,
             category: "retail",
             options: UPCAOptions,
         },
-        /// UPC-E
+        /// UPC-E (Universal Product Code Version E, ISO 15420), a zero-compressed
+        /// variant of UPC-A designed for smaller packages.
+        ///
+        /// Accepts up to 7 digits as input. The first digit must be `'0'` or
+        /// `'1'` (number system 1 is non-standard). A standard GS1 check digit
+        /// is added by Zint. Input shorter than 7 digits is zero-padded. An
+        /// 8-digit input including the check digit may also be supplied, in
+        /// which case Zint verifies it.
+        ///
+        /// If the input already includes the check digit, use
+        /// [`UPCEChk`][Symbology::UPCEChk] instead.
+        ///
+        /// 2-digit and 5-digit add-on symbols can be appended by using `'+'`
+        /// as a separator. Quiet zone indicators can be added via
+        /// `output_options |= EANUPC_GUARD_WHITESPACE`.
         UPCE = {
             raw: BARCODE_UPCE,
             category: "retail",
             options: {
-                /// Gap between the main symbol and an add-on in multiples of the X-dimension.
+                /// Gap between the main symbol and an add-on in multiples of
+                /// the X-dimension. Valid range: 7–12 (default 7).
+                ///
+                /// Only relevant when an add-on is appended via `'+'`.
+                /// Corresponds to zint `option_2`.
                 addon_gap: usize = 7,
-                /// Height in X-dimensions that the guard bars descend below the main bars.
+                /// Height in X-dimensions that the guard bars descend below the
+                /// main bars. Valid range: 0.0–20.0 (default 5.0).
+                ///
+                /// Corresponds to zint `guard_descent`.
                 guard_descent: f32 = 5.0,
             },
             apply_options: |result, options| {
@@ -399,7 +601,11 @@ symbol_data! {
                 Ok(())
             }
         },
-        /// UPC-E including check digit
+        /// UPC-E variant that expects the check digit to be included in input.
+        ///
+        /// Identical to [`UPCE`][Symbology::UPCE] except Zint verifies that the
+        /// last (8th) digit of the input is a valid GS1 check digit rather than
+        /// computing and appending one.
         UPCEChk = {
             raw: BARCODE_UPCE_CHK,
             category: "retail",
@@ -697,13 +903,20 @@ symbol_data! {
             raw: BARCODE_AUSREDIRECT,
             category: "postal",
         },
-        /// ISBN
-        /// 
-        /// Relevant check digit needs to be present in the input data and will
-        /// be verified before the symbol is generated.
-        /// 
-        /// In addition EAN-2 and EAN-5 add-on symbols can be added using the +
-        /// character as with UPC symbols.
+        /// ISBN (International Standard Book Number), encoded as a Bookland
+        /// EAN-13 symbol (ISO 15420).
+        ///
+        /// Accepts a 9-digit SBN, a 10-digit ISBN, or a 13-digit ISBN-13 as
+        /// input. The relevant check digit is computed and verified by Zint. A
+        /// 13-digit ISBN-13 input that includes the check digit is verified.
+        ///
+        /// 2-digit and 5-digit add-on symbols can be appended by using `'+'`
+        /// as a separator. The 5-digit add-on is commonly used to encode a
+        /// suggested retail price. Quiet zone indicators can be added via
+        /// `output_options |= EANUPC_GUARD_WHITESPACE`.
+        ///
+        /// The add-on gap and guard descent options work the same as for
+        /// [`EAN13`][Symbology::EAN13].
         ISBNX = {
             raw: BARCODE_ISBNX,
             category: "retail",
@@ -741,7 +954,18 @@ symbol_data! {
             raw: BARCODE_CODABLOCKF,
             category: "2d",
         },
-        /// NVE-18 (SSCC-18)
+        /// NVE-18 (SSCC-18, Serial Shipping Container Code), a GS1-128 variant.
+        ///
+        /// Also known as SSCC-18 (Serial Shipping Container Code). A variation
+        /// of Code 128 used to identify logistic units. Encodes 17 digits of
+        /// data; inputs shorter than 17 digits are zero-padded. An 18-digit
+        /// input including the GS1 check digit may also be supplied, in which
+        /// case the check digit is verified. Both a visible standard GS1 check
+        /// digit and a hidden modulo-103 check digit are included. The HRT-only
+        /// Application Identifier `"(00)"` is added by Zint.
+        ///
+        /// This symbology has no configurable options; all encoding is
+        /// determined by the input data.
         NVE18 = {
             raw: BARCODE_NVE18,
             kebab_case: "nve18",
@@ -771,26 +995,76 @@ symbol_data! {
             raw: BARCODE_KOREAPOST,
             category: "postal",
         },
-        /// GS1 DataBar Stacked
+        /// GS1 DataBar Stacked (ISO/IEC 24724).
+        ///
+        /// A two-row stacked variant of [`DBarOmn`][Symbology::DBarOmn]. Encodes
+        /// the same 13-digit GTIN item code with check digit and HRT-only AI
+        /// `"(01)"` added by Zint. Input less than 13 digits is zero-padded.
+        ///
+        /// This symbology has no configurable options; all encoding is
+        /// determined by the input data.
         DBarStk = {
             raw: BARCODE_DBAR_STK,
             kebab_case: "dbar-stk",
             category: "gs1",
             alias: "RSS14Stk"
         },
-        /// GS1 DataBar Stacked Omnidirectional
+        /// GS1 DataBar Stacked Omnidirectional (ISO/IEC 24724).
+        ///
+        /// A two-row stacked omnidirectional variant of GS1 DataBar. Encodes
+        /// the same 13-digit GTIN item code with check digit and HRT-only AI
+        /// `"(01)"` added by Zint. Input less than 13 digits is zero-padded.
+        ///
+        /// This symbology has no configurable options; all encoding is
+        /// determined by the input data.
         DBarOmnStk = {
             raw: BARCODE_DBAR_OMNSTK,
             kebab_case: "dbar-omn-stk",
             category: "gs1",
             alias: "RSS14StackOmni"
         },
-        /// GS1 DataBar Expanded Stacked
+        /// GS1 DataBar Expanded Stacked (ISO/IEC 24724).
+        ///
+        /// A stacked variant of [`DBarExp`][Symbology::DBarExp] that arranges
+        /// the encoded data in multiple rows. Accepts the same GS1 AI format
+        /// as GS1 DataBar Expanded.
+        ///
+        /// The number of symbol character pairs per row can be controlled with
+        /// [`columns`][DBarExpStkOptions::columns]; alternatively the maximum
+        /// number of rows can be set with [`max_rows`][DBarExpStkOptions::max_rows].
+        /// If neither is set, Zint defaults to 2 columns per row.
         #[serde(alias = "RSSExpStack")]
         DBarExpStk = {
             raw: BARCODE_DBAR_EXPSTK,
             kebab_case: "dbar-exp-stk",
             category: "gs1",
+            options: {
+                /// Number of symbol character pairs per row. Valid range: 1–11
+                /// (default 2). Setting `columns` takes priority over
+                /// [`max_rows`][DBarExpStkOptions::max_rows] if both are set.
+                ///
+                /// Corresponds to zint `option_2`.
+                columns: Option<u8>,
+                /// Maximum number of rows to use. Valid range: 2–11. If set and
+                /// [`columns`][DBarExpStkOptions::columns] is `None`, Zint
+                /// calculates the minimum number of columns needed to fit the
+                /// data within this many rows.
+                ///
+                /// Corresponds to zint `option_3`.
+                max_rows: Option<u8>,
+            },
+            apply_options: |result, options| {
+                if let Some(cols) = options.columns {
+                    result.option_2 = Some(
+                        require_range_inclusive("columns", cols as std::ffi::c_int, 1, 11)?
+                    );
+                } else if let Some(rows) = options.max_rows {
+                    result.option_3 = Some(
+                        require_range_inclusive("max_rows", rows as std::ffi::c_int, 2, 11)?
+                    );
+                }
+                Ok(())
+            },
         },
         /// USPS PLANET (Postal Alpha Numeric Encoding Technique), used by the
         /// United States Postal Service until 2009 to encode routing data on
@@ -857,9 +1131,22 @@ symbol_data! {
         TelepenNum = {
             raw: BARCODE_TELEPEN_NUM,
         },
-        /// ITF-14, also known as UPC Shipping Container Symbol or Case Code, is
-        /// based on Interleaved Code 2 of 5 and requires a 13-digit numeric
-        /// input (digits 0-9).
+        /// ITF-14 (Interleaved 2 of 5), also known as UPC Shipping Container
+        /// Symbol or Case Code. Designed to encode a GTIN-14.
+        ///
+        /// Based on Interleaved Code 2 of 5. Accepts a 13-digit numeric input;
+        /// inputs shorter than 13 digits are zero-padded. A 14-digit input
+        /// including the standard GS1 check digit may also be supplied, in
+        /// which case the check digit is verified. Zint adds the check digit if
+        /// not supplied.
+        ///
+        /// By default Zint adds a bounding box with border width 5. This can be
+        /// overridden via `output_options |= BARCODE_BIND` and `border_width`.
+        /// To produce a symbol with no border, explicitly set the border type
+        /// to box (or bind/bindtop) and set `border_width = 0`.
+        ///
+        /// This symbology has no configurable options; all encoding is
+        /// determined by the input data.
         ITF14 = {
             raw: BARCODE_ITF14,
             kebab_case: "itf14",
@@ -1346,66 +1633,316 @@ symbol_data! {
             raw: BARCODE_CODE32,
             kebab_case: "code32",
         },
-        /// GS1-128 Composite
+        /// GS1-128 Composite (GS1 Composite, ISO/IEC 24723).
+        ///
+        /// Combines a GS1-128 linear component with a 2D composite component
+        /// (CC-A, CC-B, or CC-C). The linear component data is supplied via the
+        /// `primary` field in GS1 AI format; the 2D component data is supplied
+        /// as the main input. CC-C (PDF417) is only available with this linear
+        /// component.
         GS1128CC = {
             raw: BARCODE_GS1_128_CC,
             kebab_case: "gs1-128-cc",
             category: "gs1",
             alias: "EAN128CC",
+            options: {
+                /// 2D composite component type (CC-A, CC-B, or CC-C).
+                ///
+                /// `Auto` lets Zint choose the smallest type that fits the data.
+                /// CC-C (PDF417) is only valid for GS1-128 Composite.
+                ///
+                /// Corresponds to zint `option_1`.
+                cc_mode: values::CompositeMode,
+            },
+            apply_options: |result, options| {
+                let mode: std::ffi::c_int = options.cc_mode.into();
+                if mode != 0 {
+                    result.option_1 = Some(mode);
+                }
+                Ok(())
+            },
         },
-        /// GS1 DataBar Omnidirectional Composite
+        /// GS1 DataBar Omnidirectional Composite (GS1 Composite, ISO/IEC 24723).
+        ///
+        /// Combines a GS1 DataBar Omnidirectional linear component with a 2D
+        /// CC-A or CC-B composite component. The linear component data is
+        /// supplied via the `primary` field; the 2D component data is the main
+        /// input. CC-C is not available for this linear component.
         DBarOmnCC = {
             raw: BARCODE_DBAR_OMN_CC,
             kebab_case: "dbar-omn-cc",
             category: "gs1",
             alias: "RSS14CC",
+            options: {
+                /// 2D composite component type.
+                ///
+                /// Selects CC-A or CC-B. `Auto` lets Zint choose the smallest
+                /// type that fits the data. CC-C is not valid for this symbology.
+                ///
+                /// Corresponds to zint `option_1`.
+                cc_mode: values::CompositeMode,
+            },
+            apply_options: |result, options| {
+                let mode: std::ffi::c_int = options.cc_mode.into();
+                if mode != 0 {
+                    result.option_1 = Some(mode);
+                }
+                Ok(())
+            },
         },
-        /// GS1 DataBar Limited Composite
+        /// GS1 DataBar Limited Composite (GS1 Composite, ISO/IEC 24723).
+        ///
+        /// Combines a GS1 DataBar Limited linear component with a 2D CC-A or
+        /// CC-B composite component. The linear component data is supplied via
+        /// the `primary` field; the 2D component data is the main input. CC-C
+        /// is not available for this linear component.
         DBarLtdCC = {
             raw: BARCODE_DBAR_LTD_CC,
             kebab_case: "dbar-ltd-cc",
             category: "gs1",
             alias: "RSSLtdCC",
+            options: {
+                /// 2D composite component type.
+                ///
+                /// Selects CC-A or CC-B. `Auto` lets Zint choose the smallest
+                /// type that fits the data. CC-C is not valid for this symbology.
+                ///
+                /// Corresponds to zint `option_1`.
+                cc_mode: values::CompositeMode,
+            },
+            apply_options: |result, options| {
+                let mode: std::ffi::c_int = options.cc_mode.into();
+                if mode != 0 {
+                    result.option_1 = Some(mode);
+                }
+                Ok(())
+            },
         },
-        /// GS1 DataBar Expanded Composite
+        /// GS1 DataBar Expanded Composite (GS1 Composite, ISO/IEC 24723).
+        ///
+        /// Combines a GS1 DataBar Expanded linear component with a 2D CC-A or
+        /// CC-B composite component. The linear component data is supplied via
+        /// the `primary` field in GS1 AI format; the 2D component data is the
+        /// main input. CC-C is not available for this linear component.
         DBarExpCC = {
             raw: BARCODE_DBAR_EXP_CC,
             kebab_case: "dbar-exp-cc",
             category: "gs1",
             alias: "RSSExpCC",
+            options: {
+                /// 2D composite component type.
+                ///
+                /// Selects CC-A or CC-B. `Auto` lets Zint choose the smallest
+                /// type that fits the data. CC-C is not valid for this symbology.
+                ///
+                /// Corresponds to zint `option_1`.
+                cc_mode: values::CompositeMode,
+            },
+            apply_options: |result, options| {
+                let mode: std::ffi::c_int = options.cc_mode.into();
+                if mode != 0 {
+                    result.option_1 = Some(mode);
+                }
+                Ok(())
+            },
         },
-        /// UPC-A Composite
+        /// UPC-A Composite (GS1 Composite, ISO/IEC 24723).
+        ///
+        /// Combines a UPC-A linear component with a 2D CC-A or CC-B composite
+        /// component. The linear component data is supplied via the `primary`
+        /// field; the 2D component data is the main input. CC-C is not
+        /// available for this linear component.
+        ///
+        /// When an add-on is appended to the linear component via `'+'`, the
+        /// gap and guard descent can be adjusted.
         UPCACC = {
             raw: BARCODE_UPCA_CC,
             kebab_case: "upca-cc",
             category: "retail",
+            options: {
+                /// 2D composite component type.
+                ///
+                /// Selects CC-A or CC-B. `Auto` lets Zint choose the smallest
+                /// type that fits the data. CC-C is not valid for this symbology.
+                ///
+                /// Corresponds to zint `option_1`.
+                cc_mode: values::CompositeMode,
+                /// Gap between the main linear symbol and an add-on in multiples
+                /// of the X-dimension. Valid range: 9–12 (default 9).
+                ///
+                /// Only relevant when an add-on is appended to the primary data.
+                /// Corresponds to zint `option_2`.
+                addon_gap: usize = 9,
+                /// Height in X-dimensions that the guard bars descend below the
+                /// main bars. Valid range: 0.0–20.0 (default 5.0).
+                ///
+                /// Corresponds to zint `guard_descent`.
+                guard_descent: f32 = 5.0,
+            },
+            apply_options: |result, options| {
+                let mode: std::ffi::c_int = options.cc_mode.into();
+                if mode != 0 {
+                    result.option_1 = Some(mode);
+                }
+                result.option_2 = Some(require_range_inclusive("addon_gap", options.addon_gap as std::ffi::c_int, 9, 12)?);
+                result.guard_descent =
+                    require_range_inclusive("guard_descent", options.guard_descent, 0.0, 20.0)?;
+                Ok(())
+            },
         },
-        /// UPC-E Composite
+        /// UPC-E Composite (GS1 Composite, ISO/IEC 24723).
+        ///
+        /// Combines a UPC-E linear component with a 2D CC-A or CC-B composite
+        /// component. The linear component data is supplied via the `primary`
+        /// field; the 2D component data is the main input. CC-C is not
+        /// available for this linear component.
+        ///
+        /// When an add-on is appended to the linear component via `'+'`, the
+        /// gap and guard descent can be adjusted.
         UPCECC = {
             raw: BARCODE_UPCE_CC,
             kebab_case: "upce-cc",
             category: "retail",
+            options: {
+                /// 2D composite component type.
+                ///
+                /// Selects CC-A or CC-B. `Auto` lets Zint choose the smallest
+                /// type that fits the data. CC-C is not valid for this symbology.
+                ///
+                /// Corresponds to zint `option_1`.
+                cc_mode: values::CompositeMode,
+                /// Gap between the main linear symbol and an add-on in multiples
+                /// of the X-dimension. Valid range: 7–12 (default 7).
+                ///
+                /// Only relevant when an add-on is appended to the primary data.
+                /// Corresponds to zint `option_2`.
+                addon_gap: usize = 7,
+                /// Height in X-dimensions that the guard bars descend below the
+                /// main bars. Valid range: 0.0–20.0 (default 5.0).
+                ///
+                /// Corresponds to zint `guard_descent`.
+                guard_descent: f32 = 5.0,
+            },
+            apply_options: |result, options| {
+                let mode: std::ffi::c_int = options.cc_mode.into();
+                if mode != 0 {
+                    result.option_1 = Some(mode);
+                }
+                result.option_2 = Some(require_range_inclusive("addon_gap", options.addon_gap as std::ffi::c_int, 7, 12)?);
+                result.guard_descent =
+                    require_range_inclusive("guard_descent", options.guard_descent, 0.0, 20.0)?;
+                Ok(())
+            },
         },
-        /// GS1 DataBar Stacked Composite
+        /// GS1 DataBar Stacked Composite (GS1 Composite, ISO/IEC 24723).
+        ///
+        /// Combines a GS1 DataBar Stacked linear component with a 2D CC-A or
+        /// CC-B composite component. The linear component data is supplied via
+        /// the `primary` field; the 2D component data is the main input. CC-C
+        /// is not available for this linear component.
         DBarStkCC = {
             raw: BARCODE_DBAR_STK_CC,
             kebab_case: "dbar-stk-cc",
             category: "gs1",
             alias: "RSS14StackCC",
+            options: {
+                /// 2D composite component type.
+                ///
+                /// Selects CC-A or CC-B. `Auto` lets Zint choose the smallest
+                /// type that fits the data. CC-C is not valid for this symbology.
+                ///
+                /// Corresponds to zint `option_1`.
+                cc_mode: values::CompositeMode,
+            },
+            apply_options: |result, options| {
+                let mode: std::ffi::c_int = options.cc_mode.into();
+                if mode != 0 {
+                    result.option_1 = Some(mode);
+                }
+                Ok(())
+            },
         },
-        /// GS1 DataBar Stacked Omnidirectional Composite
+        /// GS1 DataBar Stacked Omnidirectional Composite (GS1 Composite, ISO/IEC 24723).
+        ///
+        /// Combines a GS1 DataBar Stacked Omnidirectional linear component with
+        /// a 2D CC-A or CC-B composite component. The linear component data is
+        /// supplied via the `primary` field; the 2D component data is the main
+        /// input. CC-C is not available for this linear component.
         DBarOmnStkCC = {
             raw: BARCODE_DBAR_OMNSTK_CC,
             kebab_case: "dbar-omn-stk-cc",
             category: "gs1",
             alias: "RSS14OmniCC",
+            options: {
+                /// 2D composite component type.
+                ///
+                /// Selects CC-A or CC-B. `Auto` lets Zint choose the smallest
+                /// type that fits the data. CC-C is not valid for this symbology.
+                ///
+                /// Corresponds to zint `option_1`.
+                cc_mode: values::CompositeMode,
+            },
+            apply_options: |result, options| {
+                let mode: std::ffi::c_int = options.cc_mode.into();
+                if mode != 0 {
+                    result.option_1 = Some(mode);
+                }
+                Ok(())
+            },
         },
-        /// GS1 DataBar Expanded Stacked Composite
+        /// GS1 DataBar Expanded Stacked Composite (GS1 Composite, ISO/IEC 24723).
+        ///
+        /// Combines a GS1 DataBar Expanded Stacked linear component with a 2D
+        /// CC-A or CC-B composite component. The linear component data is
+        /// supplied via the `primary` field in GS1 AI format; the 2D component
+        /// data is the main input. CC-C is not available for this linear component.
+        ///
+        /// The stacking layout of the linear component can be controlled via
+        /// [`columns`][DBarExpStkCCOptions::columns] and
+        /// [`max_rows`][DBarExpStkCCOptions::max_rows], same as for
+        /// [`DBarExpStk`][Symbology::DBarExpStk].
         DBarExpStkCC = {
             raw: BARCODE_DBAR_EXPSTK_CC,
             kebab_case: "dbar-exp-stk-cc",
             category: "gs1",
             alias: "RSSExpStackCC",
+            options: {
+                /// 2D composite component type.
+                ///
+                /// Selects CC-A or CC-B. `Auto` lets Zint choose the smallest
+                /// type that fits the data. CC-C is not valid for this symbology.
+                ///
+                /// Corresponds to zint `option_1`.
+                cc_mode: values::CompositeMode,
+                /// Number of symbol character pairs per row in the linear
+                /// component. Valid range: 1–11 (default 2). Takes priority over
+                /// [`max_rows`][DBarExpStkCCOptions::max_rows] if both are set.
+                ///
+                /// Corresponds to zint `option_2`.
+                columns: Option<u8>,
+                /// Maximum number of rows to use in the linear component. Valid
+                /// range: 2–11. Used only when
+                /// [`columns`][DBarExpStkCCOptions::columns] is `None`.
+                ///
+                /// Corresponds to zint `option_3`.
+                max_rows: Option<u8>,
+            },
+            apply_options: |result, options| {
+                let mode: std::ffi::c_int = options.cc_mode.into();
+                if mode != 0 {
+                    result.option_1 = Some(mode);
+                }
+                if let Some(cols) = options.columns {
+                    result.option_2 = Some(
+                        require_range_inclusive("columns", cols as std::ffi::c_int, 1, 11)?
+                    );
+                } else if let Some(rows) = options.max_rows {
+                    result.option_3 = Some(
+                        require_range_inclusive("max_rows", rows as std::ffi::c_int, 2, 11)?
+                    );
+                }
+                Ok(())
+            },
         },
         /// Channel Code
         Channel = {

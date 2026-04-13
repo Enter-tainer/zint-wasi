@@ -459,6 +459,59 @@ pub enum Mailmark2DSize {
     Type29 = 30,
 }
 
+/// 2D component type for GS1 Composite symbols (ISO/IEC 24723).
+///
+/// GS1 Composite symbols combine a 1D linear barcode (the "linear component")
+/// with a 2D "composite component" that carries supplementary GS1 data. The
+/// 2D component can use one of three encoding systems.
+///
+/// If not specified (defaulting to `Auto`), Zint selects the smallest 2D type
+/// that can hold the supplied data, automatically upgrading from CC-A to CC-B
+/// to CC-C as needed.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub enum CompositeMode {
+    /// Let Zint automatically choose the smallest fitting 2D component type
+    /// (CC-A, CC-B, or CC-C). This is the default behaviour.
+    #[default]
+    Auto,
+    /// CC-A — a MicroPDF417 variant optimised for small payloads.
+    ///
+    /// Can encode up to 56 numeric digits (including AIs) or a shorter
+    /// alphanumeric string (e.g. at most 30 uppercase characters excluding AI).
+    /// The size and error correction level are determined by the data length
+    /// and the linear component type.
+    ///
+    /// Corresponds to zint `option_1 = 1`.
+    CCA,
+    /// CC-B — uses MicroPDF417 for the 2D component.
+    ///
+    /// Can encode up to 338 numeric digits or a shorter alphanumeric string.
+    /// The size and error correction level are determined by the data length
+    /// and the linear component type.
+    ///
+    /// Corresponds to zint `option_1 = 2`.
+    CCB,
+    /// CC-C — uses PDF417 for the 2D component.
+    ///
+    /// Can encode up to 2361 numeric digits or a shorter alphanumeric string.
+    /// **Only valid when the linear component is GS1-128** (`GS1128CC`);
+    /// using CC-C with any other linear component returns an error.
+    ///
+    /// Corresponds to zint `option_1 = 3`.
+    CCC,
+}
+
+impl From<CompositeMode> for std::ffi::c_int {
+    fn from(val: CompositeMode) -> Self {
+        match val {
+            CompositeMode::Auto => 0,
+            CompositeMode::CCA => 1,
+            CompositeMode::CCB => 2,
+            CompositeMode::CCC => 3,
+        }
+    }
+}
+
 /// Shape mode for Data Matrix and HIBC Data Matrix automatic size selection.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub enum DataMatrixShape {
