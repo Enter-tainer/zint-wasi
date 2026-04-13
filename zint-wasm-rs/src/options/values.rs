@@ -432,6 +432,33 @@ impl AztecSize {
     }
 }
 
+/// Symbol size for Royal Mail 2D Mailmark (CMDM).
+///
+/// The Zint version number (one more than the Royal Mail Type number) is
+/// used to select the symbol size. Each size has a fixed maximum amount
+/// of optional customer data that can be appended after the mandatory
+/// 45-character section.
+///
+/// If no size is specified Zint selects the smallest symbol that fits
+/// the customer data automatically.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(i32)]
+pub enum Mailmark2DSize {
+    /// Type 7 — 24×24 modules, up to 6 characters of customer data.
+    ///
+    /// Corresponds to Zint version 8.
+    Type7 = 8,
+    /// Type 9 — 32×32 modules, up to 45 characters of customer data.
+    ///
+    /// Corresponds to Zint version 10.
+    Type9 = 10,
+    /// Type 29 — 16×48 modules (rectangular), up to 29 characters of
+    /// customer data.
+    ///
+    /// Corresponds to Zint version 30.
+    Type29 = 30,
+}
+
 /// Shape mode for Data Matrix and HIBC Data Matrix automatic size selection.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub enum DataMatrixShape {

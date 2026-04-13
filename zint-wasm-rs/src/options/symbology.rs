@@ -281,16 +281,28 @@ symbol_data! {
             raw: BARCODE_CODE128,
             kebab_case: "code128",
         },
-        /// Deutsche Post Leitcode is based on Interleaved Code 2 of 5 and is
-        /// used by Deutsche Post for mailing purposes. Leitcode requires a
-        /// 13-digit numerical input and includes a check digit.
+        /// Deutsche Post Leitcode, used by Deutsche Post for mail routing and
+        /// sorting. Based on Interleaved Code 2 of 5.
+        ///
+        /// Input must be exactly 13 decimal digits (0-9). Zint automatically
+        /// computes and appends the modulo-10 check digit, producing a
+        /// 14-digit encoded value.
+        ///
+        /// This symbology has no configurable options; all encoding is
+        /// determined by the input data.
         DPLEIT = {
             raw: BARCODE_DPLEIT,
             category: "postal",
         },
-        /// Deutsche Post Identcode is based on Interleaved Code 2 of 5 and is
-        /// used by Deutsche Post for mailing purposes. Identcode requires
-        /// 11-digit numerical input and includes a check digit.
+        /// Deutsche Post Identcode, used by Deutsche Post for mail item
+        /// identification. Based on Interleaved Code 2 of 5.
+        ///
+        /// Input must be exactly 11 decimal digits (0-9). Zint automatically
+        /// computes and appends the modulo-10 check digit, producing a
+        /// 12-digit encoded value.
+        ///
+        /// This symbology has no configurable options; all encoding is
+        /// determined by the input data.
         DPIDENT = {
             raw: BARCODE_DPIDENT,
             category: "postal",
@@ -393,7 +405,26 @@ symbol_data! {
             category: "retail",
             options: UPCEOptions,
         },
-        /// USPS (U.S. Postal Service) POSTNET
+        /// USPS POSTNET (Postal Numeric Encoding Technique), used by the
+        /// United States Postal Service until 2009 to encode ZIP codes on
+        /// mail items.
+        ///
+        /// Accepts numerical input (digits 0-9) up to 38 digits. Zint
+        /// automatically adds the modulo-10 check digit. Standard lengths
+        /// used by USPS were:
+        ///
+        /// - 5 digits (ZIP code only, `PostNet6`)
+        /// - 9 digits (ZIP+4, `PostNet10`)
+        /// - 11 digits (ZIP+4+delivery point, `PostNet12`)
+        ///
+        /// Zint will issue a warning if the input length is not one of these
+        /// standard lengths.
+        ///
+        /// Superseded by [`USPSIMail`][Symbology::USPSIMail] (Intelligent
+        /// Mail) in 2009.
+        ///
+        /// This symbology has no configurable options; all encoding is
+        /// determined by the input data.
         Postnet = {
             raw: BARCODE_POSTNET,
             category: "postal",
@@ -489,7 +520,15 @@ symbol_data! {
             raw: BARCODE_PHARMA_TWO,
             category: "healthcare",
         },
-        /// Brazilian CEPNet Postal Code
+        /// Brazilian CEPNet Postal Code, used by Correios (the Brazilian
+        /// postal service) to encode CEP (Código de Endereçamento Postal)
+        /// numbers on mail items.
+        ///
+        /// Based on POSTNET. Input must be exactly 8 decimal digits; Zint
+        /// automatically adds the modulo-10 check digit.
+        ///
+        /// This symbology has no configurable options; all encoding is
+        /// determined by the input data.
         CEPNet = {
             raw: BARCODE_CEPNET,
             kebab_case: "cepnet",
@@ -604,22 +643,56 @@ symbol_data! {
             kebab_case: "code128ab",
             alias: "CODE128B"
         },
-        /// Australia Post Standard Customer
+        /// Australia Post Standard Customer Barcode (4-State), used to print
+        /// Delivery Point ID (DPID) and optional customer information on mail
+        /// items. Format Control Code (FCC) is added by Zint automatically.
+        ///
+        /// Valid input characters are `0-9`, `A-Z`, `a-z`, space, and `#`.
+        /// Input length determines the symbol length and encoding table used:
+        ///
+        /// - 8 digits → 37-bar symbol (FCC 11, numeric DPID only)
+        /// - 13 chars (`NNNNNNNNAAAAAA`) → 52-bar symbol
+        /// - 16 digits → 67-bar symbol (FCC 59)
+        /// - 18 chars (`NNNNNNNNAAAAAAAAA`) → 52-bar symbol
+        /// - 23 digits → 67-bar symbol (FCC 62)
+        ///
+        /// Reed-Solomon error correction data is generated automatically.
+        ///
+        /// This symbology has no configurable options; all encoding is
+        /// determined by the input data.
         AusPost = {
             raw: BARCODE_AUSPOST,
             category: "postal",
         },
-        /// Australia Post Reply Paid
+        /// Australia Post Reply Paid Barcode (4-State, FCC 45).
+        ///
+        /// A specialised Australia Post 4-state barcode for reply-paid mail.
+        /// Requires exactly 8 decimal digits representing the DPID.
+        ///
+        /// This symbology has no configurable options; all encoding is
+        /// determined by the input data.
         AusReply = {
             raw: BARCODE_AUSREPLY,
             category: "postal",
         },
-        /// Australia Post Routing
+        /// Australia Post Routing Barcode (4-State, FCC 87).
+        ///
+        /// A specialised Australia Post 4-state barcode for mail routing.
+        /// Requires exactly 8 decimal digits representing the DPID.
+        ///
+        /// This symbology has no configurable options; all encoding is
+        /// determined by the input data.
         AusRoute = {
             raw: BARCODE_AUSROUTE,
             category: "postal",
         },
-        /// Australia Post Redirection
+        /// Australia Post Redirection Barcode (4-State, FCC 92).
+        ///
+        /// A specialised Australia Post 4-state barcode for mail redirection.
+        /// Requires exactly 8 decimal digits representing the DPID.
+        ///
+        /// This symbology has no configurable options; all encoding is
+        /// determined by the input data.
         AusRedirect = {
             raw: BARCODE_AUSREDIRECT,
             category: "postal",
@@ -636,7 +709,19 @@ symbol_data! {
             category: "retail",
             options: UPCEOptions,
         },
-        /// Royal Mail 4-State Customer Code
+        /// Royal Mail 4-State Customer Code (RM4SCC), used by Royal Mail in
+        /// the UK to encode postcode and customer data on mail items.
+        ///
+        /// Input may consist of digits `0-9` and uppercase letters `A-Z`,
+        /// typically formatted as the delivery postcode followed by the house
+        /// number. Zint automatically computes and appends the check digit.
+        ///
+        /// Superseded by [`Mailmark4S`][Symbology::Mailmark4S] (Royal Mail
+        /// 4-State Mailmark) in 2014, which adds Reed-Solomon error
+        /// correction.
+        ///
+        /// This symbology has no configurable options; all encoding is
+        /// determined by the input data.
         RM4SCC = {
             raw: BARCODE_RM4SCC,
             kebab_case: "rm4scc",
@@ -662,12 +747,26 @@ symbol_data! {
             kebab_case: "nve18",
             category: "retail",
         },
-        /// Japanese Postal Code
+        /// Japanese Postal Code (4-State), used for address data on mail
+        /// items by Japan Post.
+        ///
+        /// Accepted input characters are `0-9`, `A-Z`, and dash (`-`). A
+        /// modulo-19 check digit is computed and appended automatically by
+        /// Zint.
+        ///
+        /// This symbology has no configurable options; all encoding is
+        /// determined by the input data.
         JapanPost = {
             raw: BARCODE_JAPANPOST,
             category: "postal",
         },
-        /// Korea Post
+        /// Korea Post Barcode, used by the Korean postal service.
+        ///
+        /// Encodes a 6-digit numeric code. Zint automatically computes and
+        /// appends one check digit, producing a 7-digit encoded value.
+        ///
+        /// This symbology has no configurable options; all encoding is
+        /// determined by the input data.
         KoreaPost = {
             raw: BARCODE_KOREAPOST,
             category: "postal",
@@ -693,7 +792,25 @@ symbol_data! {
             kebab_case: "dbar-exp-stk",
             category: "gs1",
         },
-        /// USPS PLANET
+        /// USPS PLANET (Postal Alpha Numeric Encoding Technique), used by the
+        /// United States Postal Service until 2009 to encode routing data on
+        /// mail items.
+        ///
+        /// Accepts numerical input (digits 0-9) up to 38 digits. Zint
+        /// automatically adds the modulo-10 check digit. Standard lengths
+        /// used by USPS were:
+        ///
+        /// - 11 digits (`Planet12`)
+        /// - 13 digits (`Planet14`)
+        ///
+        /// Zint will issue a warning if the input length is not one of these
+        /// standard lengths.
+        ///
+        /// Superseded by [`USPSIMail`][Symbology::USPSIMail] (Intelligent
+        /// Mail) in 2009.
+        ///
+        /// This symbology has no configurable options; all encoding is
+        /// determined by the input data.
         Planet = {
             raw: BARCODE_PLANET,
             category: "postal",
@@ -704,7 +821,22 @@ symbol_data! {
             kebab_case: "micro-pdf417",
             category: "2d",
         },
-        /// USPS Intelligent Mail (OneCode)
+        /// USPS Intelligent Mail (also known as OneCode), used by the United
+        /// States Postal Service since 2009 as a replacement for both
+        /// [`Postnet`][Symbology::Postnet] and [`Planet`][Symbology::Planet].
+        ///
+        /// A fixed-length 65-bar symbol combining routing and customer
+        /// information. Input data consists of a 20-digit tracking code
+        /// followed by a dash (`-`) and a delivery point ZIP code of 0, 5,
+        /// 9, or 11 digits. The following input lengths are all valid:
+        ///
+        /// - `"01234567094987654321"` (20 digits, no ZIP)
+        /// - `"01234567094987654321-01234"` (20 + 5 digits)
+        /// - `"01234567094987654321-012345678"` (20 + 9 digits)
+        /// - `"01234567094987654321-01234567891"` (20 + 11 digits)
+        ///
+        /// This symbology has no configurable options; all encoding is
+        /// determined by the input data.
         USPSIMail = {
             raw: BARCODE_USPS_IMAIL,
             kebab_case: "usps-imail",
@@ -733,7 +865,14 @@ symbol_data! {
             kebab_case: "itf14",
             category: "retail",
         },
-        /// Dutch Post KIX Code
+        /// Dutch Post KIX Code, used by Royal Dutch TPG Post (PostNL,
+        /// Netherlands) for postal code and automatic mail sorting.
+        ///
+        /// Input must be exactly 11 characters consisting of digits `0-9`
+        /// and uppercase letters `A-Z`. No check digit is included.
+        ///
+        /// This symbology has no configurable options; all encoding is
+        /// determined by the input data.
         KIX = {
             raw: BARCODE_KIX,
             category: "postal",
@@ -743,15 +882,81 @@ symbol_data! {
             raw: BARCODE_AZTEC,
             category: "2d",
         },
-        /// DAFT Code
+        /// DAFT Code — a generic 4-state barcode format where the data
+        /// encoding is supplied by an external program.
+        ///
+        /// Input must consist only of the characters `D`, `A`, `F`, and `T`,
+        /// which represent the four bar states:
+        ///
+        /// - `D` — Descender (bar extends below the baseline only)
+        /// - `A` — Ascender (bar extends above the baseline only)
+        /// - `F` — Full bar (ascender and descender)
+        /// - `T` — Tracker (neither ascender nor descender; baseline only)
+        ///
+        /// The ratio of the tracker height to the full bar height can be
+        /// configured via [`tracker_ratio`][DAFTOptions::tracker_ratio].
         DAFT = {
             raw: BARCODE_DAFT,
             category: "postal",
+            options: {
+                /// Ratio of the tracker bar height to the full bar height,
+                /// specified in permille (thousandths). Valid range is 1 to
+                /// 999. Defaults to 250 (25%).
+                ///
+                /// For example, a value of 256 makes tracker bars 25.6% of
+                /// the full bar height.
+                tracker_ratio: Option<u16>,
+            },
+            apply_options: |result, options| {
+                if let Some(ratio) = options.tracker_ratio {
+                    result.option_2 = Some(
+                        require_range_inclusive("tracker_ratio", ratio, 1u16, 999)? as std::ffi::c_int
+                    );
+                }
+                Ok(())
+            },
         },
-        /// DPD Code
+        /// DPD Code, a variant of Code 128 used by DPD (Deutscher
+        /// Paketdienst) for parcel identification.
+        ///
+        /// Requires a 27 or 28 character input. For 28-character input, the
+        /// first character is an identification tag (Barcode ID), which should
+        /// usually be `%` (ASCII 37). If 27 characters are supplied, `%` is
+        /// prepended automatically (unless relabel mode is active). The
+        /// remaining 27-character body must be alphanumeric and structured as:
+        ///
+        /// - 7 alphanumeric characters: destination post code
+        /// - 14 alphanumeric characters: tracking number
+        /// - 3 digits: service code
+        /// - 3 characters (ISO 3166-1 numeric): destination country code
+        ///
+        /// Zint formats the Human Readable Text per the DPD specification,
+        /// omitting the identification tag and appending a modulo-36 check
+        /// character. A top boundary bar is added by default.
+        ///
+        /// The [`relabel`][DPDOptions::relabel] option omits the identification
+        /// tag and prints the barcode at half height. In this case exactly 27
+        /// alphanumeric input characters are required.
         DPD = {
             raw: BARCODE_DPD,
             category: "postal",
+            options: {
+                /// Marks the symbol as a "relabel" barcode.
+                ///
+                /// When `true`, the identification tag (`%`) is omitted and
+                /// the barcode is printed at half height. In relabel mode
+                /// exactly 27 alphanumeric input characters are required
+                /// (no 28-character form with explicit Barcode ID).
+                ///
+                /// Defaults to `false`.
+                relabel: bool,
+            },
+            apply_options: |result, options| {
+                if options.relabel {
+                    result.option_2 = Some(1);
+                }
+                Ok(())
+            },
         },
         /// Micro QR Code
         MicroQR = {
@@ -1006,19 +1211,122 @@ symbol_data! {
         },
 
         // Tbarcode 11 codes
-        /// Royal Mail 2D Mailmark (CMDM) (Data Matrix)
+        /// Royal Mail 2D Mailmark (CMDM — Complex Mail Data Mark), a Data
+        /// Matrix-based barcode introduced by Royal Mail alongside the
+        /// 4-State Mailmark.
+        ///
+        /// Input is a pre-formatted string with an initial 45-character
+        /// section followed by optional customer data. Zint will prepend
+        /// `"JGB "` if absent and space-pad the customer data as needed.
+        ///
+        /// The mandatory 45-character section encodes:
+        /// - UPU Country ID (4 chars, e.g. `"JGB "`)
+        /// - Information Type (1 alphanumeric)
+        /// - Version ID (1 char, `"1"`)
+        /// - Class (1 alphanumeric)
+        /// - Supply Chain ID (7 digits)
+        /// - Item ID (8 digits)
+        /// - Destination+DPS (9 alphanumeric, one of 13 patterns)
+        /// - Service Type (1 digit)
+        /// - RTS Post Code (7 alphanumeric, one of 7 patterns)
+        /// - Reserved (6 spaces)
+        ///
+        /// Three symbol sizes are defined, differing in customer data
+        /// capacity, selectable via [`size`][Mailmark2DOptions::size]:
+        ///
+        /// | Type | Size    | Customer Data | Zint version |
+        /// |------|---------|---------------|--------------|
+        /// | 7    | 24×24   | 6 characters  | 8            |
+        /// | 9    | 32×32   | 45 characters | 10           |
+        /// | 29   | 16×48   | 29 characters | 30           |
+        ///
+        /// Zint selects the smallest size that fits the customer data
+        /// automatically. GS1 data, ECI, and Structured Append are not
+        /// supported.
         Mailmark2D = {
             raw: BARCODE_MAILMARK_2D,
             kebab_case: "mailmark-2d",
             category: "postal",
+            options: {
+                /// Symbol size to use.
+                ///
+                /// Corresponds to the Zint version number (one more than
+                /// the Royal Mail Type number):
+                /// - `Some(8)` → Type 7 (24×24, 6 chars customer data)
+                /// - `Some(10)` → Type 9 (32×32, 45 chars customer data)
+                /// - `Some(30)` → Type 29 (16×48, 29 chars customer data)
+                /// - `None` → automatic selection based on customer data
+                ///   length (rectangular Type 29 may be excluded via
+                ///   [`shape`][Mailmark2DOptions::shape])
+                size: Option<values::Mailmark2DSize>,
+                /// Shape preference for automatic symbol size selection.
+                ///
+                /// When set to [`Square`][values::DataMatrixShape::Square],
+                /// the rectangular Type 29 (16×48) symbol is excluded from
+                /// automatic selection. Has no effect when
+                /// [`size`][Mailmark2DOptions::size] is explicitly set.
+                shape: values::DataMatrixShape,
+            },
+            apply_options: |result, options| {
+                if let Some(size) = options.size {
+                    result.option_2 = Some(size as std::ffi::c_int);
+                }
+                match options.shape {
+                    values::DataMatrixShape::Any => {}
+                    values::DataMatrixShape::Square => {
+                        result.option_3 = Some(DM_SQUARE as std::ffi::c_int);
+                    }
+                    values::DataMatrixShape::AllowDMRE => {
+                        result.option_3 = Some(DM_DMRE as std::ffi::c_int);
+                    }
+                }
+                Ok(())
+            },
         },
-        /// Universal Postal Union S10
+        /// Universal Postal Union S10, a Code 128-based format for
+        /// international mail item identification standardised by the UPU.
+        ///
+        /// Input must be 13 characters in the format `SSNNNNNNNNXCC`, where:
+        /// - `SS` — two uppercase alphabetic characters (service indicator)
+        /// - `NNNNNNNN` — eight-digit serial number
+        /// - `X` — one modulo-11 check digit (may be omitted; Zint adds it)
+        /// - `CC` — two uppercase alphabetic characters (ISO 3166-1 country code)
+        ///
+        /// If the check digit (`X`) is omitted (12-character input), Zint
+        /// computes and inserts it. Warnings are generated if the service
+        /// indicator is non-standard or the country code is not a recognised
+        /// ISO 3166-1 code.
+        ///
+        /// This symbology has no configurable options; all encoding is
+        /// determined by the input data.
         UPUS10 = {
             raw: BARCODE_UPU_S10,
             kebab_case: "upus10",
             category: "postal",
         },
-        /// Royal Mail 4-State Mailmark
+        /// Royal Mail 4-State Mailmark, introduced in 2014 as a replacement
+        /// for [`RM4SCC`][Symbology::RM4SCC] with added Reed-Solomon error
+        /// correction.
+        ///
+        /// Input is a pre-formatted alphanumeric string of either 22 or 26
+        /// characters:
+        /// - **22 characters** → Barcode C (66-bar symbol)
+        /// - **26 characters** → Barcode L (78-bar symbol)
+        ///
+        /// The input fields are:
+        /// - Format (1 digit, 0-4)
+        /// - Version ID (1 digit, 0-3)
+        /// - Class (1 alphanumeric, `0-9A-E`)
+        /// - Supply Chain ID (2 digits for C, 6 digits for L)
+        /// - Item ID (8 digits)
+        /// - Destination+DPS (9 alphanumeric, one of 6 defined patterns)
+        ///
+        /// Trailing space characters in the Destination+DPS field are
+        /// appended automatically if not included. The fixed string `"XY11 "`
+        /// designates an international destination.
+        ///
+        /// This symbology has no configurable options; all encoding is
+        /// determined by the input data.
         Mailmark4S = {
             raw: BARCODE_MAILMARK_4S,
             kebab_case: "mailmark-4s",
@@ -1114,10 +1422,32 @@ symbol_data! {
             raw: BARCODE_GRIDMATRIX,
             category: "2d",
         },
-        /// UPNQR (Univerzalnega Plačilnega Naloga QR)
+        /// UPNQR (Univerzalnega Plačilnega Naloga QR — Universal Payment
+        /// Order QR), a QR Code variant used by Združenje Bank Slovenije
+        /// (Bank Association of Slovenia) for payment orders.
+        ///
+        /// A fixed-size QR Code (version 15, 77×77 modules) with a fixed
+        /// error correction level (M) and ECI 4 (ISO 8859-2). These
+        /// parameters are set internally by Zint and cannot be overridden.
+        ///
+        /// Input data is Latin-2 (ISO/IEC 8859-2 plus ASCII) encoded. Zint
+        /// accepts UTF-8 and converts it to Latin-2 automatically. If the
+        /// data is already Latin-2 encoded, use binary input mode
+        /// (`input_mode = DATA_MODE`).
         UPNQR = {
             raw: BARCODE_UPNQR,
             category: "postal",
+            options: {
+                /// Manually specify the QR mask pattern. When not set, zint
+                /// selects the optimal mask automatically.
+                mask: Option<values::QRMask>,
+            },
+            apply_options: |result, options| {
+                if let Some(mask) = options.mask {
+                    result.option_3 = Some(((mask as u32 + 1) << 8) as std::ffi::c_int);
+                }
+                Ok(())
+            }
         },
         /// Ultracode symbology uses a grid of coloured elements to encode data.
         /// 
