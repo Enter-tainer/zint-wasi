@@ -1,5 +1,4 @@
-#[cfg(feature = "display")]
-use crate::color::Color;
+use crate::Color;
 use crate::{
     error::Error,
     options::rotation::Rotation,
@@ -118,7 +117,6 @@ pub struct Rect {
     pub y: f32,
     pub height: f32,
     pub width: f32,
-    #[cfg(feature = "display")]
     pub color: Color,
 }
 
@@ -131,6 +129,8 @@ impl Rect {
             width: value.width,
             #[cfg(feature = "display")]
             color: to_color(value.colour, options.foreground),
+            #[cfg(not(feature = "display"))]
+            color: value.colour as i8,
         }
     }
 }
@@ -141,7 +141,6 @@ pub struct Circle {
     pub y: f32,
     pub diameter: f32,
     pub width: f32,
-    #[cfg(feature = "display")]
     pub color: Color,
 }
 
@@ -154,6 +153,8 @@ impl Circle {
             width: value.width,
             #[cfg(feature = "display")]
             color: to_color(value.colour, options.foreground),
+            #[cfg(not(feature = "display"))]
+            color: value.colour as i8,
         }
     }
 }
@@ -165,7 +166,6 @@ pub struct Hexagon {
     pub y: f32,
     pub diameter: f32,
     pub rotation: Rotation,
-    #[cfg(feature = "display")]
     pub color: Color,
 }
 
@@ -178,6 +178,8 @@ impl Hexagon {
             rotation: unsafe { std::mem::transmute::<i32, Rotation>(value.rotation) },
             #[cfg(feature = "display")]
             color: options.foreground,
+            #[cfg(not(feature = "display"))]
+            color: -1, // always foreground
         }
     }
 }
@@ -203,7 +205,6 @@ pub struct Text {
     pub rotation: Rotation,
     pub horizontal_align: HorizontalAlign,
     pub text: String,
-    #[cfg(feature = "display")]
     pub color: Color,
 }
 
@@ -227,6 +228,8 @@ impl Text {
             text: text.to_string(),
             #[cfg(feature = "display")]
             color: options.foreground,
+            #[cfg(not(feature = "display"))]
+            color: -1, // always foreground
         }
     }
 }

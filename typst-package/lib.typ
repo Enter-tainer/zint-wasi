@@ -20,9 +20,28 @@
   } else if type(data) == array {
     data = bytes(data)
   }
+  
+  let zint-options = options
+  let ultracode-colors = zint-options.remove("ultracode-colors", default: (
+    "1": cmyk(100%, 0%, 0%, 0%),    // Cyan
+    "2": cmyk(100%, 100%, 0%, 0%),  // Blue
+    "3": cmyk(0%, 100%, 0%, 0%),    // Magenta
+    "4": cmyk(0%, 100%, 100%, 0%),  // Red
+    "5": cmyk(0%, 0%, 100%, 0%),    // Yellow
+    "6": cmyk(100%, 0%, 100%, 0%),  // Green
+    "7": cmyk(0%, 0%, 0%, 100%),    // Black
+    "8": cmyk(0%, 0%, 0%, 0%),      // White
+  ))
+  ultracode-colors.insert("-1", fg-color)
+  ultracode-colors.insert("0", bg-color)
 
+  // Extract typst-side options before passing to zint
+  let color(code) = {
+    let key = str(code)
+    ultracode-colors.at(key, default: fg-color)
+  }
   let result = cbor(zint-wasm.zint_encode(
-    cbor.encode((symbology: symbology, ..options)),
+    cbor.encode((symbology: symbology, ..zint-options)),
     data,
   ))
 
@@ -43,21 +62,21 @@
     // Rectangles
     #for r in geo.at("rectangles", default: ()) {
       place(dx: r.x * 1pt, dy: r.y * 1pt,
-        rect(width: r.width * 1pt, height: r.height * 1pt, fill: fg-color))
+        rect(width: r.width * 1pt, height: r.height * 1pt, fill: color(r.color)))
     }
     // Circles
     #for c in geo.at("circles", default: ()) {
+      let fill = color(c.color)
       place(dx: (c.x - c.diameter / 2) * 1pt, dy: (c.y - c.diameter / 2) * 1pt,
         circle(radius: c.diameter / 2 * 1pt,
-          fill: if c.width == 0.0 { fg-color } else { none },
-          stroke: if c.width > 0.0 { fg-color + c.width * 1pt } else { none }))
+          fill: if c.width == 0.0 { fill } else { none },
+          stroke: if c.width > 0.0 { fill + c.width * 1pt } else { none }))
     }
     // Hexagons (MaxiCode)
     #for hex in geo.at("hexagons", default: ()) {
       let r = hex.diameter / 2
-      // Regular hexagon path centered at (hex.x, hex.y)
       place(dx: hex.x * 1pt, dy: hex.y * 1pt,
-        path(fill: fg-color, closed: true,
+        path(fill: color(hex.color), closed: true,
           (r * calc.cos(0deg) * 1pt, r * calc.sin(0deg) * 1pt),
           (r * calc.cos(60deg) * 1pt, r * calc.sin(60deg) * 1pt),
           (r * calc.cos(120deg) * 1pt, r * calc.sin(120deg) * 1pt),
@@ -73,7 +92,18 @@
         else if s.horizontal_align == "Right" { right }
         else { center }
       place(dx: s.x * 1pt - tw / 2, dy: (s.y - s.font_size) * 1pt,
-        box(width: tw, align(halign, text(size: s.font_size * 1pt, top-edge: "ascender", bottom-edge: "descender", fill: fg-color, s.text))))
+        box(width: tw,
+          align(halign,
+            text(
+              size: s.font_size * 1pt,
+              top-edge: "ascender",
+              bottom-edge: "descender",
+              fill: color(s.color),
+              s.text
+            )
+          )
+        )
+      )
     }
   ]
 }

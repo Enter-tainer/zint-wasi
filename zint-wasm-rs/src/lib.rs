@@ -14,6 +14,9 @@ pub use options::DisplayOptions;
 pub use options::{GenericOptions, SymbolOptions};
 pub use symbol::Symbol;
 
+#[cfg(not(feature = "display"))]
+pub type Color = i8;
+
 pub(crate) mod util {
     use std::ffi::CString;
 
