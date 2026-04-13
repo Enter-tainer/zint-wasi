@@ -53,7 +53,7 @@
   let plot = if "Ok" in result {
     result.Ok
   } else if "Err" in result {
-    panic(result.Err.message)
+    panic(result.Err)
   } else {
     panic("unexpected zint response: " + repr(result))
   }
@@ -455,7 +455,7 @@
 )
 #let logmars(data, options: (:), ..args) = barcode(
   data,
-  "Logmars",
+  "LOGMARS",
   options: options,
   ..args,
 )
@@ -707,7 +707,7 @@
 )
 #let hibc-mic-pdf(data, options: (:), ..args) = barcode(
   data,
-  "HIBCMicPDF",
+  "HIBCMicroPDF",
   options: options,
   ..args,
 )
