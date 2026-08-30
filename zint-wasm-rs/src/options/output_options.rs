@@ -129,14 +129,12 @@ impl<'de> Deserialize<'de> for OutputOptions {
                 A: de::SeqAccess<'de>,
             {
                 let mut result = OutputOptions::empty();
-                while let Some(el) = seq.next_element::<&str>()? {
-                    result = match opt_for_name(el) {
+                // Owned, because a self describing format such as CBOR decodes
+                // into a buffer of its own and has nothing to lend out.
+                while let Some(el) = seq.next_element::<String>()? {
+                    result = match opt_for_name(&el) {
                         Some(it) => result.union(it),
-                        None => {
-                            return Err(de::Error::custom(Error::UnknownOutputOption(
-                                el.to_string(),
-                            )))
-                        }
+                        None => return Err(de::Error::custom(Error::UnknownOutputOption(el))),
                     }
                 }
 
@@ -202,6 +200,19 @@ mod tests {
     }
 
     #[test]
+    fn an_array_unions_every_option_it_lists() {
+        let options: OutputOptions =
+            from_cbor(cbor!(["barcode-bind", "barcode-box", "bold-text"]).unwrap())
+                .expect("array of option names");
+
+        assert_eq!(
+            options.bits(),
+            (OutputOptions::BARCODE_BIND | OutputOptions::BARCODE_BOX | OutputOptions::BOLD_TEXT)
+                .bits()
+        );
+    }
+
+    #[test]
     fn option_names_ignore_case_and_separator_style() {
         for spelling in ["compliant-height", "COMPLIANT_HEIGHT", "Compliant-Height"] {
             let options: OutputOptions = from_cbor(cbor!({spelling => true}).unwrap())
@@ -223,9 +234,19 @@ mod tests {
 
     #[test]
     fn an_unknown_option_name_is_rejected() {
-        let error = from_cbor::<OutputOptions>(cbor!({"barcode-round" => true}).unwrap())
+        let from_dictionary = from_cbor::<OutputOptions>(cbor!({"barcode-round" => true}).unwrap())
             .expect_err("barcode-round is not an option");
-        assert!(error.contains("barcode-round"), "unexpected error: {error}");
+        assert!(
+            from_dictionary.contains("barcode-round"),
+            "unexpected error: {from_dictionary}"
+        );
+
+        let from_array = from_cbor::<OutputOptions>(cbor!(["barcode-round"]).unwrap())
+            .expect_err("barcode-round is not an option");
+        assert!(
+            from_array.contains("barcode-round"),
+            "unexpected error: {from_array}"
+        );
     }
 
     /// The plugin always renders to an in-memory file, so that flag is the
