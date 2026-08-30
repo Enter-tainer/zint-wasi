@@ -195,3 +195,190 @@ impl<'de> Deserialize<'de> for InputMode {
         Ok(result)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::InputMode;
+    use crate::{error::ValidationFailiure, test_support::from_cbor};
+    use ciborium::cbor;
+
+    /// The manual promises that an input format can be given as an integer, a
+    /// string or a `format` entry in a dictionary, and that all of them mean
+    /// the same thing.
+    #[test]
+    fn the_documented_forms_of_an_input_format_agree() {
+        for (name, bits) in [("data", 0), ("unicode", 1), ("gs1", 2)] {
+            let as_int: InputMode = from_cbor(cbor!(bits).unwrap()).expect("integer form");
+            let as_string: InputMode = from_cbor(cbor!(name).unwrap()).expect("string form");
+            let as_dictionary: InputMode =
+                from_cbor(cbor!({"format" => name}).unwrap()).expect("dictionary form");
+
+            assert_eq!(as_int.bits(), bits as u32, "integer form of {name}");
+            assert_eq!(as_string.bits(), bits as u32, "string form of {name}");
+            assert_eq!(
+                as_dictionary.bits(),
+                bits as u32,
+                "dictionary form of {name}"
+            );
+        }
+    }
+
+    /// A GS1 barcode whose Application Identifiers are written in parentheses,
+    /// with escape sequences enabled: flags that have to end up in one integer.
+    #[test]
+    fn a_dictionary_unions_the_flags_marked_true() {
+        let mode: InputMode = from_cbor(
+            cbor!({
+                "format" => "gs1",
+                "gs1-parentheses" => true,
+                "escape" => true,
+                "fast" => false,
+            })
+            .unwrap(),
+        )
+        .expect("dictionary of flags");
+
+        assert_eq!(
+            mode.bits(),
+            (InputMode::GS1 | InputMode::GS1_PARENTHESES | InputMode::ESCAPE).bits()
+        );
+    }
+
+    #[test]
+    fn flag_names_ignore_case_and_separator_style() {
+        for spelling in ["height-per-row", "HEIGHT_PER_ROW", "Height-Per-Row"] {
+            let mode: InputMode = from_cbor(cbor!({spelling => true}).unwrap())
+                .unwrap_or_else(|error| panic!("{spelling:?} should name a flag: {error}"));
+            assert_eq!(mode.bits(), InputMode::HEIGHT_PER_ROW.bits());
+        }
+    }
+
+    /// Zint's own constant names carry a `_MODE` suffix, which is accepted as
+    /// well so that values copied out of its documentation work.
+    #[test]
+    fn the_mode_suffix_of_zints_constant_names_is_accepted() {
+        let mode: InputMode =
+            from_cbor(cbor!({"ESCAPE_MODE" => true, "FAST_MODE" => true}).unwrap())
+                .expect("constant names");
+
+        assert_eq!(mode.bits(), (InputMode::ESCAPE | InputMode::FAST).bits());
+    }
+
+    #[test]
+    fn an_unknown_flag_name_is_rejected() {
+        let error =
+            from_cbor::<InputMode>(cbor!({"gs2" => true}).unwrap()).expect_err("gs2 is not a flag");
+        assert!(error.contains("gs2"), "unexpected error: {error}");
+    }
+
+    #[test]
+    fn an_unknown_input_format_is_rejected() {
+        let from_string =
+            from_cbor::<InputMode>(cbor!("utf-8").unwrap()).expect_err("utf-8 is not a format");
+        assert!(
+            from_string.contains("unknown input format"),
+            "unexpected error: {from_string}"
+        );
+
+        let from_dictionary = from_cbor::<InputMode>(cbor!({"format" => "utf-8"}).unwrap())
+            .expect_err("utf-8 is not a format");
+        assert!(
+            from_dictionary.contains("unknown input format"),
+            "unexpected error: {from_dictionary}"
+        );
+    }
+
+    /// The integer form is the escape hatch for flags this wrapper does not
+    /// know about, so bits it cannot name are passed through rather than
+    /// dropped.
+    #[test]
+    fn an_integer_is_taken_as_a_bit_field_verbatim() {
+        let known: InputMode = from_cbor(cbor!(10).unwrap()).expect("GS1 plus escape");
+        assert_eq!(known.bits(), (InputMode::GS1 | InputMode::ESCAPE).bits());
+
+        let unknown: InputMode = from_cbor(cbor!(0x8000).unwrap()).expect("unknown bit");
+        assert_eq!(unknown.bits(), 0x8000);
+    }
+
+    #[test]
+    fn an_integer_outside_the_bit_field_is_rejected() {
+        let negative =
+            from_cbor::<InputMode>(cbor!(-1).unwrap()).expect_err("a bit field is not negative");
+        assert!(
+            negative.contains("value is negative"),
+            "unexpected error: {negative}"
+        );
+
+        let too_big = from_cbor::<InputMode>(cbor!(u32::MAX as u64 + 1).unwrap())
+            .expect_err("the bit field is 32 bits wide");
+        assert!(
+            too_big.contains("value is too large"),
+            "unexpected error: {too_big}"
+        );
+
+        let widest: InputMode = from_cbor(cbor!(u32::MAX as u64).unwrap())
+            .expect("the widest bit field there is still fits");
+        assert_eq!(widest.bits(), u32::MAX);
+    }
+
+    /// A format that reports a positive number as a signed integer, which CBOR
+    /// does not, has to be held to the same bound.
+    #[test]
+    fn a_signed_integer_is_held_to_the_same_bound() {
+        use serde::{de::value::I64Deserializer, Deserialize};
+
+        let widest = InputMode::deserialize(I64Deserializer::<serde::de::value::Error>::new(
+            u32::MAX as i64,
+        ))
+        .expect("the widest bit field there is still fits");
+        assert_eq!(widest.bits(), u32::MAX);
+
+        let too_big = InputMode::deserialize(I64Deserializer::<serde::de::value::Error>::new(
+            u32::MAX as i64 + 1,
+        ))
+        .expect_err("the bit field is 32 bits wide");
+        assert!(
+            too_big.to_string().contains("value is too large"),
+            "unexpected error: {too_big}"
+        );
+    }
+
+    /// What a document gets back when the option is not one of the shapes the
+    /// manual describes.
+    #[test]
+    fn a_value_that_is_not_an_input_mode_at_all_is_rejected() {
+        let error =
+            from_cbor::<InputMode>(cbor!(true).unwrap()).expect_err("a flag is not an input mode");
+        assert!(
+            error.contains("expected InputMode"),
+            "the error should say what was expected: {error}"
+        );
+    }
+
+    /// These numbers are zint's public ABI: the bits are passed straight into
+    /// `symbol->input_mode`, so they have to keep matching `zint.h`.
+    #[test]
+    fn as_i32_hands_zint_the_raw_bit_field() {
+        assert_eq!(InputMode::DATA.as_i32(), 0);
+        assert_eq!(InputMode::UNICODE.as_i32(), 1);
+        assert_eq!(InputMode::GS1.as_i32(), 2);
+        assert_eq!((InputMode::GS1 | InputMode::ESCAPE).as_i32(), 10);
+        assert_eq!(InputMode::EXTRA_ESCAPE.as_i32(), 0x100);
+        assert_eq!(InputMode::from_bits_retain(u32::MAX).as_i32(), -1);
+    }
+
+    /// The three input formats are mutually exclusive, but `DATA` is zero and
+    /// so cannot be told apart from "not set".
+    #[test]
+    fn validate_only_rejects_two_formats_it_can_see() {
+        assert!(matches!(
+            (InputMode::UNICODE | InputMode::GS1).validate(),
+            Some(ValidationFailiure::MultipleFormats)
+        ));
+
+        assert!(InputMode::UNICODE.validate().is_none());
+        assert!(InputMode::GS1.validate().is_none());
+        assert!((InputMode::DATA | InputMode::GS1).validate().is_none());
+        assert!((InputMode::GS1 | InputMode::ESCAPE).validate().is_none());
+    }
+}

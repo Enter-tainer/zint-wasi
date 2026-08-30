@@ -4,6 +4,8 @@ use state::GlobalState;
 mod action;
 mod log;
 mod state;
+#[cfg(test)]
+mod test_support;
 mod tools;
 mod util;
 

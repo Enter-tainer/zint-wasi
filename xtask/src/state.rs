@@ -440,3 +440,153 @@ mod _impl {
     // !SECTION: Accessing state by referefence
 }
 use _impl::*;
+
+#[cfg(test)]
+mod tests {
+    use super::{Configure, State};
+    use crate::test_support::TempFile;
+    use std::{collections::BTreeMap, io};
+
+    // The keys below are test-only on purpose. A loaded state overlays every
+    // `XTASK_` variable of the running process onto what it read from the
+    // file, and the CI workflow sets `XTASK_WORK_DIR` among others, so a test
+    // using the real key names would read the workflow's values instead of
+    // its own.
+
+    const ROOT: &str = env!("XTASK_PROJECT_ROOT");
+
+    #[test]
+    fn entries_are_read_as_key_and_value() {
+        let file = TempFile::holding("TEST_WORK_DIR=./work\nTEST_VERSION=0.13.1\n");
+        let state = State::load(file.path()).expect("a readable state file");
+
+        assert_eq!(state.get("TEST_WORK_DIR"), Some("./work"));
+        assert_eq!(state.get("TEST_VERSION"), Some("0.13.1"));
+        assert_eq!(state.get("MISSING"), None);
+    }
+
+    #[test]
+    fn comments_are_left_out() {
+        let file = TempFile::holding(
+            "# the directory tools are downloaded into\nTEST_WORK_DIR=./work # not the source tree\n",
+        );
+        let state = State::load(file.path()).expect("a readable state file");
+
+        assert_eq!(state.get("TEST_WORK_DIR"), Some("./work"));
+    }
+
+    /// Every line is a variable, so one that is not has to say which line to
+    /// look at.
+    #[test]
+    fn a_line_without_a_separator_is_rejected() {
+        let file = TempFile::holding("TEST_WORK_DIR=./work\nTEST_VERSION\n");
+        let Err(error) = State::load(file.path()) else {
+            panic!("the second line has no '=' and is not a variable")
+        };
+
+        assert_eq!(error.kind(), io::ErrorKind::InvalidData);
+        assert!(
+            error.to_string().contains(":1:"),
+            "the error should point at the line: {error}"
+        );
+    }
+
+    #[test]
+    fn a_missing_file_is_reported_as_not_found() {
+        let missing = std::env::temp_dir().join("zint-wasi-xtask-state-does-not-exist");
+        let Err(error) = State::load(missing) else {
+            panic!("the file does not exist and cannot be loaded")
+        };
+
+        assert_eq!(error.kind(), io::ErrorKind::NotFound);
+    }
+
+    #[test]
+    fn entries_survive_being_saved_and_read_back() {
+        let file = TempFile::holding("");
+        let mut state = State::new();
+        state.set("TEST_WORK_DIR", "./work");
+        state.set("TEST_VERSION", "0.13.1");
+        state.save(file.path()).expect("a writable state file");
+
+        let reloaded = State::load(file.path()).expect("the file just written");
+
+        assert_eq!(reloaded.get("TEST_WORK_DIR"), Some("./work"));
+        assert_eq!(reloaded.get("TEST_VERSION"), Some("0.13.1"));
+    }
+
+    /// The repository sits at a different path on every machine, so the project
+    /// root is stored as a symbol and resolved on the way in.
+    #[test]
+    fn the_project_root_is_stored_as_a_symbol() {
+        let file = TempFile::holding(&format!("PLUGIN={ROOT}/typst-package\n"));
+        let state = State::load(file.path()).expect("a readable state file");
+        state.save(file.path()).expect("a writable state file");
+
+        assert_eq!(
+            state.get("PLUGIN"),
+            Some(format!("{ROOT}/typst-package").as_str()),
+            "the symbol is resolved when the file is read"
+        );
+        assert_eq!(
+            file.read(),
+            "PLUGIN=$<root>/typst-package\n",
+            "and put back when it is written"
+        );
+    }
+
+    #[test]
+    fn resolving_the_project_root_can_be_undone() {
+        let resolved: String = Configure::configure("$<root>/typst-package", ());
+        assert_eq!(resolved, format!("{ROOT}/typst-package"));
+
+        let symbolic: String = Configure::unconfigure(resolved, ());
+        assert_eq!(symbolic, "$<root>/typst-package");
+    }
+
+    /// A value that only applies to the current run overrides the stored one,
+    /// which is how the `XTASK_` environment variables take effect.
+    #[test]
+    fn a_value_set_for_this_run_wins_over_the_stored_one() {
+        let file = TempFile::holding("TEST_VERSION=0.13.1\n");
+        let mut state = State::load(file.path()).expect("a readable state file");
+
+        state.set_temporary("TEST_VERSION", "0.14.0");
+        assert_eq!(state.get("TEST_VERSION"), Some("0.14.0"));
+
+        state.save(file.path()).expect("a writable state file");
+        assert_eq!(
+            file.read(),
+            "TEST_VERSION=0.13.1\n",
+            "a value that only applies to this run is not written back"
+        );
+    }
+
+    #[test]
+    fn iterating_lists_every_key_once() {
+        let file = TempFile::holding("TEST_WORK_DIR=./work\nTEST_VERSION=0.13.1\n");
+        let mut state = State::load(file.path()).expect("a readable state file");
+        state.set_temporary("TEST_VERSION", "0.14.0");
+
+        // The `XTASK_` variables of the running process are part of the state
+        // as well, so only the keys this test set can be asserted on.
+        let entries: BTreeMap<String, String> = state.iter().collect();
+
+        assert_eq!(
+            entries.get("TEST_WORK_DIR").map(String::as_str),
+            Some("./work")
+        );
+        assert_eq!(
+            entries.get("TEST_VERSION").map(String::as_str),
+            Some("0.14.0")
+        );
+        assert_eq!(
+            state
+                .iter()
+                .filter(|(key, _)| key == "TEST_VERSION")
+                .count(),
+            1,
+            "a key that is both stored and set for this run is listed once"
+        );
+    }
+}

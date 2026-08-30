@@ -582,6 +582,7 @@ name = "zint-wasm-rs"
 version = "0.3.0"
 dependencies = [
  "bitflags",
+ "ciborium",
  "hex",
  "serde",
  "thiserror",

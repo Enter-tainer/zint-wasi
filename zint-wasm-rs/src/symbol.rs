@@ -184,8 +184,16 @@ mod tests {
     use super::Symbol;
     use crate::{
         error::{Error, ZintError},
-        options::{symbology::Symbology, Options},
+        options::{
+            color::Color,
+            input_mode::InputMode,
+            option3::{Option3, QRMatrixOption},
+            output_options::OutputOptions,
+            symbology::Symbology,
+            Options,
+        },
     };
+    use std::{ffi::CStr, os::raw::c_char, str::FromStr};
 
     /// Extracts the pixel dimensions from the `<svg>` element of a Zint SVG.
     ///
@@ -210,10 +218,135 @@ mod tests {
         (attribute("width"), attribute("height"))
     }
 
+    /// Reads one of the symbol's fixed size C string fields back as Rust.
+    ///
+    /// Input:  `symbol.fgcolour`, holding `000000ff\0`
+    /// Output: `"000000ff"`
+    fn c_string(field: &[c_char]) -> String {
+        let value = unsafe {
+            // Safety: every field this is used on is written by
+            // `copy_into_cstr`, which always terminates, or zeroed by zint.
+            CStr::from_ptr(field.as_ptr())
+        };
+        value.to_string_lossy().into_owned()
+    }
+
+    fn code128() -> Options {
+        Options::with_symbology(Symbology::Code128)
+    }
+
+    /// Listing every field rather than using `..Default::default()` is
+    /// deliberate: a new option cannot be added to [`Options`] without this
+    /// test being made to say where it lands in the symbol.
+    #[test]
+    fn every_option_reaches_the_zint_symbol() {
+        let options = Options {
+            symbology: Symbology::QRCode,
+            height: Some(30.0),
+            scale: Some(2.0),
+            whitespace_width: Some(4),
+            whitespace_height: Some(2),
+            border_width: Some(3),
+            output_options: Some(OutputOptions::BARCODE_BOX),
+            fg_color: Some(Color::from_str("#112233").expect("valid hex")),
+            bg_color: Some(Color::from_str("#44556677").expect("valid hex")),
+            primary: Some("331234567890".to_string()),
+            option_1: Some(2),
+            option_2: Some(5),
+            option_3: Some(Option3::from(QRMatrixOption::FULL_MULITIBYTE)),
+            show_hrt: Some(false),
+            input_mode: Some(InputMode::GS1 | InputMode::ESCAPE),
+            eci: Some(26),
+            dot_size: Some(0.75),
+            text_gap: Some(1.5),
+            guard_descent: Some(4.0),
+        };
+
+        let symbol = Symbol::new(&options);
+
+        assert_eq!(symbol.symbology, Symbology::QRCode as i32);
+        assert_eq!(symbol.height, 30.0);
+        assert_eq!(symbol.scale, 2.0);
+        assert_eq!(symbol.whitespace_width, 4);
+        assert_eq!(symbol.whitespace_height, 2);
+        assert_eq!(symbol.border_width, 3);
+        assert_eq!(
+            symbol.output_options,
+            (OutputOptions::BARCODE_BOX | OutputOptions::BARCODE_MEMORY_FILE).as_i32()
+        );
+        assert_eq!(c_string(&symbol.fgcolour), "112233ff");
+        assert_eq!(c_string(&symbol.bgcolour), "44556677");
+        assert_eq!(c_string(&symbol.primary), "331234567890");
+        assert_eq!(symbol.option_1, 2);
+        assert_eq!(symbol.option_2, 5);
+        assert_eq!(symbol.option_3, 200);
+        assert_eq!(symbol.show_hrt, 0);
+        assert_eq!(
+            symbol.input_mode,
+            (InputMode::GS1 | InputMode::ESCAPE).as_i32()
+        );
+        assert_eq!(symbol.eci, 26);
+        assert_eq!(symbol.dot_size, 0.75);
+        assert_eq!(symbol.text_gap, 1.5);
+        assert_eq!(symbol.guard_descent, 4.0);
+    }
+
+    /// Anything the caller leaves out stays at the value zint picked, so its
+    /// defaults remain the single source of truth.
+    #[test]
+    fn unset_options_keep_the_defaults_zint_chose() {
+        let symbol = Symbol::new(&code128());
+
+        assert_eq!(symbol.height, 0.0);
+        assert_eq!(symbol.scale, 1.0);
+        assert_eq!(symbol.whitespace_width, 0);
+        assert_eq!(symbol.whitespace_height, 0);
+        assert_eq!(symbol.border_width, 0);
+        assert_eq!(symbol.option_1, -1);
+        assert_eq!(symbol.option_2, 0);
+        assert_eq!(symbol.option_3, 0);
+        assert_eq!(symbol.show_hrt, 1);
+        assert_eq!(symbol.input_mode, 0);
+        assert_eq!(symbol.eci, 0);
+        assert_eq!(symbol.dot_size, 0.8);
+        assert_eq!(symbol.text_gap, 1.0);
+        assert_eq!(symbol.guard_descent, 5.0);
+        assert_eq!(c_string(&symbol.primary), "");
+    }
+
+    /// The plugin has no file system to write to, so the symbol always renders
+    /// into memory no matter what else the caller asked for.
+    #[test]
+    fn the_symbol_always_renders_into_memory() {
+        let bare = Symbol::new(&code128());
+        assert_eq!(
+            bare.output_options,
+            OutputOptions::BARCODE_MEMORY_FILE.as_i32()
+        );
+
+        let mut options = code128();
+        options.output_options = Some(OutputOptions::BARCODE_BIND);
+        let configured = Symbol::new(&options);
+        assert_eq!(
+            configured.output_options,
+            (OutputOptions::BARCODE_BIND | OutputOptions::BARCODE_MEMORY_FILE).as_i32()
+        );
+    }
+
+    /// Zint reads the colors as hex text; leaving them out has to give the
+    /// black on transparent the Typst package documents, not zint's own white
+    /// background.
+    #[test]
+    fn colors_default_to_black_on_transparent() {
+        let symbol = Symbol::new(&code128());
+
+        assert_eq!(c_string(&symbol.fgcolour), "000000ff");
+        assert_eq!(c_string(&symbol.bgcolour), "ffffff00");
+    }
+
     #[test]
     fn code128_encodes_to_svg_with_human_readable_text() {
-        let options = Options::with_symbology(Symbology::Code128);
-        let svg = Symbol::new(&options)
+        let svg = Symbol::new(&code128())
             .encode_svg("A12345B", 0, 0)
             .expect("Code128 encodes alphanumeric data");
 
@@ -226,14 +359,14 @@ mod tests {
 
     #[test]
     fn scale_and_hrt_options_are_applied() {
-        let mut options = Options::with_symbology(Symbology::Code128);
+        let mut options = code128();
         options.scale = Some(2.0);
         let scaled = Symbol::new(&options)
             .encode_svg("A12345B", 0, 0)
             .expect("Code128 encodes at double scale");
         assert_eq!(svg_size(&scaled), (448, 233));
 
-        let mut options = Options::with_symbology(Symbology::Code128);
+        let mut options = code128();
         options.show_hrt = Some(false);
         let bars_only = Symbol::new(&options)
             .encode_svg("A12345B", 0, 0)
@@ -259,5 +392,99 @@ mod tests {
             matches!(error, Error::Zint(ZintError::InvalidCheck)),
             "unexpected error: {error:?}"
         );
+    }
+
+    /// The colors the caller chose have to survive into the drawing itself, not
+    /// only into the symbol's fields.
+    #[test]
+    fn the_chosen_colors_are_drawn() {
+        let mut options = code128();
+        options.fg_color = Some(Color::from_str("#112233").expect("valid hex"));
+        options.bg_color = Some(Color::from_str("#ddeeff").expect("valid hex"));
+
+        let svg = Symbol::new(&options)
+            .encode_svg("A12345B", 0, 0)
+            .expect("Code128 encodes in color");
+
+        assert!(
+            svg.contains("#112233"),
+            "the bars keep the foreground color"
+        );
+        assert!(
+            svg.contains("#DDEEFF") || svg.contains("#ddeeff"),
+            "an opaque background is drawn"
+        );
+    }
+
+    /// Turning the symbol on its side swaps what the drawing measures.
+    #[test]
+    fn a_rotated_symbol_swaps_its_dimensions() {
+        let (width, height) = svg_size(
+            &Symbol::new(&code128())
+                .encode_svg("A12345B", 0, 0)
+                .expect("Code128 encodes upright"),
+        );
+        let turned = Symbol::new(&code128())
+            .encode_svg("A12345B", 0, 90)
+            .expect("Code128 encodes rotated");
+
+        assert_eq!(svg_size(&turned), (height, width));
+    }
+
+    /// Zero means "everything up to the terminator"; any other length is the
+    /// number of bytes zint reads, which is how binary payloads are bounded.
+    #[test]
+    fn an_explicit_length_bounds_what_is_encoded() {
+        let whole = Symbol::new(&code128())
+            .encode_svg("A12345B", 0, 0)
+            .expect("Code128 encodes the whole payload");
+        let clipped = Symbol::new(&code128())
+            .encode_svg("A12345B", 3, 0)
+            .expect("Code128 encodes the first three bytes");
+
+        assert!(whole.lines().any(|line| line.trim() == "A12345B"));
+        assert!(clipped.lines().any(|line| line.trim() == "A12"));
+    }
+
+    /// A warning is not a failure: zint still produces the symbol, and a
+    /// document that asked for a barcode still gets one.
+    #[test]
+    fn a_symbol_zint_only_warns_about_is_still_returned() {
+        let mut options = code128();
+        options.height = Some(1.0);
+        options.output_options = Some(OutputOptions::COMPLIANT_HEIGHT);
+
+        let svg = Symbol::new(&options)
+            .encode_svg("A12345B", 0, 0)
+            .expect("a symbol that is too short is still a symbol");
+
+        assert!(svg.contains("<path d=\"M"));
+    }
+
+    #[test]
+    #[should_panic(expected = "can't create a Symbol from null pointer")]
+    fn wrapping_a_null_pointer_panics() {
+        unsafe {
+            // Safety: the null case is the one `from_ptr` is documented to
+            // reject, which is what this asserts.
+            Symbol::from_ptr(std::ptr::null_mut())
+        };
+    }
+
+    #[test]
+    fn a_symbol_survives_being_handed_around_as_a_pointer() {
+        let symbol = Symbol::new(&Options::with_symbology(Symbology::QRCode));
+        let pointer = symbol.as_ptr();
+        // Ownership moves to the raw pointer, so the symbol is not freed twice.
+        std::mem::forget(symbol);
+
+        let symbol = unsafe {
+            // Safety: the pointer came from the symbol leaked just above, so it
+            // still points at an initialised zint_symbol.
+            Symbol::from_ptr(pointer)
+        };
+
+        assert_eq!(symbol.as_ptr(), pointer);
+        assert_eq!(symbol.symbology, Symbology::QRCode as i32);
     }
 }

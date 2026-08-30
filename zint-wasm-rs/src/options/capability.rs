@@ -61,3 +61,53 @@ impl From<CapabilityFlags> for i32 {
         .unwrap()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::CapabilityFlags;
+    use crate::test_support::from_cbor;
+    use ciborium::cbor;
+
+    /// These numbers are zint's public ABI: they are passed straight to
+    /// `ZBarcode_Cap`, so they have to keep matching `zint.h`.
+    #[test]
+    fn every_flag_matches_the_value_zint_defines() {
+        for (capability, expected) in [
+            (CapabilityFlags::HRT, 0x0001),
+            (CapabilityFlags::Stackable, 0x0002),
+            (CapabilityFlags::EanUpc, 0x0004),
+            (CapabilityFlags::Extendable, 0x0004),
+            (CapabilityFlags::Composite, 0x0008),
+            (CapabilityFlags::Eci, 0x0010),
+            (CapabilityFlags::Gs1, 0x0020),
+            (CapabilityFlags::Dotty, 0x0040),
+            (CapabilityFlags::QuietZones, 0x0080),
+            (CapabilityFlags::FixedRatio, 0x0100),
+            (CapabilityFlags::ReaderInit, 0x0200),
+            (CapabilityFlags::FullMultibyte, 0x0400),
+            (CapabilityFlags::Mask, 0x0800),
+            (CapabilityFlags::StructApp, 0x1000),
+            (CapabilityFlags::CompliantHeight, 0x2000),
+        ] {
+            assert_eq!(i32::from(capability), expected, "{capability:?}");
+        }
+    }
+
+    /// `Extendable` is the name the flag used to have; both spellings have to
+    /// keep asking zint the same question.
+    #[test]
+    fn the_former_name_of_the_ean_upc_flag_asks_the_same_question() {
+        assert_eq!(
+            i32::from(CapabilityFlags::EanUpc),
+            i32::from(CapabilityFlags::Extendable)
+        );
+    }
+
+    #[test]
+    fn a_flag_is_named_by_its_type() {
+        let capability: CapabilityFlags = from_cbor(cbor!({"type" => "Mask"}).unwrap())
+            .expect("a capability is tagged by its type");
+
+        assert_eq!(i32::from(capability), 0x0800);
+    }
+}

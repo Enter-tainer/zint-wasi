@@ -172,3 +172,162 @@ impl<'de> Deserialize<'de> for OutputOptions {
         deserializer.deserialize_any(OutputOptionsVisitor)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::OutputOptions;
+    use crate::test_support::from_cbor;
+    use ciborium::cbor;
+
+    /// A boxed symbol with a bold human readable text: flags that have to end
+    /// up in the same integer.
+    #[test]
+    fn a_dictionary_unions_the_options_marked_true() {
+        let options: OutputOptions = from_cbor(
+            cbor!({
+                "barcode-bind" => true,
+                "barcode-box" => true,
+                "bold-text" => true,
+                "small-text" => false,
+            })
+            .unwrap(),
+        )
+        .expect("dictionary of options");
+
+        assert_eq!(
+            options.bits(),
+            (OutputOptions::BARCODE_BIND | OutputOptions::BARCODE_BOX | OutputOptions::BOLD_TEXT)
+                .bits()
+        );
+    }
+
+    #[test]
+    fn option_names_ignore_case_and_separator_style() {
+        for spelling in ["compliant-height", "COMPLIANT_HEIGHT", "Compliant-Height"] {
+            let options: OutputOptions = from_cbor(cbor!({spelling => true}).unwrap())
+                .unwrap_or_else(|error| panic!("{spelling:?} should name an option: {error}"));
+            assert_eq!(options.bits(), OutputOptions::COMPLIANT_HEIGHT.bits());
+        }
+    }
+
+    /// Zint spells colour the British way; both spellings are accepted so that
+    /// the name does not have to be looked up.
+    #[test]
+    fn both_spellings_of_colour_are_accepted() {
+        for spelling in ["cmyk-color", "cmyk-colour"] {
+            let options: OutputOptions = from_cbor(cbor!({spelling => true}).unwrap())
+                .unwrap_or_else(|error| panic!("{spelling:?} should name an option: {error}"));
+            assert_eq!(options.bits(), OutputOptions::CMYK_COLOR.bits());
+        }
+    }
+
+    #[test]
+    fn an_unknown_option_name_is_rejected() {
+        let error = from_cbor::<OutputOptions>(cbor!({"barcode-round" => true}).unwrap())
+            .expect_err("barcode-round is not an option");
+        assert!(error.contains("barcode-round"), "unexpected error: {error}");
+    }
+
+    /// The plugin always renders to an in-memory file, so that flag is the
+    /// library's to set and is deliberately not one a caller can name.
+    #[test]
+    fn the_memory_file_flag_cannot_be_requested_by_name() {
+        assert!(
+            from_cbor::<OutputOptions>(cbor!({"barcode-memory-file" => true}).unwrap()).is_err(),
+            "the memory file flag is set by the library, not by the caller"
+        );
+    }
+
+    /// The integer form is the escape hatch for flags this wrapper does not
+    /// know about, so bits it cannot name are passed through rather than
+    /// dropped.
+    #[test]
+    fn an_integer_is_taken_as_a_bit_field_verbatim() {
+        let known: OutputOptions = from_cbor(cbor!(6).unwrap()).expect("bind plus box");
+        assert_eq!(
+            known.bits(),
+            (OutputOptions::BARCODE_BIND | OutputOptions::BARCODE_BOX).bits()
+        );
+
+        let unknown: OutputOptions = from_cbor(cbor!(0x100000).unwrap()).expect("unknown bit");
+        assert_eq!(unknown.bits(), 0x100000);
+    }
+
+    #[test]
+    fn an_integer_outside_the_bit_field_is_rejected() {
+        let negative = from_cbor::<OutputOptions>(cbor!(-1).unwrap())
+            .expect_err("a bit field is not negative");
+        assert!(
+            negative.contains("value is negative"),
+            "unexpected error: {negative}"
+        );
+
+        let too_big = from_cbor::<OutputOptions>(cbor!(u32::MAX as u64 + 1).unwrap())
+            .expect_err("the bit field is 32 bits wide");
+        assert!(
+            too_big.contains("value is too large"),
+            "unexpected error: {too_big}"
+        );
+
+        let widest: OutputOptions = from_cbor(cbor!(u32::MAX as u64).unwrap())
+            .expect("the widest bit field there is still fits");
+        assert_eq!(widest.bits(), u32::MAX);
+    }
+
+    /// A format that reports a positive number as a signed integer, which CBOR
+    /// does not, has to be held to the same bound.
+    #[test]
+    fn a_signed_integer_is_held_to_the_same_bound() {
+        use serde::{de::value::I64Deserializer, Deserialize};
+
+        let widest = OutputOptions::deserialize(I64Deserializer::<serde::de::value::Error>::new(
+            u32::MAX as i64,
+        ))
+        .expect("the widest bit field there is still fits");
+        assert_eq!(widest.bits(), u32::MAX);
+
+        let too_big = OutputOptions::deserialize(I64Deserializer::<serde::de::value::Error>::new(
+            u32::MAX as i64 + 1,
+        ))
+        .expect_err("the bit field is 32 bits wide");
+        assert!(
+            too_big.to_string().contains("value is too large"),
+            "unexpected error: {too_big}"
+        );
+    }
+
+    /// A bare string is not one of the documented forms; option names have to
+    /// arrive in a dictionary.
+    #[test]
+    fn a_bare_string_is_rejected() {
+        let error = from_cbor::<OutputOptions>(cbor!("barcode-box").unwrap())
+            .expect_err("one option is still a dictionary or an array");
+        assert!(
+            error.contains("expected OutputOptions"),
+            "the error should say what was expected: {error}"
+        );
+    }
+
+    /// These numbers are zint's public ABI: the flags are passed straight into
+    /// `symbol->output_options`, so they have to keep matching `zint.h`.
+    #[test]
+    fn the_flags_match_the_values_zint_defines() {
+        assert_eq!(OutputOptions::BARCODE_BIND_TOP.bits(), 0x00001);
+        assert_eq!(OutputOptions::BARCODE_BIND.bits(), 0x00002);
+        assert_eq!(OutputOptions::BARCODE_BOX.bits(), 0x00004);
+        assert_eq!(OutputOptions::BARCODE_DOTTY_MODE.bits(), 0x00100);
+        assert_eq!(OutputOptions::COMPLIANT_HEIGHT.bits(), 0x02000);
+        assert_eq!(OutputOptions::EMBED_VECTOR_FONT.bits(), 0x08000);
+        assert_eq!(OutputOptions::BARCODE_MEMORY_FILE.bits(), 0x10000);
+    }
+
+    #[test]
+    fn as_i32_hands_zint_the_raw_bit_field() {
+        assert_eq!(OutputOptions::empty().as_i32(), 0);
+        assert_eq!(
+            (OutputOptions::BARCODE_BIND | OutputOptions::BARCODE_BOX).as_i32(),
+            6
+        );
+        assert_eq!(OutputOptions::from_bits_retain(u32::MAX).as_i32(), -1);
+    }
+}
