@@ -38,6 +38,44 @@ cargo xtask package
 
 See [`xtask` readme](./xtask/README.md) for more information.
 
+## Tests
+
+```sh
+cargo test -p zint-wasm-sys -p zint-wasm-rs -p zint-typst-plugin -p xtask
+```
+
+The packages are listed rather than testing the whole workspace because it also
+vendors third-party crates. Building `zint-wasm-rs` next to the plugin turns on
+its `typst` feature, which renames every option key, so CI additionally runs
+`cargo test -p zint-wasm-rs` on its own to cover the plain library.
+
+### Golden files
+
+`zint-wasm-rs/tests/golden` holds the SVG that every symbology and every option
+renders to, one file per case. They are not a claim that the current output is
+right; they are there so that a change to it is visible, which is what makes an
+upgrade of the vendored Zint reviewable.
+
+After an intended change, rewrite them and read the diff before committing it:
+
+```sh
+UPDATE_GOLDEN=1 cargo test -p zint-wasm-rs --test golden
+```
+
+### Mutation testing
+
+[cargo-mutants](https://mutants.rs) changes the code in small ways and reports
+the changes that no test noticed, which says a good deal more about a test suite
+than line coverage does:
+
+```sh
+cargo install cargo-mutants --locked
+cargo mutants -p zint-wasm-rs
+```
+
+It is not part of CI: a full run takes far longer than a pull request should
+wait for, and what it produces is a list to read rather than a pass or a fail.
+
 ## License
 
 This package is licensed under MIT license.

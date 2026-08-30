@@ -173,3 +173,204 @@ impl<'de> Deserialize<'de> for Color {
         deserializer.deserialize_any(ColorVisitor)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::Color;
+    use crate::{error::Error, test_support::from_cbor};
+    use ciborium::cbor;
+    use std::str::FromStr;
+
+    /// The four channels, as a tuple, so a whole color can be asserted at once
+    /// without requiring [`Color`] to implement [`PartialEq`].
+    ///
+    /// Input:  `Color { r: 255, g: 136, b: 0, a: 255 }`
+    /// Output: `(255, 136, 0, 255)`
+    fn channels(color: &Color) -> (u8, u8, u8, u8) {
+        (color.r, color.g, color.b, color.a)
+    }
+
+    #[test]
+    fn six_digit_hex_parses_with_or_without_a_leading_hash() {
+        let with_hash = Color::from_str("#ff8800").expect("hash prefix is optional");
+        let without_hash = Color::from_str("ff8800").expect("hash prefix is optional");
+
+        assert_eq!(channels(&with_hash), (255, 136, 0, u8::MAX));
+        assert_eq!(channels(&without_hash), (255, 136, 0, u8::MAX));
+    }
+
+    #[test]
+    fn eight_digit_hex_carries_the_alpha_channel() {
+        let color = Color::from_str("#ff880080").expect("RRGGBBAA is accepted");
+        assert_eq!(channels(&color), (255, 136, 0, 128));
+    }
+
+    /// CSS style shorthand: every digit stands for a whole channel byte.
+    #[test]
+    fn three_and_four_digit_hex_digits_are_doubled() {
+        let rgb = Color::from_str("#f80").expect("RGB shorthand is accepted");
+        let rgba = Color::from_str("#f808").expect("RGBA shorthand is accepted");
+
+        assert_eq!(channels(&rgb), (255, 136, 0, u8::MAX));
+        assert_eq!(channels(&rgba), (255, 136, 0, 136));
+    }
+
+    #[test]
+    fn parsing_and_formatting_round_trip() {
+        let color = Color::from_str("#ff880080").expect("valid hex");
+        assert_eq!(color.to_hex_string(), "ff880080");
+        assert_eq!(
+            Color::from_str("#f80").expect("valid hex").to_hex_string(),
+            "ff8800ff"
+        );
+    }
+
+    /// Zint reads `fgcolour`/`bgcolour` as RRGGBB or RRGGBBAA, so the defaults
+    /// have to survive formatting with their alpha intact.
+    #[test]
+    fn default_colors_use_the_format_zint_expects() {
+        assert_eq!(Color::BLACK.to_hex_string(), "000000ff");
+        assert_eq!(Color::TRANSPARENT.to_hex_string(), "ffffff00");
+
+        assert!(Color::BLACK.is_opaque());
+        assert!(!Color::TRANSPARENT.is_opaque());
+        assert!(!Color::from_str("#ff880080").expect("valid hex").is_opaque());
+    }
+
+    #[test]
+    fn an_odd_number_of_hex_digits_is_rejected() {
+        let error = Color::from_str("#ff880").expect_err("five digits is not a color");
+        assert!(
+            matches!(
+                error,
+                Error::InvalidColorEncoding(hex::FromHexError::OddLength)
+            ),
+            "unexpected error: {error:?}"
+        );
+    }
+
+    #[test]
+    fn non_hex_characters_are_rejected() {
+        let error = Color::from_str("#gg8800").expect_err("'g' is not a hex digit");
+        assert!(
+            matches!(
+                error,
+                Error::InvalidColorEncoding(hex::FromHexError::InvalidHexCharacter { c: 'g', .. })
+            ),
+            "unexpected error: {error:?}"
+        );
+    }
+
+    #[test]
+    fn a_hex_string_with_too_few_channels_is_rejected() {
+        for too_short in ["", "ff"] {
+            let error =
+                Color::from_str(too_short).expect_err("a color needs at least three channels");
+            assert!(
+                matches!(
+                    error,
+                    Error::InvalidColor {
+                        reason: "hex too short"
+                    }
+                ),
+                "unexpected error for {too_short:?}: {error:?}"
+            );
+        }
+    }
+
+    /// `char as u8` truncates, so the parser must not be fed anything it could
+    /// mistake for a hex digit; multi-byte input has to fail cleanly instead.
+    #[test]
+    fn non_ascii_input_is_rejected_rather_than_truncated() {
+        for input in ["日本語", "ÿÿ", "ＦＦ８８００"] {
+            assert!(
+                Color::from_str(input).is_err(),
+                "{input:?} should not parse as a color"
+            );
+        }
+    }
+
+    #[test]
+    fn deserializes_from_a_hex_string() {
+        let color: Color = from_cbor(cbor!("#ff880080").unwrap()).expect("hex string is a color");
+        assert_eq!(channels(&color), (255, 136, 0, 128));
+    }
+
+    #[test]
+    fn deserializes_from_a_channel_array() {
+        let opaque: Color = from_cbor(cbor!([255, 136, 0]).unwrap()).expect("RGB array is a color");
+        let translucent: Color =
+            from_cbor(cbor!([255, 136, 0, 128]).unwrap()).expect("RGBA array is a color");
+
+        assert_eq!(channels(&opaque), (255, 136, 0, u8::MAX));
+        assert_eq!(channels(&translucent), (255, 136, 0, 128));
+    }
+
+    #[test]
+    fn deserializes_from_a_channel_map_in_either_spelling() {
+        let short: Color =
+            from_cbor(cbor!({"r" => 255, "g" => 136, "b" => 0, "a" => 128}).unwrap())
+                .expect("single letter channels");
+        let long: Color =
+            from_cbor(cbor!({"red" => 255, "green" => 136, "blue" => 0, "alpha" => 128}).unwrap())
+                .expect("spelled out channels");
+
+        assert_eq!(channels(&short), (255, 136, 0, 128));
+        assert_eq!(channels(&long), (255, 136, 0, 128));
+    }
+
+    #[test]
+    fn a_channel_given_twice_is_rejected() {
+        let error =
+            from_cbor::<Color>(cbor!({"r" => 255, "red" => 0, "g" => 136, "b" => 0}).unwrap())
+                .expect_err("'r' and 'red' are the same channel");
+        assert!(
+            error.contains("duplicate field"),
+            "unexpected error: {error}"
+        );
+    }
+
+    #[test]
+    fn a_map_missing_a_channel_is_rejected() {
+        let error = from_cbor::<Color>(cbor!({"r" => 255, "g" => 136}).unwrap())
+            .expect_err("blue is missing");
+        assert!(error.contains("missing field"), "unexpected error: {error}");
+
+        let alpha_only_is_optional: Color =
+            from_cbor(cbor!({"r" => 255, "g" => 136, "b" => 0}).unwrap())
+                .expect("alpha defaults to opaque");
+        assert_eq!(channels(&alpha_only_is_optional), (255, 136, 0, u8::MAX));
+    }
+
+    /// What a document gets back when the color is not one of the shapes the
+    /// manual describes.
+    #[test]
+    fn a_value_that_is_not_a_color_at_all_is_rejected() {
+        let error = from_cbor::<Color>(cbor!(true).unwrap()).expect_err("a flag is not a color");
+        assert!(
+            error.contains("expected RGBA color"),
+            "the error should say what was expected: {error}"
+        );
+    }
+
+    #[test]
+    fn an_unknown_channel_name_is_rejected() {
+        let error = from_cbor::<Color>(
+            cbor!({"r" => 255, "g" => 136, "b" => 0, "luminance" => 1}).unwrap(),
+        )
+        .expect_err("'luminance' is not a channel");
+        assert!(!error.is_empty(), "the error should name the problem");
+    }
+
+    #[test]
+    fn an_array_that_is_not_three_or_four_channels_is_rejected() {
+        assert!(
+            from_cbor::<Color>(cbor!([255, 136]).unwrap()).is_err(),
+            "two channels is not a color"
+        );
+        assert!(
+            from_cbor::<Color>(cbor!([255, 136, 0, 128, 0]).unwrap()).is_err(),
+            "five channels is not a color"
+        );
+    }
+}

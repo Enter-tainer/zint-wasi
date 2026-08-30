@@ -1,0 +1,20 @@
+<?xml version="1.0" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg width="226" height="118" version="1.1" xmlns="http://www.w3.org/2000/svg">
+ <desc>Zint Generated Symbol</desc>
+ <g id="barcode" fill="#000000">
+  <path d="M12 0h4v12h-4ZM18 0h4v12h-4ZM24 0h6v4h-6ZM32 0h4v4h-4ZM38 0h2v4h-2ZM48 0h2v4h-2ZM60 0h4v4h-4ZM66 0h2v4h-2ZM70 0h2v4h-2ZM74 0h8v4h-8ZM84 0h8v4h-8ZM100 0h2v12h-2ZM106 0h6v4h-6ZM114 0h2v8h-2ZM120 0h10v4h-10ZM132 0h6v4h-6ZM142 0h2v8h-2ZM146 0h6v12h-6ZM154 0h6v4h-6ZM164 0h2v4h-2ZM170 0h4v4h-4ZM176 0h8v4h-8ZM188 0h4v8h-4ZM194 0h4v4h-4ZM204 0h2v12h-2ZM208 0h2v12h-2ZM24 4h4v4h-4ZM32 4h6v4h-6ZM40 4h4v4h-4ZM50 4h6v4h-6ZM58 4h2v4h-2ZM66 4h4v4h-4ZM72 4h2v4h-2ZM78 4h6v4h-6ZM92 4h2v4h-2ZM106 4h4v8h-4ZM120 4h12v4h-12ZM138 4h2v4h-2ZM154 4h10v4h-10ZM166 4h2v4h-2ZM174 4h4v4h-4ZM180 4h6v4h-6ZM196 4h2v8h-2ZM24 8h2v4h-2ZM32 8h2v4h-2ZM36 8h4v4h-4ZM46 8h2v4h-2ZM54 8h6v4h-6ZM66 8h6v4h-6ZM74 8h2v4h-2ZM78 8h12v4h-12ZM92 8h4v4h-4ZM114 8h4v4h-4ZM120 8h2v4h-2ZM130 8h4v4h-4ZM136 8h2v4h-2ZM154 8h4v4h-4ZM160 8h4v4h-4ZM174 8h2v4h-2ZM178 8h8v4h-8ZM188 8h6v4h-6ZM18 12h2v4h-2ZM206 12h2v4h-2ZM16 16h2v4h-2ZM208 16h2v4h-2ZM18 20h2v90h-2ZM206 20h2v90h-2ZM22 24h2v86h-2ZM26 24h2v86h-2ZM30 24h8v86h-8ZM42 24h4v76h-4ZM50 24h2v76h-2ZM54 24h2v76h-2ZM62 24h4v76h-4ZM70 24h4v76h-4ZM78 24h2v76h-2ZM82 24h2v76h-2ZM90 24h4v76h-4ZM98 24h4v76h-4ZM106 24h2v76h-2ZM110 24h2v86h-2ZM114 24h2v86h-2ZM118 24h6v76h-6ZM128 24h2v76h-2ZM132 24h4v76h-4ZM140 24h4v76h-4ZM146 24h4v76h-4ZM152 24h4v76h-4ZM160 24h2v76h-2ZM170 24h2v76h-2ZM174 24h2v76h-2ZM178 24h6v76h-6ZM188 24h2v86h-2ZM198 24h2v86h-2ZM202 24h2v86h-2Z"/>
+  <text x="8.7" y="117.2" text-anchor="end" font-family="OCRB, monospace" font-size="14">
+   6
+  </text>
+  <text x="74" y="117.2" text-anchor="middle" font-family="OCRB, monospace" font-size="20">
+   14141
+  </text>
+  <text x="152" y="117.2" text-anchor="middle" font-family="OCRB, monospace" font-size="20">
+   01234
+  </text>
+  <text x="217.3" y="117.2" text-anchor="start" font-family="OCRB, monospace" font-size="14">
+   3
+  </text>
+ </g>
+</svg>

@@ -118,3 +118,7 @@ typst-package/LICENSE
 
 # Keep manual
 !typst-package/manual.pdf
+
+# Mutation testing reports
+mutants.out/
+mutants.out.old/

@@ -1,0 +1,11 @@
+<?xml version="1.0" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg width="246" height="117" version="1.1" xmlns="http://www.w3.org/2000/svg">
+ <desc>Zint Generated Symbol</desc>
+ <g id="barcode" fill="#000000">
+  <path d="M0 0h4v100h-4ZM6 0h2v100h-2ZM12 0h2v100h-2ZM22 0h2v100h-2ZM26 0h8v100h-8ZM40 0h2v100h-2ZM44 0h2v100h-2ZM48 0h2v100h-2ZM56 0h4v100h-4ZM66 0h2v100h-2ZM70 0h6v100h-6ZM78 0h8v100h-8ZM88 0h2v100h-2ZM92 0h4v100h-4ZM100 0h6v100h-6ZM110 0h2v100h-2ZM118 0h2v100h-2ZM122 0h4v100h-4ZM132 0h2v100h-2ZM136 0h8v100h-8ZM146 0h6v100h-6ZM154 0h4v100h-4ZM160 0h6v100h-6ZM170 0h2v100h-2ZM176 0h2v100h-2ZM184 0h2v100h-2ZM188 0h4v100h-4ZM198 0h4v100h-4ZM204 0h2v100h-2ZM212 0h6v100h-6ZM220 0h4v100h-4ZM230 0h6v100h-6ZM238 0h2v100h-2ZM242 0h4v100h-4Z"/>
+  <text x="123" y="113.34" text-anchor="middle" font-family="Arimo, Arial, sans-serif" font-size="14">
+   A12345B
+  </text>
+ </g>
+</svg>

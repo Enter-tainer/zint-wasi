@@ -968,7 +968,11 @@ impl std::error::Error for CommandError {
 
 #[cfg(test)]
 mod tests {
-    use super::{wasm_custom_sections, TARGET_FEATURES_SECTION};
+    use super::{
+        exists, hash_files, wasm_custom_sections, CommandError, DownloadError, FileSize,
+        TARGET_FEATURES_SECTION,
+    };
+    use crate::test_support::TempFile;
 
     /// Builds a module header followed by `sections`.
     fn module(sections: &[u8]) -> Vec<u8> {
@@ -1028,5 +1032,164 @@ mod tests {
         assert!(wasm_custom_sections(b"not a wasm module at all").is_none());
         // Truncated section body.
         assert!(wasm_custom_sections(&module(&[0x00, 0x7f, 0x01])).is_none());
+    }
+
+    /// The plugin's size before and after optimisation is reported to the
+    /// build log, so each step between the units is worth pinning.
+    #[test]
+    fn file_sizes_are_reported_in_the_largest_unit_that_fits() {
+        for (bytes, expected) in [
+            (0u64, "0 B"),
+            (1, "1 B"),
+            (1023, "1023 B"),
+            (1024, "1.000 KiB"),
+            (1536, "1.500 KiB"),
+            (1024 * 1024 - 1, "1023.999 KiB"),
+            (1024 * 1024, "1.000 MiB"),
+            (1024 * 1024 * 1024, "1.000 GiB"),
+        ] {
+            assert_eq!(FileSize::from(bytes).to_string(), expected, "{bytes} bytes");
+        }
+    }
+
+    #[test]
+    fn a_file_size_converts_back_to_a_number_of_bytes() {
+        assert_eq!(u64::from(FileSize::from(4096)), 4096);
+        assert_eq!(usize::from(FileSize::from(4096)), 4096);
+    }
+
+    #[test]
+    fn the_size_of_a_missing_file_is_an_error() {
+        let missing = std::env::temp_dir().join("zint-wasi-xtask-no-such-file");
+        let Err(error) = FileSize::of(missing) else {
+            panic!("the file does not exist and has no size")
+        };
+
+        assert!(
+            error.to_string().contains("file not found"),
+            "unexpected error: {error}"
+        );
+    }
+
+    /// The hash decides whether a build step can be skipped, so it has to
+    /// depend on what the files contain and not on how they were listed.
+    #[test]
+    fn hashing_ignores_the_order_the_files_are_listed_in() {
+        let first = TempFile::holding("one");
+        let second = TempFile::holding("two");
+
+        assert_eq!(
+            hash_files([first.path(), second.path()]),
+            hash_files([second.path(), first.path()])
+        );
+    }
+
+    #[test]
+    fn hashing_follows_the_contents_and_not_the_name() {
+        let one = TempFile::holding("same contents");
+        let copy = TempFile::holding("same contents");
+        let different = TempFile::holding("other contents");
+
+        assert_eq!(hash_files([one.path()]), hash_files([copy.path()]));
+        assert_ne!(hash_files([one.path()]), hash_files([different.path()]));
+    }
+
+    /// The exit code is put into a `NonZeroI32` without checking, so the guard
+    /// in front of that is what keeps it sound.
+    #[test]
+    #[should_panic(expected = "exit code 0 doesn't indicate an error")]
+    fn a_successful_exit_is_not_an_error() {
+        let _ = CommandError::new(0);
+    }
+
+    #[test]
+    fn a_failure_names_the_program_it_came_from() {
+        assert_eq!(
+            CommandError::new(2).to_string(),
+            "process exited with code #2"
+        );
+        assert_eq!(
+            CommandError::new(2).program("wasm-opt").to_string(),
+            "wasm-opt exited with code #2"
+        );
+        assert_eq!(
+            CommandError::interrupt(9).program("typst").to_string(),
+            "typst interrupted (signal: 9)"
+        );
+    }
+
+    /// A missing tool is the one failure a contributor can do something about,
+    /// so the message has to say where to get it.
+    #[test]
+    fn a_missing_tool_says_where_to_get_it() {
+        let known = CommandError::missing_tool("cargo", Some("https://rustup.rs/")).to_string();
+        assert!(known.starts_with("cargo is not in PATH"), "{known}");
+        assert!(known.ends_with("'https://rustup.rs/'"), "{known}");
+
+        let unknown = CommandError::missing_tool("wasm-opt", None).to_string();
+        assert!(unknown.ends_with("a credible source."), "{unknown}");
+    }
+
+    /// A download failure is reported to whoever is building the plugin, so
+    /// each of the three ways it can fail has to say something different.
+    #[test]
+    fn a_download_failure_says_which_way_it_failed() {
+        let bad_url = DownloadError::BadUrl {
+            url: "htp://example.invalid/wasi-sdk.tar.gz".to_string(),
+        };
+        assert_eq!(
+            bad_url.to_string(),
+            "can't resolve url: 'htp://example.invalid/wasi-sdk.tar.gz'"
+        );
+
+        let exited = DownloadError::CommandError(CommandError::new(8).program("wget"));
+        assert_eq!(exited.to_string(), "wget exited with code #8");
+
+        let io = DownloadError::IO(std::io::Error::new(
+            std::io::ErrorKind::PermissionDenied,
+            "no write access",
+        ));
+        assert_eq!(io.to_string(), "io error: no write access");
+    }
+
+    /// Only the failures that wrap another error have one to point at.
+    #[test]
+    fn a_download_failure_points_at_the_error_underneath_it() {
+        use std::error::Error;
+
+        assert!(DownloadError::CommandError(CommandError::new(8))
+            .source()
+            .is_some());
+        assert!(DownloadError::IO(std::io::Error::other("no write access"))
+            .source()
+            .is_some());
+        assert!(DownloadError::BadUrl {
+            url: "htp://example.invalid".to_string()
+        }
+        .source()
+        .is_none());
+    }
+
+    /// A path that cannot be looked at counts as missing, because every caller
+    /// treats the answer as "is this tool already here".
+    #[test]
+    fn a_path_that_cannot_be_read_counts_as_missing() {
+        let file = TempFile::holding("");
+
+        assert!(exists(file.path()));
+        assert!(!exists(
+            std::env::temp_dir().join("zint-wasi-xtask-no-such-path")
+        ));
+    }
+
+    #[test]
+    fn a_bad_argument_explains_what_was_wrong_with_it() {
+        let error =
+            CommandError::file_not_found("input", "/nowhere/plugin.wasm").program("wasm-opt");
+        let message = error.to_string();
+
+        assert!(message.contains("wasm-opt"), "{message}");
+        assert!(message.contains("'input'"), "{message}");
+        assert!(message.contains("/nowhere/plugin.wasm"), "{message}");
     }
 }

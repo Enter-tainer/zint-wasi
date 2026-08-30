@@ -291,3 +291,182 @@ pub mod macros {
 #[path = "./action_impl.rs"]
 mod action_impl;
 pub use action_impl::*;
+
+#[cfg(test)]
+mod tests {
+    use super::Action;
+    use std::collections::HashSet;
+
+    /// Declares every action, so the graph checks below cover all of them.
+    ///
+    /// The generated `match` keeps the list honest: an action that is added
+    /// without being listed here does not compile.
+    macro_rules! all_actions {
+        ($($action:ident),+ $(,)?) => {
+            const ALL: &[Action] = &[$(Action::$action),+];
+
+            #[allow(dead_code)]
+            fn every_action_is_listed(action: Action) {
+                match action {
+                    $(Action::$action => ()),+
+                }
+            }
+        };
+    }
+
+    all_actions![
+        EnsureWasi,
+        StubPlugin,
+        EnsureWasmOpt,
+        OptPlugin,
+        BuildPlugin,
+        PackagePlugin,
+        CompileManual,
+        CompileExample,
+        CopyLicense,
+        EnsureCargoAbout,
+        ThirdPartyLicense,
+        Package,
+        InstallTypst,
+        RunCI,
+        All,
+    ];
+
+    /// Everything reachable from `action`, which is what running it would do.
+    fn reachable(action: Action) -> HashSet<Action> {
+        let mut found = HashSet::new();
+        let mut queue = vec![action];
+        while let Some(current) = queue.pop() {
+            for dependency in current.dependencies() {
+                if found.insert(*dependency) {
+                    queue.push(*dependency);
+                }
+            }
+        }
+        found
+    }
+
+    fn assert_acyclic(action: Action, done: &mut HashSet<Action>, path: &mut Vec<Action>) {
+        for dependency in action.dependencies() {
+            assert!(
+                !path.contains(dependency),
+                "dependency cycle: {}",
+                path.iter()
+                    .chain([dependency])
+                    .map(|it| format!("{it:?}"))
+                    .collect::<Vec<_>>()
+                    .join(" > ")
+            );
+            if !done.insert(*dependency) {
+                continue;
+            }
+            path.push(*dependency);
+            assert_acyclic(*dependency, done, path);
+            path.pop();
+        }
+    }
+
+    #[test]
+    fn the_tasks_the_readme_documents_can_be_asked_for() {
+        for (argument, expected) in [
+            ("build-plugin", Action::BuildPlugin),
+            ("package-plugin", Action::PackagePlugin),
+            ("build-manual", Action::CompileManual),
+            ("package", Action::Package),
+            ("ci", Action::RunCI),
+            ("all", Action::All),
+        ] {
+            assert_eq!(Action::parse_arg(argument), Ok(expected), "{argument}");
+        }
+    }
+
+    /// Actions without an argument are steps of a larger task rather than tasks
+    /// of their own, and an empty argument must not reach them.
+    #[test]
+    fn an_unknown_task_is_reported_with_the_argument_that_was_given() {
+        for argument in ["", " ", "opt-plugin", "Package", "build_plugin"] {
+            assert_eq!(
+                Action::parse_arg(argument),
+                Err(argument.to_string()),
+                "{argument:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn running_xtask_without_a_task_runs_everything() {
+        assert_eq!(Action::default(), Action::All);
+    }
+
+    /// Walking the dependencies is how an action runs, and `run_impl` gives up
+    /// with `unreachable!` if it finds a cycle. This is what proves the declared
+    /// graph has none.
+    #[test]
+    fn no_action_depends_on_itself_directly_or_indirectly() {
+        for action in ALL {
+            let mut done = HashSet::new();
+            let mut path = vec![*action];
+            assert_acyclic(*action, &mut done, &mut path);
+        }
+    }
+
+    /// The workflow runs `cargo xtask ci` and then uploads the plugin and the
+    /// manual, so those steps have to stay part of that task.
+    #[test]
+    fn the_ci_task_still_produces_the_plugin_and_the_manual() {
+        let reached = reachable(Action::RunCI);
+
+        for required in [
+            Action::EnsureWasi,
+            Action::BuildPlugin,
+            Action::StubPlugin,
+            Action::EnsureWasmOpt,
+            Action::OptPlugin,
+            Action::PackagePlugin,
+            Action::InstallTypst,
+            Action::CompileManual,
+        ] {
+            assert!(
+                reached.contains(&required),
+                "{required:?} is no longer part of the CI task"
+            );
+        }
+    }
+
+    /// Packaging is what a release is cut from, so it has to keep collecting
+    /// the licence files along with the plugin.
+    #[test]
+    fn packaging_still_collects_the_licences() {
+        let reached = reachable(Action::Package);
+
+        assert!(reached.contains(&Action::CopyLicense));
+        assert!(reached.contains(&Action::ThirdPartyLicense));
+        assert!(reached.contains(&Action::PackagePlugin));
+    }
+
+    #[test]
+    fn only_named_actions_are_announced_while_they_run() {
+        assert_eq!(Action::BuildPlugin.name(), Some("build plugin"));
+        assert_eq!(Action::OptPlugin.name(), Some("optimize wasm"));
+        assert_eq!(Action::CopyLicense.name(), None);
+        assert_eq!(Action::All.name(), None);
+    }
+
+    #[test]
+    fn an_action_without_a_name_is_displayed_by_its_variant() {
+        assert_eq!(Action::BuildPlugin.to_string(), "build plugin");
+        assert_eq!(Action::All.to_string(), "All");
+    }
+
+    /// The actions that only group other ones have nothing to run themselves.
+    #[test]
+    fn grouping_actions_have_no_runner() {
+        assert!(Action::Package.runner().is_none());
+        assert!(Action::PackagePlugin.runner().is_none());
+        assert!(Action::RunCI.runner().is_none());
+        assert!(Action::All.runner().is_none());
+
+        assert!(Action::BuildPlugin.runner().is_some());
+        assert!(Action::OptPlugin.runner().is_some());
+    }
+}

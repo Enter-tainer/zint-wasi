@@ -2,6 +2,9 @@ pub mod error;
 pub mod options;
 pub mod symbol;
 
+#[cfg(test)]
+mod test_support;
+
 pub(crate) mod util {
     use std::ffi::CString;
 
@@ -24,6 +27,67 @@ pub(crate) mod util {
         }
         for (i, v) in src.iter().enumerate() {
             dest[i] = *v
+        }
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::copy_into_cstr;
+        use std::os::raw::c_char;
+
+        /// Zint reads these buffers as C strings, so the terminator matters as
+        /// much as the payload.
+        #[test]
+        fn copies_the_string_and_its_terminator() {
+            let mut buffer = [0 as c_char; 4];
+            copy_into_cstr("abc", &mut buffer[..]);
+
+            assert_eq!(
+                buffer,
+                [b'a' as c_char, b'b' as c_char, b'c' as c_char, 0 as c_char]
+            );
+        }
+
+        /// The tail is deliberately left alone: zint stops at the terminator, so
+        /// a shorter value written over a longer one still reads back correctly.
+        #[test]
+        fn leaves_the_rest_of_the_buffer_untouched() {
+            let mut buffer = [b'x' as c_char; 6];
+            copy_into_cstr("ab", &mut buffer[..]);
+
+            assert_eq!(
+                buffer,
+                [
+                    b'a' as c_char,
+                    b'b' as c_char,
+                    0 as c_char,
+                    b'x' as c_char,
+                    b'x' as c_char,
+                    b'x' as c_char
+                ]
+            );
+        }
+
+        #[test]
+        fn accepts_a_buffer_that_fits_exactly() {
+            let mut buffer = [0 as c_char; 3];
+            copy_into_cstr("ab", &mut buffer[..]);
+            assert_eq!(buffer, [b'a' as c_char, b'b' as c_char, 0 as c_char]);
+        }
+
+        #[test]
+        fn accepts_an_empty_string() {
+            let mut buffer = [b'x' as c_char; 2];
+            copy_into_cstr("", &mut buffer[..]);
+            assert_eq!(buffer, [0 as c_char, b'x' as c_char]);
+        }
+
+        /// One byte short, because the terminator needs room too.
+        #[test]
+        #[should_panic(expected = "target buffer too small")]
+        fn panics_when_the_buffer_cannot_hold_the_terminator() {
+            let mut buffer = [0 as c_char; 3];
+            copy_into_cstr("abc", &mut buffer[..]);
         }
     }
 }

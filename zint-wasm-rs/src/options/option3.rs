@@ -302,3 +302,184 @@ impl<'de> Deserialize<'de> for Option3 {
         deserializer.deserialize_any(Option3Visitor)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{DataMatrixOption, Option3, QRMask, QRMatrixOption, UltracodeOption};
+    use crate::{error::Error, test_support::from_cbor};
+    use ciborium::cbor;
+
+    /// `option_3` is a single integer whose meaning depends on the symbology,
+    /// so what these types have to get right is the number that reaches zint.
+    #[test]
+    fn the_options_match_the_values_zint_defines() {
+        assert_eq!(Option3::from(DataMatrixOption::Square).as_i32(), 100);
+        assert_eq!(Option3::from(DataMatrixOption::DMRE).as_i32(), 101);
+        assert_eq!(Option3::from(DataMatrixOption::ISO144).as_i32(), 128);
+        assert_eq!(Option3::from(QRMatrixOption::FULL_MULITIBYTE).as_i32(), 200);
+        assert_eq!(Option3::from(UltracodeOption::Compression).as_i32(), 128);
+    }
+
+    /// Zint reads the QR mask from the second byte and treats zero there as
+    /// "choose one for me", so every mask is stored one above its number.
+    #[test]
+    fn qr_masks_are_stored_one_above_their_number() {
+        for (mask, expected) in [
+            (QRMask::Mask0, 0x100),
+            (QRMask::Mask3, 0x400),
+            (QRMask::Mask7, 0x800),
+        ] {
+            assert_eq!(QRMatrixOption::from(mask).bits(), expected, "{mask:?}");
+        }
+
+        assert_eq!(
+            QRMatrixOption::MASK_0.bits(),
+            QRMatrixOption::from(QRMask::Mask0).bits()
+        );
+        assert_eq!(
+            QRMatrixOption::MASK_7.bits(),
+            QRMatrixOption::from(QRMask::Mask7).bits()
+        );
+    }
+
+    /// A fixed mask and Kanji compression occupy different bytes of the same
+    /// integer, which is what lets them be requested together.
+    #[test]
+    fn a_mask_and_full_multibyte_fit_in_the_same_integer() {
+        let both = QRMatrixOption::FULL_MULITIBYTE | QRMatrixOption::from(QRMask::Mask5);
+
+        assert_eq!(Option3::from(both).as_i32(), 200 | 0x600);
+        assert_eq!(
+            both.bits() & 0xFF,
+            200,
+            "the low byte still selects Kanji compression"
+        );
+        assert_eq!(
+            (both.bits() >> 8) - 1,
+            QRMask::Mask5 as u32,
+            "the high byte still selects the mask"
+        );
+    }
+
+    #[test]
+    fn names_ignore_case_and_separator_style() {
+        for (name, expected) in [
+            ("dm-square", 100),
+            ("DM_SQUARE", 100),
+            ("square", 100),
+            ("dmre", 101),
+            ("rect", 101),
+            ("DM_DMRE", 101),
+            ("iso-144", 128),
+            ("DM_ISO_144", 128),
+            ("full-multibyte", 200),
+            ("ZINT_FULL_MULTIBYTE", 200),
+            ("compression", 128),
+            ("ULTRA_COMPRESSION", 128),
+        ] {
+            let option: Option3 = from_cbor(cbor!(name).unwrap())
+                .unwrap_or_else(|error| panic!("{name} should be an option_3 value: {error}"));
+
+            assert_eq!(option.as_i32(), expected, "{name}");
+        }
+    }
+
+    #[test]
+    fn an_unknown_name_is_rejected() {
+        let error = from_cbor::<Option3>(cbor!("dm-round").unwrap())
+            .expect_err("dm-round is not an option");
+        assert!(error.contains("dm-round"), "unexpected error: {error}");
+    }
+
+    /// What a document gets back when the option is neither a name nor a
+    /// number.
+    #[test]
+    fn a_value_that_is_not_an_option_at_all_is_rejected() {
+        let error = from_cbor::<Option3>(cbor!(true).unwrap())
+            .expect_err("a flag is not an option_3 value");
+        assert!(
+            error.contains("expected option_3 value"),
+            "the error should say what was expected: {error}"
+        );
+    }
+
+    #[test]
+    fn integers_that_name_a_known_option_are_accepted() {
+        for value in [100, 101, 128, 200, 0x100, 0x800] {
+            let option: Option3 = from_cbor(cbor!(value).unwrap())
+                .unwrap_or_else(|error| panic!("{value} should be an option_3 value: {error}"));
+
+            assert_eq!(option.as_i32(), value);
+        }
+    }
+
+    #[test]
+    fn an_integer_that_names_nothing_is_rejected() {
+        for value in [1, 99, 102, 199, 0x1000] {
+            assert!(
+                from_cbor::<Option3>(cbor!(value).unwrap()).is_err(),
+                "{value} is not an option_3 value"
+            );
+        }
+    }
+
+    /// The three option types are one union, because zint stores them in one
+    /// field: 128 means "ISO 144x144" for Data Matrix and "compression" for
+    /// Ultracode, and only the symbology says which.
+    #[test]
+    fn the_option_types_share_a_single_integer() {
+        let option = Option3::try_from(128).expect("128 is a known option_3 value");
+
+        assert_eq!(option.as_i32(), 128);
+        assert_eq!(
+            unsafe {
+                // Safety: 128 is a valid discriminant of both types, which is
+                // exactly the ambiguity being asserted here.
+                option.as_data_matrix()
+            } as u32,
+            DataMatrixOption::ISO144 as u32
+        );
+        assert_eq!(
+            unsafe {
+                // Safety: see above.
+                option.as_ultracode()
+            } as u32,
+            UltracodeOption::Compression as u32
+        );
+    }
+
+    #[test]
+    fn a_rejected_value_says_which_option_it_belongs_to() {
+        for error in [
+            DataMatrixOption::try_from(42).expect_err("42 is not a Data Matrix option"),
+            QRMatrixOption::try_from(42).expect_err("42 is not a QR option"),
+            UltracodeOption::try_from(42).expect_err("42 is not an Ultracode option"),
+            Option3::try_from(42).expect_err("42 is not an option_3 value"),
+        ] {
+            assert!(
+                matches!(
+                    error,
+                    Error::UnknownOption {
+                        which: "option_3",
+                        ..
+                    }
+                ),
+                "unexpected error: {error:?}"
+            );
+        }
+    }
+
+    /// The union has no discriminant to print, so `Debug` shows the number that
+    /// reaches zint instead.
+    #[test]
+    fn debug_shows_the_number_zint_receives() {
+        assert_eq!(
+            format!("{:?}", Option3::from(DataMatrixOption::Square)),
+            "100"
+        );
+        assert_eq!(
+            format!("{:?}", Option3::from(QRMatrixOption::from(QRMask::Mask7))),
+            "2048"
+        );
+    }
+}

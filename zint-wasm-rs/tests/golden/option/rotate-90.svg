@@ -1,0 +1,11 @@
+<?xml version="1.0" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg width="117" height="224" version="1.1" xmlns="http://www.w3.org/2000/svg">
+ <desc>Zint Generated Symbol</desc>
+ <g id="barcode" fill="#000000">
+  <path d="M16.28 0h100v4h-100ZM16.28 6h100v2h-100ZM16.28 12h100v2h-100ZM16.28 22h100v2h-100ZM16.28 26h100v2h-100ZM16.28 34h100v4h-100ZM16.28 44h100v2h-100ZM16.28 48h100v6h-100ZM16.28 56h100v8h-100ZM16.28 66h100v2h-100ZM16.28 70h100v4h-100ZM16.28 78h100v6h-100ZM16.28 88h100v2h-100ZM16.28 96h100v2h-100ZM16.28 100h100v4h-100ZM16.28 110h100v2h-100ZM16.28 114h100v8h-100ZM16.28 124h100v6h-100ZM16.28 132h100v4h-100ZM16.28 138h100v6h-100ZM16.28 148h100v2h-100ZM16.28 154h100v2h-100ZM16.28 162h100v2h-100ZM16.28 166h100v4h-100ZM16.28 176h100v4h-100ZM16.28 186h100v4h-100ZM16.28 192h100v4h-100ZM16.28 198h100v4h-100ZM16.28 208h100v6h-100ZM16.28 216h100v2h-100ZM16.28 220h100v4h-100Z"/>
+  <text x="2.94" y="112" text-anchor="middle" font-family="Arimo, Arial, sans-serif" font-size="14" transform="rotate(90,2.94,112)">
+   A12345B
+  </text>
+ </g>
+</svg>

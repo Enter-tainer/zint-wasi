@@ -1,0 +1,3 @@
+# The golden files are compared byte for byte against what zint renders, which
+# always uses Unix line endings.
+zint-wasm-rs/tests/golden/**/*.svg text eol=lf

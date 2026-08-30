@@ -67,6 +67,11 @@ jobs:
       # third-party code, which is not ours to test.
       - name: Run tests
         run: cargo test --locked -p zint-wasm-sys -p zint-wasm-rs -p zint-typst-plugin -p xtask
+      # Building the library next to the plugin turns on its `typst` feature,
+      # which renames every option key, so the plain library needs a run of its
+      # own to be covered at all.
+      - name: Run tests without the Typst option names
+        run: cargo test --locked -p zint-wasm-rs
 
   audit:
     name: Audit
