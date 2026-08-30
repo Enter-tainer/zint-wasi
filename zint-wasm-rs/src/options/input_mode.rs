@@ -179,11 +179,7 @@ impl<'de> Deserialize<'de> for InputMode {
                                 }
                             })
                         }
-                        None => {
-                            return Err(de::Error::custom(Error::UnknownOutputOption(
-                                key.to_string(),
-                            )))
-                        }
+                        None => return Err(de::Error::custom(Error::UnknownInputOption(key))),
                     }
                 }
                 Ok(result)
@@ -300,7 +296,7 @@ mod tests {
         let from_dictionary =
             from_cbor::<InputMode>(cbor!({"gs2" => true}).unwrap()).expect_err("gs2 is not a flag");
         assert!(
-            from_dictionary.contains("gs2"),
+            from_dictionary.contains("unknown input option: gs2"),
             "unexpected error: {from_dictionary}"
         );
 
