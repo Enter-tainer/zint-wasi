@@ -394,10 +394,69 @@ pub fn wasi_stub(input: impl AsRef<Path>, output: impl AsRef<Path>) -> Result<()
     (runner)(input.as_ref(), output.as_ref()).map_err(|err| err.program(WASI_STUB))
 }
 
+const TARGET_FEATURES_SECTION: &str = "target_features";
+
+/// Lists the names of the custom sections of a WebAssembly module.
+///
+/// Only the top level section headers are walked. Section id `0` marks a
+/// custom section, whose payload begins with its own length-prefixed name.
+/// Returns [`None`] if `module` isn't a WebAssembly binary.
+fn wasm_custom_sections(module: &[u8]) -> Option<Vec<String>> {
+    fn leb128_u32(input: &mut &[u8]) -> Option<u32> {
+        let mut result = 0;
+        for shift in [0u32, 7, 14, 21, 28] {
+            let (byte, rest) = input.split_first()?;
+            *input = rest;
+            result |= ((byte & 0x7f) as u32) << shift;
+            if byte & 0x80 == 0 {
+                return Some(result);
+            }
+        }
+        None
+    }
+
+    // 4 byte magic number followed by a 4 byte version.
+    let mut rest = module.strip_prefix(b"\0asm")?.get(4..)?;
+    let mut names = Vec::new();
+    while let Some((id, tail)) = rest.split_first() {
+        rest = tail;
+        let size = leb128_u32(&mut rest)? as usize;
+        let mut payload = rest.get(..size)?;
+        rest = rest.get(size..)?;
+        if *id == 0 {
+            let length = leb128_u32(&mut payload)? as usize;
+            names.push(String::from_utf8_lossy(payload.get(..length)?).into_owned());
+        }
+    }
+    Some(names)
+}
+
 pub const WASM_OPT: &str = "wasm-opt";
 pub fn wasm_opt(input: impl AsRef<Path>, output: impl AsRef<Path>) -> Result<(), CommandError> {
     if !exists(&input) {
         return Err(CommandError::file_not_found("input", &input).program(WASM_OPT));
+    }
+
+    // wasm-opt takes the set of allowed proposals from this section. Without it
+    // the module is checked against wasm-opt's own defaults, which reject
+    // anything the Rust toolchain enabled after that release of binaryen, with
+    // an error that doesn't say so.
+    let missing_features_section = std::fs::read(input.as_ref())
+        .ok()
+        .and_then(|module| wasm_custom_sections(&module))
+        .is_some_and(|sections| !sections.iter().any(|it| it == TARGET_FEATURES_SECTION));
+    if missing_features_section {
+        return Err(CommandError::BadArgument {
+            program: Some(WASM_OPT),
+            argument: "input",
+            expect_found: None,
+            reason: Some(Box::new(io::Error::other(format!(
+                "module has no '{}' section, so wasm-opt cannot know which \
+                 WebAssembly proposals it may use; the plugin profile has to \
+                 keep that section (`strip = \"debuginfo\"`, not `strip = true`)",
+                TARGET_FEATURES_SECTION
+            )))),
+        });
     }
     if let Some(parent) = output.as_ref().parent() {
         if let Err(err) = std::fs::create_dir_all(parent) {
@@ -421,7 +480,10 @@ pub fn wasm_opt(input: impl AsRef<Path>, output: impl AsRef<Path>) -> Result<(),
                     [
                         file.as_os_str(),
                         OsStr::new("-O3"),
-                        OsStr::new("--enable-bulk-memory"),
+                        // Enabled proposals are read from the module itself, so
+                        // this list never has to track the Rust toolchain.
+                        OsStr::new("--strip-producers"),
+                        OsStr::new("--strip-target-features"),
                         OsStr::new("-o"),
                         output.as_os_str(),
                     ],
@@ -901,5 +963,70 @@ impl std::error::Error for CommandError {
             } => Some(reason.as_ref()),
             _ => None,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{wasm_custom_sections, TARGET_FEATURES_SECTION};
+
+    /// Builds a module header followed by `sections`.
+    fn module(sections: &[u8]) -> Vec<u8> {
+        // "\0asm" magic number, then version 1.
+        let mut result = vec![0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00];
+        result.extend_from_slice(sections);
+        result
+    }
+
+    /// Encodes `value` as LEB128, the length encoding the format uses.
+    ///
+    /// 199 becomes `[0xc7, 0x01]`: 7 bits per byte, high bit marks "continues".
+    fn leb128(mut value: u32) -> Vec<u8> {
+        let mut result = Vec::new();
+        loop {
+            let byte = (value & 0x7f) as u8;
+            value >>= 7;
+            if value == 0 {
+                result.push(byte);
+                return result;
+            }
+            result.push(byte | 0x80);
+        }
+    }
+
+    /// Builds a custom section (id 0) wrapping a length prefixed `name`.
+    fn custom_section(name: &str) -> Vec<u8> {
+        let mut payload = leb128(name.len() as u32);
+        payload.extend_from_slice(name.as_bytes());
+        let mut result = vec![0x00];
+        result.extend_from_slice(&leb128(payload.len() as u32));
+        result.extend_from_slice(&payload);
+        result
+    }
+
+    #[test]
+    fn finds_custom_sections_and_skips_known_ones() {
+        let mut sections = custom_section(TARGET_FEATURES_SECTION);
+        // A type section, which carries no name and must not be reported.
+        sections.extend_from_slice(&[0x01, 0x01, 0x00]);
+        sections.extend_from_slice(&custom_section("producers"));
+
+        let found = wasm_custom_sections(&module(&sections)).expect("valid module");
+        assert_eq!(found, [TARGET_FEATURES_SECTION, "producers"]);
+    }
+
+    #[test]
+    fn reads_sections_past_a_multi_byte_length() {
+        // 200 bytes of payload needs two LEB128 bytes to encode the length.
+        let name = "x".repeat(198);
+        let found = wasm_custom_sections(&module(&custom_section(&name))).expect("valid module");
+        assert_eq!(found, [name]);
+    }
+
+    #[test]
+    fn rejects_input_that_is_not_wasm() {
+        assert!(wasm_custom_sections(b"not a wasm module at all").is_none());
+        // Truncated section body.
+        assert!(wasm_custom_sections(&module(&[0x00, 0x7f, 0x01])).is_none());
     }
 }
