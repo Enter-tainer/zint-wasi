@@ -224,9 +224,9 @@ impl<'s> OptionalState<'s> for () {
         None
     }
 }
-impl<'s> OptionalState<'s> for &State {
+impl<'s> OptionalState<'s> for &'s State {
     fn as_option(&self) -> Option<StateRead<'s>> {
-        None
+        Some(StateRead::Reference(self))
     }
 }
 impl<'s> OptionalState<'s> for GlobalState {
@@ -545,6 +545,20 @@ mod tests {
             "PLUGIN=$<root>/typst-package\n",
             "and put back when it is written"
         );
+    }
+
+    /// A state that is passed in is there to be used; the entries in it are
+    /// symbols in their own right, alongside the project root.
+    #[test]
+    fn a_state_that_is_handed_in_resolves_its_own_symbols() {
+        let mut state = State::new();
+        state.set("TEST_WORK_DIR", "./work");
+
+        let resolved: String = Configure::configure("$<root>/$<TEST_WORK_DIR>", &state);
+        assert_eq!(resolved, format!("{ROOT}/./work"));
+
+        let symbolic: String = Configure::unconfigure(resolved, &state);
+        assert_eq!(symbolic, "$<root>/$<TEST_WORK_DIR>");
     }
 
     #[test]
