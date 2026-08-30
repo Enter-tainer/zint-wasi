@@ -1,12 +1,18 @@
 use std::ffi::{OsStr, OsString};
 
 /// Does the same as [str::replace], only for `byte`s intead of `char`s.
+///
+/// An empty `from` is the one difference: it leaves the input alone rather than
+/// inserting `to` between every byte, because every caller is replacing a path
+/// or a symbol and an empty one means there is nothing to do.
 pub trait SliceReplace<Borrowed: ?Sized = Self, Owned = <Self as std::borrow::ToOwned>::Owned> {
     fn replace_slices(&self, from: &Borrowed, to: &Borrowed) -> Owned;
 }
 impl SliceReplace for [u8] {
     fn replace_slices(&self, from: &[u8], to: &[u8]) -> Vec<u8> {
-        if self.len() < from.len() {
+        // An empty pattern matches at every position without consuming
+        // anything, which would never advance past the first one.
+        if from.is_empty() || self.len() < from.len() {
             return self.to_vec();
         }
         let mut result = Vec::with_capacity(if from.len() <= to.len() {
@@ -85,6 +91,12 @@ mod tests {
     fn a_pattern_that_is_not_there_leaves_the_input_alone() {
         let input = vec![1, 2, 3];
         assert_eq!(input.replace_slices(&[9], &[0]), &[1, 2, 3]);
+    }
+
+    #[test]
+    fn an_empty_pattern_leaves_the_input_alone() {
+        let input = b"abc".to_vec();
+        assert_eq!(input.replace_slices(b"", b"-"), b"abc");
     }
 
     /// The path being replaced is longer than most values it is looked for in.
