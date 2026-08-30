@@ -24,32 +24,36 @@ macro_rules! info {
     }};
 }
 
+// Gated on the GitHub form rather than on `ci`, so that a CI which is not
+// GitHub Actions still prints the message instead of dropping it.
 #[macro_export]
 macro_rules! warn {
     ($msg: expr) => {{
-        #[cfg(not(ci))]
+        #[cfg(not(ci = "github"))]
         println!("[WARNING]: {}", $msg);
         #[cfg(ci = "github")]
         println!("::warning :: {}", $msg);
     }};
     ($msg: literal, $($args: expr),*) => {{
-        #[cfg(not(ci))]
+        #[cfg(not(ci = "github"))]
         println!(concat!["[WARNING]: ", $msg], $($args),*);
         #[cfg(ci = "github")]
         println!(concat!["::warning :: ", $msg], $($args),*);
     }};
 }
 
+// Gated on the GitHub form rather than on `ci`, so that a CI which is not
+// GitHub Actions still prints the message instead of dropping it.
 #[macro_export]
 macro_rules! error {
     ($msg: expr) => {{
-        #[cfg(not(ci))]
+        #[cfg(not(ci = "github"))]
         eprintln!("[ERROR]: {}", $msg);
         #[cfg(ci = "github")]
         eprintln!("::error :: {}", $msg);
     }};
     ($msg: literal, $($args: expr),*) => {{
-        #[cfg(not(ci))]
+        #[cfg(not(ci = "github"))]
         eprintln!(concat!["[ERROR]: ", $msg], $($args),*);
         #[cfg(ci = "github")]
         eprintln!(concat!["::error :: ", $msg], $($args),*);
