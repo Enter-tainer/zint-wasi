@@ -71,7 +71,7 @@ impl<'de> Deserialize<'de> for InputMode {
             GS1: ["gs1"],
 
             ESCAPE: ["escape"],
-            GS1_PARENTHESES: ["gs1-parentheses", "gs1paren"],
+            GS1_PARENTHESES: ["gs1-parentheses", "gs1paren", "gs1parens"],
             GS1_NO_CHECK: ["gs1-no-check", "gs1nocheck"],
             HEIGHT_PER_ROW: ["height-per-row", "heightperrow"],
             FAST: ["fast"],
@@ -289,6 +289,28 @@ mod tests {
                 .expect("constant names");
 
         assert_eq!(mode.bits(), (InputMode::ESCAPE | InputMode::FAST).bits());
+    }
+
+    /// Every constant name zint defines, so that none of them is accepted only
+    /// by accident of how it happens to normalise.
+    #[test]
+    fn every_zint_constant_name_is_accepted() {
+        for (name, expected) in [
+            ("DATA_MODE", InputMode::DATA),
+            ("UNICODE_MODE", InputMode::UNICODE),
+            ("GS1_MODE", InputMode::GS1),
+            ("ESCAPE_MODE", InputMode::ESCAPE),
+            ("GS1PARENS_MODE", InputMode::GS1_PARENTHESES),
+            ("GS1NOCHECK_MODE", InputMode::GS1_NO_CHECK),
+            ("HEIGHTPERROW_MODE", InputMode::HEIGHT_PER_ROW),
+            ("FAST_MODE", InputMode::FAST),
+            ("EXTRA_ESCAPE_MODE", InputMode::EXTRA_ESCAPE),
+        ] {
+            let mode: InputMode = from_cbor(cbor!({ name => true }).unwrap())
+                .unwrap_or_else(|error| panic!("{name} should name a flag: {error}"));
+
+            assert_eq!(mode.bits(), expected.bits(), "{name}");
+        }
     }
 
     #[test]
