@@ -618,9 +618,7 @@ fn symbology_cases() -> Vec<Case> {
         Case::new("RMQR", Symbology::RMQR, "[01]04912345123459[15]970331[30]128[10]ABC123")
             .input_mode(InputMode::GS1),
         // Semiconductor wafer ID from SEMI T1-95 Figure 2 (7-18 alphanumerics, no
-        // letter O); the Rust enum defines this variant as BARCODE_LAST, which
-        // happens to equal BARCODE_BC412 (146) today but would drift if upstream
-        // adds a symbology.
+        // letter O).
         Case::new("BC412", Symbology::BC412, "AQ45670"),
     ]
 }

@@ -125,7 +125,7 @@ pub enum Symbology {
     UPNQR = BARCODE_UPNQR as i32,
     Ultra = BARCODE_ULTRA as i32,
     RMQR = BARCODE_RMQR as i32,
-    BC412 = BARCODE_LAST as i32,
+    BC412 = BARCODE_BC412 as i32,
 }
 
 #[cfg(test)]
@@ -254,10 +254,6 @@ mod tests {
         UPNQR => "BARCODE_UPNQR",
         Ultra => "BARCODE_ULTRA",
         RMQR => "BARCODE_RMQR",
-        // Declared as `BARCODE_LAST`, the sentinel that follows the last
-        // symbology, rather than as `BARCODE_BC412`. The two are the same
-        // number in the pinned revision of libzint, and stop being the same
-        // the moment the submodule moves.
         BC412 => "BARCODE_BC412",
     ];
 
