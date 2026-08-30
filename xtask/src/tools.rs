@@ -146,10 +146,10 @@ fn download_wget(url: &str, path: &Path) -> Result<(), DownloadError> {
     // https://www.gnu.org/software/wget/manual/html_node/Exit-Status.html
     match status.code() {
         Some(0) => Ok(()),
-        Some(3) => Err(DownloadError::IO(io::Error::new(
-            io::ErrorKind::Other,
-            format!("file I/O error: {}", path.display()),
-        ))),
+        Some(3) => Err(DownloadError::IO(io::Error::other(format!(
+            "file I/O error: {}",
+            path.display()
+        )))),
         Some(4) => Err(DownloadError::BadUrl {
             url: url.to_string(),
         }),
@@ -177,10 +177,10 @@ fn download_curl(url: &str, path: &Path) -> Result<(), DownloadError> {
         Some(3) | Some(5) | Some(6) | Some(7) => Err(DownloadError::BadUrl {
             url: url.to_string(),
         }),
-        Some(23) => Err(DownloadError::IO(io::Error::new(
-            io::ErrorKind::Other,
-            format!("file I/O error: {}", path.display()),
-        ))),
+        Some(23) => Err(DownloadError::IO(io::Error::other(format!(
+            "file I/O error: {}",
+            path.display()
+        )))),
         _ => Err(DownloadError::CommandError(
             CommandError::from(status).program(CURL),
         )),
@@ -365,7 +365,7 @@ pub fn wasi_stub(input: impl AsRef<Path>, output: impl AsRef<Path>) -> Result<()
             let executable_path = executable_path
                 .canonicalize()
                 .expect("unable to canonicalize path that exists");
-            return Some(runner(executable_path.as_os_str()));
+            Some(runner(executable_path.as_os_str()))
         };
         if let Some(it) = try_prebuilt("release") {
             return it;

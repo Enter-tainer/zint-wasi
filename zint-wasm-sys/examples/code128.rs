@@ -1,16 +1,10 @@
-use std::ffi::CStr;
-
 use zint_wasm_sys::*;
 
 pub fn main() {
-    let encoded_text =
-        CStr::from_bytes_with_nul(b"123456\0").expect("CStr::from_bytes_with_nul failed");
-    let fg_color =
-        CStr::from_bytes_with_nul(b"000000\0").expect("CStr::from_bytes_with_nul failed");
-    let bg_color =
-        CStr::from_bytes_with_nul(b"FFFFFF\0").expect("CStr::from_bytes_with_nul failed");
-    let filename =
-        CStr::from_bytes_with_nul(b"res.svg\0").expect("CStr::from_bytes_with_nul failed");
+    let encoded_text = c"123456";
+    let fg_color = c"000000";
+    let bg_color = c"FFFFFF";
+    let filename = c"res.svg";
     // Barcode configs
     let symbol = unsafe { ZBarcode_Create().as_mut().unwrap() };
     symbol.symbology = BARCODE_CODE128 as i32;

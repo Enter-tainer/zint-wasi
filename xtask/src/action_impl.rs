@@ -220,13 +220,7 @@ pub fn action_build_manual(_args: &[String]) -> ActionResult {
                     manual_target.as_os_str(),
                 ],
             );
-            cmd(
-                "git",
-                [
-                    OsStr::new("add"),
-                    manual_target.as_os_str(),
-                ],
-            );
+            cmd("git", [OsStr::new("add"), manual_target.as_os_str()]);
         } else {
             cmd(
                 "git",
