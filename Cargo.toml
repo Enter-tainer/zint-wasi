@@ -35,6 +35,12 @@ opt-level = 'z'
 codegen-units = 1
 # Abort on panic
 panic = 'abort'
+# Drop the debug info but keep the custom sections that `release` would also
+# strip. wasm-opt reads the `target_features` section to learn which proposals
+# the module uses; without it, it validates against its own defaults and
+# rejects whatever the Rust toolchain has enabled since. wasm-opt removes the
+# section itself, so the shipped plugin is unaffected.
+strip = "debuginfo"
 
 [workspace.dependencies]
 walkdir = "2"
