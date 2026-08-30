@@ -285,7 +285,7 @@ fn typst_url(version: impl AsRef<str>) -> (String, &'static str, &'static str) {
     #[cfg(all(target_os = "linux", target_arch = "arm"))]
     return (format!("https://github.com/typst/typst/releases/download/v{version}/typst-armv7-unknown-linux-musleabi.tar.xz"), "typst-armv7-unknown-linux-musleabi", "tar.xz");
     #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
-    return (format!("https://github.com/typst/typst/releases/download/v{version}/typst-x86_64-unknown-linux-musl.tar.xz "), "typst-x86_64-unknown-linux-musl", "tar.xz");
+    return (format!("https://github.com/typst/typst/releases/download/v{version}/typst-x86_64-unknown-linux-musl.tar.xz"), "typst-x86_64-unknown-linux-musl", "tar.xz");
     #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
     return (format!("https://github.com/typst/typst/releases/download/v{version}/typst-aarch64-apple-darwin.tar.xz"), "typst-aarch64-apple-darwin", "tar.xz");
     #[cfg(all(target_os = "macos", target_arch = "x86_64"))]
@@ -323,4 +323,55 @@ pub fn action_install_typst(_args: &[String]) -> ActionResult {
     }
 
     action_ok!();
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{binaryen_url, typst_url, wasi_url};
+
+    /// Only the branch for the platform the tests run on is compiled, which is
+    /// also the branch that platform's builds depend on.
+    #[test]
+    fn the_download_urls_point_at_the_release_that_was_asked_for() {
+        let wasi = wasi_url("24");
+        assert!(
+            wasi.starts_with(
+                "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-24/"
+            ),
+            "{wasi}"
+        );
+        assert!(wasi.ends_with(".tar.gz"), "{wasi}");
+
+        let binaryen = binaryen_url("119");
+        assert!(
+            binaryen.starts_with(
+                "https://github.com/WebAssembly/binaryen/releases/download/version_119/"
+            ),
+            "{binaryen}"
+        );
+        assert!(binaryen.ends_with(".tar.gz"), "{binaryen}");
+
+        let (typst, archive, extension) = typst_url("0.13.1");
+        assert!(
+            typst.starts_with("https://github.com/typst/typst/releases/download/v0.13.1/"),
+            "{typst}"
+        );
+        assert!(
+            typst.ends_with(extension),
+            "{typst} should be a {extension}"
+        );
+        assert!(typst.contains(archive), "{typst} should download {archive}");
+    }
+
+    /// A stray space in a URL fails at download time with a message about the
+    /// server rather than about the URL, which is a long way from the typo.
+    #[test]
+    fn no_download_url_carries_stray_whitespace() {
+        for url in [wasi_url("24"), binaryen_url("119"), typst_url("0.13.1").0] {
+            assert!(
+                !url.contains(char::is_whitespace),
+                "{url:?} has whitespace in it"
+            );
+        }
+    }
 }
