@@ -76,11 +76,14 @@ macro_rules! end_group {
     }};
 }
 
+/// Only the GitHub job summary renders durations.
+#[cfg(ci = "github")]
 pub struct DisplayDuration {
     pub duration: std::time::Duration,
     pub show_ms: bool,
 }
 
+#[cfg(ci = "github")]
 impl Display for DisplayDuration {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         const DAY_IN_MILLI: u128 = 86_400_000;
@@ -143,6 +146,7 @@ macro_rules! summary {
     }};
 }
 
+#[cfg(ci = "github")]
 use std::fmt::{Display, Write};
 
 #[allow(unused_imports)]
