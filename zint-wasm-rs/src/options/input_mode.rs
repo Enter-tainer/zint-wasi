@@ -166,7 +166,9 @@ impl<'de> Deserialize<'de> for InputMode {
                                     ValidationFailiure::UnknownFormat,
                                 ))
                             })?;
-                            match value.as_str() {
+                            // Unioned like any other entry: the format is one
+                            // part of the same bit field as the flags around it.
+                            result.union(match value.as_str() {
                                 "data" => InputMode::DATA,
                                 "unicode" => InputMode::UNICODE,
                                 "gs1" => InputMode::GS1,
@@ -175,7 +177,7 @@ impl<'de> Deserialize<'de> for InputMode {
                                         ValidationFailiure::UnknownFormat,
                                     )))
                                 }
-                            }
+                            })
                         }
                         None => {
                             return Err(de::Error::custom(Error::UnknownOutputOption(
@@ -255,6 +257,22 @@ mod tests {
             mode.bits(),
             (InputMode::GS1 | InputMode::GS1_PARENTHESES | InputMode::ESCAPE).bits()
         );
+    }
+
+    /// The format is one entry among the flags, so where it appears in the
+    /// dictionary cannot change what comes out.
+    #[test]
+    fn the_format_may_be_given_before_or_after_the_flags() {
+        let format_first: InputMode =
+            from_cbor(cbor!({"format" => "gs1", "escape" => true}).unwrap())
+                .expect("format before the flags");
+        let format_last: InputMode =
+            from_cbor(cbor!({"escape" => true, "format" => "gs1"}).unwrap())
+                .expect("format after the flags");
+
+        let expected = (InputMode::GS1 | InputMode::ESCAPE).bits();
+        assert_eq!(format_first.bits(), expected);
+        assert_eq!(format_last.bits(), expected);
     }
 
     #[test]
