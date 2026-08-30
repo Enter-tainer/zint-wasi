@@ -133,14 +133,12 @@ impl<'de> Deserialize<'de> for InputMode {
                 A: de::SeqAccess<'de>,
             {
                 let mut result = InputMode::empty();
-                while let Some(el) = seq.next_element::<&str>()? {
-                    result = match opt_for_name(el) {
+                // Owned, because a self describing format such as CBOR decodes
+                // into a buffer of its own and has nothing to lend out.
+                while let Some(el) = seq.next_element::<String>()? {
+                    result = match opt_for_name(&el) {
                         Some(it) => result.union(it),
-                        None => {
-                            return Err(de::Error::custom(Error::UnknownInputOption(
-                                el.to_string(),
-                            )))
-                        }
+                        None => return Err(de::Error::custom(Error::UnknownInputOption(el))),
                     }
                 }
 
@@ -203,24 +201,39 @@ mod tests {
     use ciborium::cbor;
 
     /// The manual promises that an input format can be given as an integer, a
-    /// string or a `format` entry in a dictionary, and that all of them mean
-    /// the same thing.
+    /// string, a one element array or a `format` entry in a dictionary, and
+    /// that all four mean the same thing.
     #[test]
-    fn the_documented_forms_of_an_input_format_agree() {
+    fn the_four_documented_forms_of_an_input_format_agree() {
         for (name, bits) in [("data", 0), ("unicode", 1), ("gs1", 2)] {
             let as_int: InputMode = from_cbor(cbor!(bits).unwrap()).expect("integer form");
             let as_string: InputMode = from_cbor(cbor!(name).unwrap()).expect("string form");
+            let as_array: InputMode = from_cbor(cbor!([name]).unwrap()).expect("array form");
             let as_dictionary: InputMode =
                 from_cbor(cbor!({"format" => name}).unwrap()).expect("dictionary form");
 
             assert_eq!(as_int.bits(), bits as u32, "integer form of {name}");
             assert_eq!(as_string.bits(), bits as u32, "string form of {name}");
+            assert_eq!(as_array.bits(), bits as u32, "array form of {name}");
             assert_eq!(
                 as_dictionary.bits(),
                 bits as u32,
                 "dictionary form of {name}"
             );
         }
+    }
+
+    /// A GS1 barcode whose Application Identifiers are written in parentheses,
+    /// with escape sequences enabled: flags that have to end up in one integer.
+    #[test]
+    fn an_array_unions_every_flag_it_lists() {
+        let mode: InputMode = from_cbor(cbor!(["gs1", "gs1-parentheses", "escape"]).unwrap())
+            .expect("array of flag names");
+
+        assert_eq!(
+            mode.bits(),
+            (InputMode::GS1 | InputMode::GS1_PARENTHESES | InputMode::ESCAPE).bits()
+        );
     }
 
     /// A GS1 barcode whose Application Identifiers are written in parentheses,
@@ -266,9 +279,16 @@ mod tests {
 
     #[test]
     fn an_unknown_flag_name_is_rejected() {
-        let error =
+        let from_dictionary =
             from_cbor::<InputMode>(cbor!({"gs2" => true}).unwrap()).expect_err("gs2 is not a flag");
-        assert!(error.contains("gs2"), "unexpected error: {error}");
+        assert!(
+            from_dictionary.contains("gs2"),
+            "unexpected error: {from_dictionary}"
+        );
+
+        let from_array =
+            from_cbor::<InputMode>(cbor!(["gs1", "gs2"]).unwrap()).expect_err("gs2 is not a flag");
+        assert!(from_array.contains("gs2"), "unexpected error: {from_array}");
     }
 
     #[test]
