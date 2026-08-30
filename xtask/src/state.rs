@@ -43,7 +43,7 @@ impl State {
                     return Some(line.map(|it| (i, it)));
                 };
                 let line = line.trim();
-                if line.starts_with('#') {
+                if line.is_empty() || line.starts_with('#') {
                     return None;
                 }
 
@@ -463,6 +463,18 @@ mod tests {
         assert_eq!(state.get("TEST_WORK_DIR"), Some("./work"));
         assert_eq!(state.get("TEST_VERSION"), Some("0.13.1"));
         assert_eq!(state.get("MISSING"), None);
+    }
+
+    /// A file that has been edited by hand is likely to have a blank line in
+    /// it somewhere, and the loader aborts the whole build on a line it cannot
+    /// read.
+    #[test]
+    fn blank_lines_are_left_out() {
+        let file = TempFile::holding("TEST_WORK_DIR=./work\n\n   \nTEST_VERSION=0.13.1\n");
+        let state = State::load(file.path()).expect("blank lines are not variables");
+
+        assert_eq!(state.get("TEST_WORK_DIR"), Some("./work"));
+        assert_eq!(state.get("TEST_VERSION"), Some("0.13.1"));
     }
 
     #[test]
