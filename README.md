@@ -6,7 +6,9 @@ This is a Zint binding for WASI.
 - `zint-wasm-rs` is a high-level binding to the Zint library.
 - `zint-typst-plugin` is a typst package for the Zint library.
 
-This package only uses the Zint library but not any of its frontends. So it is MIT licensed.
+This package compiles the Zint library, but none of its frontends, which are licensed under the
+GPL. Our own code is MIT licensed and the bundled backend (libzint) is BSD-3-Clause, so everything
+built here is distributed under `MIT AND BSD-3-Clause`.
 
 Checkout examples and `typst-package/manual.typ` for more information.
 
@@ -86,5 +88,10 @@ wait for, and what it produces is a list to read rather than a pass or a fail.
 
 ## License
 
-This package is licensed under MIT license.
-A copy of the license can be found in the [LICENSE](./LICENSE) file.
+The code in this repository is licensed under the MIT license; a copy can be found in the
+[LICENSE](./LICENSE) file.
+
+The plugin statically links the Zint backend (libzint), which is licensed under BSD-3-Clause. Its
+notice is in [zint-wasm-sys/LICENSE-BSD-3-CLAUSE](./zint-wasm-sys/LICENSE-BSD-3-CLAUSE) and ships
+with the typst package. Anything built from this repository is therefore distributed under
+`MIT AND BSD-3-Clause`.

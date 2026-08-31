@@ -261,6 +261,10 @@ pub fn action_make_3rdparty_license_list(_args: &[String]) -> ActionResult {
         about_input.as_os_str(),
     ]);
     let output = action_expect!(action_expect!(output).output());
+    // cargo-about reports failures on stderr and leaves stdout empty, so
+    // without this the package ships an empty license list.
+    let exit = CommandError::from_exit(output.status);
+    action_expect!(exit.map_err(|err| err.program("cargo about")));
     let generated = std::ffi::OsString::from_vec(output.stdout)
         .to_string_lossy()
         .to_string();
@@ -274,6 +278,14 @@ pub fn action_copy_license(_args: &[String]) -> ActionResult {
     let source_path = state_path!(LICENSE_FILE, default: "$<root>/LICENSE");
     let target_path = state_path!(TYPST_PKG).join("LICENSE");
     action_expect!(std::fs::copy(source_path, target_path));
+
+    // The plugin links the Zint backend, so the package is distributed under
+    // `MIT AND BSD-3-Clause` and has to carry that notice as well.
+    let zint_source_path =
+        state_path!(ZINT_LICENSE_FILE, default: "$<root>/zint-wasm-sys/LICENSE-BSD-3-CLAUSE");
+    let zint_target_path = state_path!(TYPST_PKG).join("LICENSE-BSD-3-CLAUSE");
+    action_expect!(std::fs::copy(zint_source_path, zint_target_path));
+
     action_ok!();
 }
 

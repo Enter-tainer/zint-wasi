@@ -63,7 +63,7 @@ declare_actions![
     },
     ThirdPartyLicense: {
         arg: "", name: "generate 3rd-party license list",
-        require: [],
+        require: [EnsureCargoAbout],
         run: Some(action_make_3rdparty_license_list)
     },
     Package: {
@@ -434,13 +434,16 @@ mod tests {
     }
 
     /// Packaging is what a release is cut from, so it has to keep collecting
-    /// the licence files along with the plugin.
+    /// the licence files along with the plugin. `cargo about` has to be
+    /// installed on the way, or the third-party page is generated from a
+    /// command that cannot run.
     #[test]
     fn packaging_still_collects_the_licences() {
         let reached = reachable(Action::Package);
 
         assert!(reached.contains(&Action::CopyLicense));
         assert!(reached.contains(&Action::ThirdPartyLicense));
+        assert!(reached.contains(&Action::EnsureCargoAbout));
         assert!(reached.contains(&Action::PackagePlugin));
     }
 
