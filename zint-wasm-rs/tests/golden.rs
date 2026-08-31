@@ -58,7 +58,8 @@ fn main() {
         for case in cases {
             let path = golden_path(folder, case.name);
             trials.push(Trial::test(format!("{folder}::{}", case.name), move || {
-                let rendered = Symbol::new(&case.options).encode_svg(case.data, 0, case.rotate)?;
+                let rendered =
+                    Symbol::new(&case.options)?.encode_svg(case.data.as_bytes(), case.rotate)?;
                 ExpectFile {
                     path,
                     position: file!(),
