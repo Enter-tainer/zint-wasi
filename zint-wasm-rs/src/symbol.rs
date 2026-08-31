@@ -1,7 +1,4 @@
-use std::{
-    ffi::CString,
-    ops::{Deref, DerefMut},
-};
+use std::ops::{Deref, DerefMut};
 
 use zint_wasm_sys::{zint_symbol, ZBarcode_Encode_and_Print};
 
@@ -16,8 +13,13 @@ pub struct Symbol {
 }
 
 impl Symbol {
+    /// Builds a symbol from `options`.
+    ///
+    /// Fails rather than panics on a value zint has no room for, because the
+    /// options come from a document: `primary` is the one a caller can make too
+    /// long, and zint keeps it in 128 bytes.
     #[allow(clippy::field_reassign_with_default)]
-    pub fn new(options: &Options) -> Self {
+    pub fn new(options: &Options) -> Result<Self, Error> {
         let mut result = Self::default();
         let filename = "res.svg";
 
@@ -46,22 +48,24 @@ impl Symbol {
         result.output_options |= output_options::OutputOptions::BARCODE_MEMORY_FILE.as_i32();
 
         crate::util::copy_into_cstr(
-            options.fg_color.unwrap_or(Color::BLACK).to_hex_string(),
+            "fg-color",
+            &options.fg_color.unwrap_or(Color::BLACK).to_hex_string(),
             &mut result.fgcolour,
-        );
+        )?;
 
         crate::util::copy_into_cstr(
-            options
+            "bg-color",
+            &options
                 .bg_color
                 .unwrap_or(Color::TRANSPARENT)
                 .to_hex_string(),
             &mut result.bgcolour,
-        );
+        )?;
 
-        crate::util::copy_into_cstr(filename, &mut result.outfile);
+        crate::util::copy_into_cstr("output file", filename, &mut result.outfile)?;
 
         if let Some(ref primary) = options.primary {
-            crate::util::copy_into_cstr(primary, &mut result.primary);
+            crate::util::copy_into_cstr("primary", primary, &mut result.primary)?;
         }
 
         if let Some(option_1) = options.option_1 {
@@ -100,7 +104,7 @@ impl Symbol {
             result.guard_descent = guard_descent;
         }
 
-        result
+        Ok(result)
     }
 
     /// # Safety
@@ -117,15 +121,23 @@ impl Symbol {
         self.inner
     }
 
-    pub fn encode_svg(self, data: &str, length: i32, rotate_angle: i32) -> Result<String, Error> {
-        let c_str_data = CString::new(data).expect("CString::new failed");
+    /// Encodes `data` and renders the symbol as an SVG document.
+    ///
+    /// The payload is handed over as bytes with an explicit length, so it may
+    /// hold anything a symbology accepts, NUL bytes and text that is not UTF-8
+    /// included. That is what zint's `DATA` input mode is for.
+    pub fn encode_svg(self, data: &[u8], rotate_angle: i32) -> Result<String, Error> {
+        let length =
+            i32::try_from(data.len()).map_err(|_| Error::DataTooLong { length: data.len() })?;
+        // Zint reads `length` bytes, but a length of zero means "up to the
+        // terminator" and an empty slice has no address worth reading, so the
+        // payload is always handed over terminated.
+        let mut source = Vec::with_capacity(data.len() + 1);
+        source.extend_from_slice(data);
+        source.push(0);
+
         let result = ZintResult::from(unsafe {
-            ZBarcode_Encode_and_Print(
-                self.inner,
-                c_str_data.as_bytes_with_nul().as_ptr(),
-                length,
-                rotate_angle,
-            ) as u32
+            ZBarcode_Encode_and_Print(self.inner, source.as_ptr(), length, rotate_angle) as u32
         });
         if let Some(err) = result.as_error() {
             return Err(Error::Zint(err));
@@ -262,7 +274,7 @@ mod tests {
             guard_descent: Some(4.0),
         };
 
-        let symbol = Symbol::new(&options);
+        let symbol = Symbol::new(&options).expect("the options are valid");
 
         assert_eq!(symbol.symbology, Symbology::QRCode as i32);
         assert_eq!(symbol.height, 30.0);
@@ -295,7 +307,7 @@ mod tests {
     /// defaults remain the single source of truth.
     #[test]
     fn unset_options_keep_the_defaults_zint_chose() {
-        let symbol = Symbol::new(&code128());
+        let symbol = Symbol::new(&code128()).expect("the options are valid");
 
         assert_eq!(symbol.height, 0.0);
         assert_eq!(symbol.scale, 1.0);
@@ -318,7 +330,7 @@ mod tests {
     /// into memory no matter what else the caller asked for.
     #[test]
     fn the_symbol_always_renders_into_memory() {
-        let bare = Symbol::new(&code128());
+        let bare = Symbol::new(&code128()).expect("the options are valid");
         assert_eq!(
             bare.output_options,
             OutputOptions::BARCODE_MEMORY_FILE.as_i32()
@@ -326,7 +338,7 @@ mod tests {
 
         let mut options = code128();
         options.output_options = Some(OutputOptions::BARCODE_BIND);
-        let configured = Symbol::new(&options);
+        let configured = Symbol::new(&options).expect("the options are valid");
         assert_eq!(
             configured.output_options,
             (OutputOptions::BARCODE_BIND | OutputOptions::BARCODE_MEMORY_FILE).as_i32()
@@ -338,7 +350,7 @@ mod tests {
     /// background.
     #[test]
     fn colors_default_to_black_on_transparent() {
-        let symbol = Symbol::new(&code128());
+        let symbol = Symbol::new(&code128()).expect("the options are valid");
 
         assert_eq!(c_string(&symbol.fgcolour), "000000ff");
         assert_eq!(c_string(&symbol.bgcolour), "ffffff00");
@@ -347,7 +359,8 @@ mod tests {
     #[test]
     fn code128_encodes_to_svg_with_human_readable_text() {
         let svg = Symbol::new(&code128())
-            .encode_svg("A12345B", 0, 0)
+            .expect("the options are valid")
+            .encode_svg(b"A12345B", 0)
             .expect("Code128 encodes alphanumeric data");
 
         assert!(svg.starts_with("<?xml version=\"1.0\""));
@@ -362,14 +375,16 @@ mod tests {
         let mut options = code128();
         options.scale = Some(2.0);
         let scaled = Symbol::new(&options)
-            .encode_svg("A12345B", 0, 0)
+            .expect("the options are valid")
+            .encode_svg(b"A12345B", 0)
             .expect("Code128 encodes at double scale");
         assert_eq!(svg_size(&scaled), (448, 233));
 
         let mut options = code128();
         options.show_hrt = Some(false);
         let bars_only = Symbol::new(&options)
-            .encode_svg("A12345B", 0, 0)
+            .expect("the options are valid")
+            .encode_svg(b"A12345B", 0)
             .expect("Code128 encodes without human readable text");
         assert!(!bars_only.contains("<text"));
         // Dropping the text keeps the width but removes the room reserved for it.
@@ -380,13 +395,15 @@ mod tests {
     fn ean13_check_digit_is_validated() {
         let options = Options::with_symbology(Symbology::EANXChk);
         let svg = Symbol::new(&options)
-            .encode_svg("6975004310001", 0, 0)
+            .expect("the options are valid")
+            .encode_svg(b"6975004310001", 0)
             .expect("EAN-13 with a correct check digit encodes");
         assert_eq!(svg_size(&svg), (226, 118));
 
         let options = Options::with_symbology(Symbology::EANXChk);
         let error = Symbol::new(&options)
-            .encode_svg("6975004310002", 0, 0)
+            .expect("the options are valid")
+            .encode_svg(b"6975004310002", 0)
             .expect_err("EAN-13 with a wrong check digit is rejected");
         assert!(
             matches!(error, Error::Zint(ZintError::InvalidCheck)),
@@ -403,7 +420,8 @@ mod tests {
         options.bg_color = Some(Color::from_str("#ddeeff").expect("valid hex"));
 
         let svg = Symbol::new(&options)
-            .encode_svg("A12345B", 0, 0)
+            .expect("the options are valid")
+            .encode_svg(b"A12345B", 0)
             .expect("Code128 encodes in color");
 
         assert!(
@@ -421,29 +439,80 @@ mod tests {
     fn a_rotated_symbol_swaps_its_dimensions() {
         let (width, height) = svg_size(
             &Symbol::new(&code128())
-                .encode_svg("A12345B", 0, 0)
+                .expect("the options are valid")
+                .encode_svg(b"A12345B", 0)
                 .expect("Code128 encodes upright"),
         );
         let turned = Symbol::new(&code128())
-            .encode_svg("A12345B", 0, 90)
+            .expect("the options are valid")
+            .encode_svg(b"A12345B", 90)
             .expect("Code128 encodes rotated");
 
         assert_eq!(svg_size(&turned), (height, width));
     }
 
-    /// Zero means "everything up to the terminator"; any other length is the
-    /// number of bytes zint reads, which is how binary payloads are bounded.
+    /// The payload is bounded by the slice it is given, so a caller encodes
+    /// part of a buffer by handing over part of it.
     #[test]
-    fn an_explicit_length_bounds_what_is_encoded() {
+    fn only_the_bytes_that_were_handed_over_are_encoded() {
         let whole = Symbol::new(&code128())
-            .encode_svg("A12345B", 0, 0)
+            .expect("the options are valid")
+            .encode_svg(b"A12345B", 0)
             .expect("Code128 encodes the whole payload");
         let clipped = Symbol::new(&code128())
-            .encode_svg("A12345B", 3, 0)
+            .expect("the options are valid")
+            .encode_svg(&b"A12345B"[..3], 0)
             .expect("Code128 encodes the first three bytes");
 
         assert!(whole.lines().any(|line| line.trim() == "A12345B"));
         assert!(clipped.lines().any(|line| line.trim() == "A12"));
+    }
+
+    /// Zint keeps `primary` in a fixed 128 byte field. A longer one is the
+    /// caller's mistake to hear about, not the plugin's to abort on.
+    #[test]
+    fn a_primary_that_does_not_fit_is_reported() {
+        let mut options = Options::with_symbology(Symbology::EANXCC);
+        options.primary = Some("3".repeat(200));
+
+        let error = Symbol::new(&options)
+            .err()
+            .expect("zint has no room for it");
+
+        assert!(
+            matches!(
+                error,
+                Error::ValueTooLong {
+                    field: "primary",
+                    length: 200,
+                    capacity: 128
+                }
+            ),
+            "unexpected error: {error:?}"
+        );
+    }
+
+    /// Zint reads `primary` up to the first NUL, so a value with one inside it
+    /// would silently encode as its own beginning.
+    #[test]
+    fn a_primary_with_a_nul_inside_it_is_reported() {
+        let mut options = Options::with_symbology(Symbology::EANXCC);
+        options.primary = Some("33\u{0}1234567890".to_string());
+
+        let error = Symbol::new(&options)
+            .err()
+            .expect("a C string cannot carry a NUL");
+
+        assert!(
+            matches!(
+                error,
+                Error::ValueContainsNul {
+                    field: "primary",
+                    position: 2
+                }
+            ),
+            "unexpected error: {error:?}"
+        );
     }
 
     /// A warning is not a failure: zint still produces the symbol, and a
@@ -455,7 +524,8 @@ mod tests {
         options.output_options = Some(OutputOptions::COMPLIANT_HEIGHT);
 
         let svg = Symbol::new(&options)
-            .encode_svg("A12345B", 0, 0)
+            .expect("the options are valid")
+            .encode_svg(b"A12345B", 0)
             .expect("a symbol that is too short is still a symbol");
 
         assert!(svg.contains("<path d=\"M"));
@@ -473,7 +543,8 @@ mod tests {
 
     #[test]
     fn a_symbol_survives_being_handed_around_as_a_pointer() {
-        let symbol = Symbol::new(&Options::with_symbology(Symbology::QRCode));
+        let symbol = Symbol::new(&Options::with_symbology(Symbology::QRCode))
+            .expect("the options are valid");
         let pointer = symbol.as_ptr();
         // Ownership moves to the raw pointer, so the symbol is not freed twice.
         std::mem::forget(symbol);

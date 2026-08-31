@@ -51,7 +51,9 @@
 /// ))
 /// ```
 ///
-/// - data (str): Data to encode.
+/// - data (str, bytes, array): Data to encode. Bytes are passed to Zint as
+///     they are, so a payload that is not text needs `input-mode` set to
+///     `data`.
 /// - symbology (str): Symbology type name; must be one of #l(<symbology>)[supported types].
 ///
 ///     Example values: #typst-val("\"Code11\""), #typst-val("\"C25Standard\""), ...

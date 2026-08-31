@@ -241,6 +241,22 @@ pub enum Error {
         which: &'static str,
         value: Box<dyn std::fmt::Debug>,
     },
+    /// A value that does not fit the fixed size field zint keeps it in
+    #[error("{field} is {length} bytes, but zint keeps it in {capacity} including the terminator")]
+    ValueTooLong {
+        field: &'static str,
+        length: usize,
+        capacity: usize,
+    },
+    /// A value zint reads as a C string, with a NUL somewhere inside it
+    #[error("{field} contains a NUL byte at position {position}")]
+    ValueContainsNul {
+        field: &'static str,
+        position: usize,
+    },
+    /// A payload longer than zint can be told about
+    #[error("the data is {length} bytes, more than zint can be given at once")]
+    DataTooLong { length: usize },
 }
 
 /// Warning level (symbol->warn_level)

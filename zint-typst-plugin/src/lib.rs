@@ -38,9 +38,10 @@ type Result<T> = std::result::Result<T, crate::Error>;
 #[wasm_func]
 pub fn gen_with_options(options: &[u8], text: &[u8]) -> Result<Vec<u8>> {
     let options: Options = ciborium::from_reader(options)?;
-    let text = std::str::from_utf8(text).expect("non-utf8 string"); // bytes(data) always creates a utf8 slice
-    let symbol = Symbol::new(&options);
-    let svg = symbol.encode_svg(text, 0, 0)?;
+    // The payload travels as bytes and is handed to zint as bytes: Typst's
+    // `bytes` may hold anything, and a symbology in DATA mode is meant to take
+    // it.
+    let svg = Symbol::new(&options)?.encode_svg(text, 0)?;
     Ok(svg.into_bytes())
 }
 
@@ -142,6 +143,80 @@ mod tests {
         assert!(
             rendered.contains("#1F4788"),
             "the bars took the chosen color"
+        );
+    }
+
+    /// A Typst `bytes` may hold anything, and the payload used to be read as
+    /// text on the way in, so a byte that is not UTF-8 took the whole plugin
+    /// down with it.
+    ///
+    /// Input:  `bytes((0xFF, 0xFE, 0x00, 0x41))` in DATA input mode
+    /// Output: a QR code carrying those four bytes
+    #[test]
+    fn a_payload_that_is_not_text_is_encoded() {
+        let rendered = svg(
+            options(cbor!({"symbology" => "QRCode", "input-mode" => 0}).unwrap()),
+            &[0xFF, 0xFE, 0x00, 0x41],
+        );
+
+        assert!(rendered.contains("<svg "));
+    }
+
+    /// The payload used to be handed over as a C string, which ends at the
+    /// first NUL. Everything after it has to be encoded too.
+    #[test]
+    fn a_nul_byte_is_part_of_the_payload() {
+        let truncated = svg(
+            options(cbor!({"symbology" => "QRCode", "input-mode" => 0}).unwrap()),
+            b"hz",
+        );
+        let whole = svg(
+            options(cbor!({"symbology" => "QRCode", "input-mode" => 0}).unwrap()),
+            b"hz\0bl",
+        );
+
+        assert_ne!(
+            truncated, whole,
+            "the bytes after the NUL did not reach zint"
+        );
+    }
+
+    /// An empty payload is zint's to refuse, and it has to arrive there as an
+    /// error rather than as a read of an address that holds nothing.
+    #[test]
+    fn an_empty_payload_is_reported_as_an_encoding_error() {
+        let error = gen_with_options(&options(cbor!({"symbology" => "QRCode"}).unwrap()), b"")
+            .expect_err("there is nothing to encode");
+
+        assert!(
+            matches!(error, Error::ZintEncoding(_)),
+            "unexpected error: {error:?}"
+        );
+    }
+
+    /// Zint keeps `primary` in 128 bytes; a longer one used to take the plugin
+    /// down instead of being reported.
+    #[test]
+    fn a_primary_that_does_not_fit_is_reported() {
+        let error = gen_with_options(
+            &options(
+                cbor!({
+                    "symbology" => "EANXCC",
+                    "primary" => "3".repeat(200),
+                })
+                .unwrap(),
+            ),
+            b"[99]1234-abcd",
+        )
+        .expect_err("zint has no room for a primary that long");
+
+        assert!(
+            matches!(error, Error::ZintEncoding(_)),
+            "unexpected error: {error:?}"
+        );
+        assert!(
+            error.to_string().contains("primary"),
+            "the error should name the option: {error}"
         );
     }
 
