@@ -113,8 +113,9 @@ ehthumbs_vista.db
 typst-package/3rdparty_license.html
 typst-package/example.svg
 
-# Duplicate license
+# Duplicate licenses
 typst-package/LICENSE
+typst-package/LICENSE-BSD-3-CLAUSE
 
 # Keep manual
 !typst-package/manual.pdf

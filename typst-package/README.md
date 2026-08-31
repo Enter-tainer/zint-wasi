@@ -103,3 +103,7 @@ Packages differ in provided customization options for generated barcodes. This p
 
 1. While most if not all of zint functionality is covered, it's hard to guarantee there's no overlooked functionality.
 2. This package uses typst plugin system and has a WASM backend written in Rust which makes is less welcoming for new contributors.
+
+## License
+
+The package code is licensed under the MIT license, a copy of which is in [LICENSE](./LICENSE). The bundled `zint_typst_plugin.wasm` contains the Zint backend (libzint), which is licensed under BSD-3-Clause and whose notice is in [LICENSE-BSD-3-CLAUSE](./LICENSE-BSD-3-CLAUSE). None of Zint's frontends, which are licensed under the GPL, are included.

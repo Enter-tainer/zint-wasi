@@ -3,7 +3,7 @@ name = "zint-wasm-sys"
 version = "0.1.0"
 edition = "2021"
 description = "Rust bindings for Wasm build of zint"
-license = "MIT"
+license = "MIT AND BSD-3-Clause"
 categories = ["external-ffi-bindings"]
 
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
