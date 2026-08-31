@@ -172,10 +172,14 @@ fn main() -> Result<()> {
     build.compile("zint");
 
     // Generate bindings for zint
+    // No -fvisibility=hidden: bindgen only reads declarations, and the flag
+    // makes it skip the ones it considers hidden. zint.h gives every function
+    // an explicit visibility("default") attribute, except under _WIN32, where
+    // the whole header would be dropped and the bindings come out with no
+    // functions at all.
     let bindings = bindgen::Builder::default()
         .header("zint/backend/zint.h")
         .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
-        .clang_arg("-fvisibility=hidden")
         .size_t_is_usize(false);
 
     let bindings = if WASM32_WASIP1 {

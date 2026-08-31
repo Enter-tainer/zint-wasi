@@ -33,7 +33,13 @@ jobs:
     name: Lint
     # The weekly run exists for the audit; nothing else here changes on its own.
     if: github.event_name != 'schedule'
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      # A lint that only fires on one platform is the interesting one, so let
+      # the other runner finish and report it.
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
     steps:
       - uses: actions/checkout@v7
         with:
@@ -44,6 +50,9 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
             save-if: ${{ github.ref == 'refs/heads/master' }}
+      - name: Point bindgen at libclang
+        if: runner.os == 'Windows'
+        run: echo "LIBCLANG_PATH=$env:ProgramFiles/LLVM/bin" >> $env:GITHUB_ENV
       # The crates are listed explicitly because the workspace also contains
       # vendored third-party code that is not ours to format or lint.
       - name: Check formatting
@@ -54,7 +63,11 @@ jobs:
   test:
     name: Test
     if: github.event_name != 'schedule'
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
     steps:
       - uses: actions/checkout@v7
         with:
@@ -63,6 +76,9 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
             save-if: ${{ github.ref == 'refs/heads/master' }}
+      - name: Point bindgen at libclang
+        if: runner.os == 'Windows'
+        run: echo "LIBCLANG_PATH=$env:ProgramFiles/LLVM/bin" >> $env:GITHUB_ENV
       # Same crate list as the lint job: the workspace also contains vendored
       # third-party code, which is not ours to test.
       - name: Run tests
@@ -92,6 +108,10 @@ jobs:
       - name: Check advisories
         run: cargo audit
 
+  # Ubuntu only: packaging runs wasi-stub from the wasm-minimal-protocol
+  # submodule, which copies the input's permissions onto its output through a
+  # read-only handle and so cannot write its output on Windows. The lint and
+  # test jobs above cover the Windows side of xtask in the meantime.
   plugin:
     name: Build Typst Plugin
     if: github.event_name != 'schedule'

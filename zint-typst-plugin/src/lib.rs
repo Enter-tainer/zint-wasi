@@ -3,6 +3,25 @@ use zint_wasm_rs::{options::Options, symbol::Symbol};
 
 initiate_protocol!();
 
+/// The protocol macro declares the two typst host functions unconditionally,
+/// so anything linking this crate for the host needs them to exist. Only the
+/// tests do, and they never call `gen_with_options`, which is the sole caller.
+///
+/// The GNU linker gets away without these, because it leaves an archive member
+/// nothing references unpacked; `link.exe` does not, and fails the test binary.
+#[cfg(not(target_arch = "wasm32"))]
+mod host_protocol_stubs {
+    #[no_mangle]
+    extern "C" fn wasm_minimal_protocol_send_result_to_host(_ptr: *const u8, _len: usize) {
+        unreachable!("the typst protocol is only available under wasm")
+    }
+
+    #[no_mangle]
+    extern "C" fn wasm_minimal_protocol_write_args_to_buffer(_ptr: *mut u8) {
+        unreachable!("the typst protocol is only available under wasm")
+    }
+}
+
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error("provided invalid options: {0}")]
