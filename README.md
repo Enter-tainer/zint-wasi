@@ -33,6 +33,15 @@ You must have standard development tools pre-installed on your machine and in pa
 - wget/curl
 - gcc/clang
 
+On Windows you additionally need:
+- the MSVC toolchain, i.e. Visual Studio Build Tools with the "Desktop
+  development with C++" workload (`link.exe` and the Windows SDK), because
+  `xtask` and the build scripts are compiled for the host
+- LLVM, for the `libclang.dll` that `bindgen` loads; set `LIBCLANG_PATH` to its
+  `bin` directory if it isn't in `PATH`
+- `WASI_SDK_PATH` pointing at a WASI SDK, unless you let the build download
+  one for you
+
 To build the typst package, run:
 ```sh
 cargo xtask package

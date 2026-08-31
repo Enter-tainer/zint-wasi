@@ -5,7 +5,6 @@ use std::{
     hash::{Hash, Hasher},
     io::{self, Read, Seek},
     mem::MaybeUninit,
-    os::unix::ffi::OsStringExt,
     path::{Path, PathBuf},
     process as proc,
     str::FromStr,
@@ -17,6 +16,14 @@ use crate::state_path;
 
 pub fn exists(path: impl AsRef<Path>) -> bool {
     std::fs::exists(path.as_ref()).ok().unwrap_or_default()
+}
+
+/// `name` with the platform executable suffix appended (`.exe` on Windows).
+///
+/// Only needed where a tool is addressed as a file: a path on disk, or a member
+/// name inside a release archive. Looking a tool up in `PATH` doesn't need it.
+pub fn exe_name(name: impl AsRef<str>) -> String {
+    format!("{}{}", name.as_ref(), std::env::consts::EXE_SUFFIX)
 }
 pub fn local_tool_path(name: impl AsRef<Path>) -> PathBuf {
     state_path!(WORK_DIR).join("tools").join(name)
@@ -82,10 +89,15 @@ pub fn cargo_has_tool(tool: impl AsRef<str>) -> bool {
 
     let mut install_list = cmd(CARGO, ["install", "--list"]);
     let install_list = match install_list.output() {
-        Ok(it) => OsString::from_vec(it.stdout).to_string_lossy().into_owned(),
+        Ok(it) => String::from_utf8_lossy(&it.stdout).into_owned(),
         Err(_) => panic!("can't query installed crates from {CARGO}"),
     };
 
+    // The indented lines under each package name are its executables, which
+    // carry the platform suffix:
+    //   cargo-about v0.9.2:
+    //       cargo-about.exe
+    let executable = exe_name(tool);
     install_list
         .lines()
         .filter(|it| {
@@ -94,16 +106,18 @@ pub fn cargo_has_tool(tool: impl AsRef<str>) -> bool {
                 .map(|it| it.is_whitespace())
                 .unwrap_or_default()
         })
-        .any(|it| it.trim() == tool.as_ref())
+        .any(|it| it.trim() == executable)
 }
 
 #[cfg(target_os = "windows")]
 pub fn run_powershell<S: AsRef<str>>(
     code: impl IntoIterator<Item = S>,
 ) -> io::Result<proc::ExitStatus> {
-    // not tested
+    use io::Write;
+
     let mut ps = proc::Command::new("powershell")
-        .args(["-Command", "-"])
+        .args(["-NoProfile", "-Command", "-"])
+        .stdin(proc::Stdio::piped())
         .spawn()
         .expect("unable to run powershell");
     let mut stdin = ps.stdin.take().expect("can't pipe to powershell");
@@ -115,9 +129,7 @@ pub fn run_powershell<S: AsRef<str>>(
             .write_all(b"\n")
             .expect("can't write commands to powershell");
     }
-    stdin
-        .write_all(b"exit\n")
-        .expect("can't terminate powershell");
+    drop(stdin);
     ps.wait()
 }
 
@@ -209,6 +221,19 @@ macro_rules! make_runner {
     };
 }
 
+/// Escapes a value for a single-quoted PowerShell string, where `'` is the only
+/// character with a meaning and is escaped by doubling it.
+///
+/// Input:  `C:\Ann's Files\sdk`
+/// Output: `C:\Ann''s Files\sdk`
+#[cfg(target_os = "windows")]
+fn quote_powershell(value: &str) -> String {
+    value.replace('\'', "''")
+}
+
+// The PowerShell fallback below ends in a `return`, leaving the final closure
+// unreachable on Windows.
+#[allow(unreachable_code)]
 pub fn download(url: impl AsRef<str>, target: impl AsRef<Path>) -> Result<(), DownloadError> {
     if let Some(parent) = target.as_ref().parent() {
         std::fs::create_dir_all(parent).map_err(DownloadError::IO)?;
@@ -223,12 +248,24 @@ pub fn download(url: impl AsRef<str>, target: impl AsRef<Path>) -> Result<(), Do
         }
         #[cfg(target_os = "windows")]
         {
-            // untested code from SO
-            return |url, path| {
-                run_powershell([
-                    "$client = new-object System.Net.WebClient".to_string(),
-                    format!("$client.DownloadFile(\"{url}\",\"{path}\")"),
+            return |url: &str, path: &Path| {
+                // Single quotes so a '$' in either string isn't expanded, and an
+                // explicit non-zero exit because a failed Invoke-WebRequest
+                // otherwise leaves the shell itself exiting successfully.
+                // Windows PowerShell renders a progress bar per chunk, which
+                // costs more than the transfer on an SDK-sized download.
+                let status = run_powershell([
+                    "$ProgressPreference = 'SilentlyContinue'".to_string(),
+                    format!(
+                        "try {{ Invoke-WebRequest -Uri '{}' -OutFile '{}' -ErrorAction Stop }} \
+                         catch {{ exit 1 }}",
+                        quote_powershell(url),
+                        quote_powershell(&path.display().to_string())
+                    ),
                 ])
+                .map_err(DownloadError::IO)?;
+                CommandError::from_exit(status)
+                    .map_err(|err| DownloadError::CommandError(err.program("powershell")))
             };
         }
 
@@ -276,6 +313,25 @@ impl std::error::Error for DownloadError {
 }
 
 const TAR: &str = "tar";
+
+/// The `tar` to extract with.
+///
+/// On Windows this is deliberately the bsdtar in System32 addressed by
+/// absolute path, never whatever `PATH` happens to resolve: Git for Windows,
+/// MSYS2 and Cygwin all put a GNU tar in front of it, and GNU tar reads
+/// neither the zip that typst ships for Windows nor an archive path that
+/// starts with a drive letter, which it mistakes for a `host:path` remote.
+#[cfg(target_os = "windows")]
+fn tar_program() -> Option<OsString> {
+    let system_root = std::env::var_os("SystemRoot")?;
+    let bsdtar = Path::new(&system_root).join("System32").join("tar.exe");
+    exists(&bsdtar).then(|| bsdtar.into_os_string())
+}
+#[cfg(not(target_os = "windows"))]
+fn tar_program() -> Option<OsString> {
+    has_command(TAR).then(|| OsString::from(TAR))
+}
+
 pub fn untar<S>(
     archive: impl AsRef<Path>,
     output: impl AsRef<Path>,
@@ -284,12 +340,12 @@ pub fn untar<S>(
 where
     S: AsRef<OsStr>,
 {
-    if !has_command(TAR) {
+    let Some(tar) = tar_program() else {
         return Err(CommandError::missing_tool(
             TAR,
             Some("https://www.gnu.org/software/tar/"),
         ));
-    }
+    };
 
     if !exists(&archive) {
         return Err(CommandError::file_not_found("archive", archive));
@@ -304,10 +360,13 @@ where
         archive.as_ref().display(),
         output.as_ref().display()
     );
+    // No '-s': it means --preserve-order to GNU tar, which is meaningless for
+    // these archives, while bsdtar reads it as a substitution expression and
+    // consumes the following argument.
     let result = cmd(
-        TAR,
+        &tar,
         [
-            OsStr::new("-xvsf"),
+            OsStr::new("-xvf"),
             OsStr::new(archive.as_ref().as_os_str()),
             OsStr::new("-C"),
             OsStr::new(output.as_ref().as_os_str()),
@@ -358,7 +417,10 @@ pub fn wasi_stub(input: impl AsRef<Path>, output: impl AsRef<Path>) -> Result<()
 
         let min_proto_path = state_path!(WASM_MIN_PROTOCOL_DIR, default: "$<root>/zint-typst-plugin/vendor/wasm-minimal-protocol");
         let try_prebuilt = |kind: &str| {
-            let executable_path = min_proto_path.join("target").join(kind).join(WASI_STUB);
+            let executable_path = min_proto_path
+                .join("target")
+                .join(kind)
+                .join(exe_name(WASI_STUB));
             if !exists(&executable_path) {
                 return None;
             }
@@ -465,7 +527,7 @@ pub fn wasm_opt(input: impl AsRef<Path>, output: impl AsRef<Path>) -> Result<(),
     }
 
     let runner = make_runner!(Fn(input: &Path, output: &Path) -> Result<(), CommandError> {
-        let tool_path = local_tool_path(WASM_OPT);
+        let tool_path = local_tool_path(exe_name(WASM_OPT));
         let command = if has_command(WASM_OPT) {
             Some(OsString::from_str(WASM_OPT).unwrap())
         } else if exists(&tool_path) {
@@ -572,11 +634,11 @@ pub fn typst_compile(
             }
         }
 
-        if exists(local_tool_path(TYPST)) {
+        if exists(local_tool_path(exe_name(TYPST))) {
             return |input, output| {
                 let begin = std::time::Instant::now();
                 let result = cmd(
-                    local_tool_path(TYPST),
+                    local_tool_path(exe_name(TYPST)),
                     [
                         OsStr::new("compile"),
                         input.as_os_str(),
@@ -599,9 +661,7 @@ pub fn typst_compile(
 
     #[allow(unused_variables)]
     let (output, duration) = (runner)(input.as_ref(), output.as_ref())?;
-    let stderr = OsString::from_vec(output.stderr)
-        .to_string_lossy()
-        .to_string();
+    let stderr = String::from_utf8_lossy(&output.stderr).into_owned();
 
     #[cfg(ci = "github")]
     {
