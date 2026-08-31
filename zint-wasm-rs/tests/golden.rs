@@ -275,6 +275,9 @@ fn option_cases() -> Vec<Case> {
         )
         .option_1(4),
         Case::new("option-2-version", Symbology::QRCode, "https://example.com").option_2(5),
+        // A fixed Data Matrix size, which is what `dm-size` returns: 28 is the
+        // 12x36 entry of zint's size table.
+        Case::new("option-2-data-matrix-size", Symbology::DataMatrix, DATA).option_2(28),
         Case::new("option-3-qr-mask", Symbology::QRCode, "https://example.com")
             .option_3(Option3::from(QRMatrixOption::from(QRMask::Mask3))),
         Case::new("option-3-data-matrix-square", Symbology::DataMatrix, DATA)

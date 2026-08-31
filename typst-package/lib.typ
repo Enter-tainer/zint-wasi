@@ -80,12 +80,12 @@
   )
 }
 
-/// Returns #typst-type("int") option value for given Data Matrix _width_ and _height_.
+/// Returns the #typst-type("int") `option-2` value that fixes a Data Matrix to the given _height_ and _width_.
 ///
-/// Zint allows square and rectangular values to be enforced with `DM_SQUARE` and `DM_DMRE` #l(<opt_3>, "Option 3") values.
+/// A fixed size is an `option-2` value, as it selects one entry of Zint's size table. #l(<opt_3>, "Option 3") is a different setting: its `DM_SQUARE` and `DM_DMRE` values only constrain the size Zint picks on its own.
 ///
-/// - width (int): Data Matrix width
 /// - height (int): Data Matrix height
+/// - width (int): Data Matrix width
 /// -> int
 #let dm-size(height, width) = {
   // Copied from DM size table
