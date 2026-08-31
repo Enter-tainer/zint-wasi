@@ -49,7 +49,7 @@ pub fn action_ensure_wasi_sdk(_args: &[String]) -> ActionResult {
 
     if !exists(&extract_path) {
         if !exists(&download_path) {
-            let url = match wasi_url(OS, ARCH, &state!(WASI_SDK_VERSION, default: "24")) {
+            let url = match wasi_url(OS, ARCH, &state!(WASI_SDK_VERSION, default: "34")) {
                 Some(it) => it,
                 None => action_error!(std::io::Error::other(format!(
                     "no prebuilt WASI SDK for {OS}-{ARCH}; build one and set {WASI_PATH_VAR}"
@@ -166,7 +166,7 @@ pub fn action_prepare_wasm_opt(args: &[String]) -> ActionResult {
     let wasm_opt_bin = wasm_opt_dir.join(exe_name(WASM_OPT));
     if !exists(wasm_opt_bin) {
         if !exists(&binaryen_tar) {
-            let url = match binaryen_url(OS, ARCH, &state!(BINARYEN_VERSION, default: "119")) {
+            let url = match binaryen_url(OS, ARCH, &state!(BINARYEN_VERSION, default: "132")) {
                 Some(it) => it,
                 None => action_error!(std::io::Error::other(format!(
                     "no prebuilt binaryen for {OS}-{ARCH}"
@@ -182,7 +182,7 @@ pub fn action_prepare_wasm_opt(args: &[String]) -> ActionResult {
                 "--strip-components=2".to_string(),
                 format!(
                     "binaryen-version_{}/bin/{}",
-                    state!(BINARYEN_VERSION, default: "119"),
+                    state!(BINARYEN_VERSION, default: "132"),
                     exe_name(WASM_OPT)
                 )
             ]
@@ -458,9 +458,9 @@ mod tests {
     /// bump rather than on the machine that builds next.
     #[test]
     fn every_archive_a_supported_platform_downloads_is_pinned() {
-        let wasi = state!(WASI_SDK_VERSION, default: "24");
-        let binaryen = state!(BINARYEN_VERSION, default: "119");
-        let typst = state!(TYPST_VERSION, default: "0.13.1");
+        let wasi = state!(WASI_SDK_VERSION, default: "34");
+        let binaryen = state!(BINARYEN_VERSION, default: "132");
+        let typst = state!(TYPST_VERSION, default: "0.15.1");
 
         for (os, arch) in SUPPORTED {
             let urls = [
