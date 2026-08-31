@@ -1,4 +1,8 @@
-use std::{ffi::OsStr, os::unix::ffi::OsStringExt, path::PathBuf};
+use std::{
+    env::consts::{ARCH, OS},
+    ffi::OsStr,
+    path::PathBuf,
+};
 
 use super::*;
 use crate::state::GlobalState;
@@ -14,20 +18,21 @@ fn has_wasi_sdk() -> bool {
     }
 }
 
-#[allow(unreachable_code)]
-fn wasi_url(version: impl AsRef<str>) -> String {
-    let version = version.as_ref();
-    #[cfg(all(target_os = "linux", target_arch = "aarch64"))]
-    return format!("https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-{version}/wasi-sdk-{version}.0-arm64-linux.tar.gz");
-    #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
-    return format!("https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-{version}/wasi-sdk-{version}.0-x86_64-linux.tar.gz");
-    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
-    return format!("https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-{version}/wasi-sdk-{version}.0-arm64-macos.tar.gz");
-    #[cfg(all(target_os = "macos", target_arch = "x86_64"))]
-    return format!("https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-{version}/wasi-sdk-{version}.0-x86_64-macos.tar.gz");
-    #[cfg(all(target_os = "windows", target_arch = "x86_64"))]
-    return format!("https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-{version}/wasi-sdk-{version}.0-x86_64-windows.tar.gz");
-    panic!("no prebuild WASI SDK available for current platform; please build and specify `WASI_SDK_PATH` environment variable manually")
+/// URL of the prebuilt WASI SDK release for a platform, as reported by
+/// [`std::env::consts`].
+///
+/// Input:  ("linux", "x86_64", "24")
+/// Output: ".../wasi-sdk-24/wasi-sdk-24.0-x86_64-linux.tar.gz"
+fn wasi_url(os: &str, arch: &str, version: &str) -> Option<String> {
+    let platform = match (os, arch) {
+        ("linux", "aarch64") => "arm64-linux",
+        ("linux", "x86_64") => "x86_64-linux",
+        ("macos", "aarch64") => "arm64-macos",
+        ("macos", "x86_64") => "x86_64-macos",
+        ("windows", "x86_64") => "x86_64-windows",
+        _ => return None,
+    };
+    Some(format!("https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-{version}/wasi-sdk-{version}.0-{platform}.tar.gz"))
 }
 
 pub fn action_ensure_wasi_sdk(_args: &[String]) -> ActionResult {
@@ -44,7 +49,12 @@ pub fn action_ensure_wasi_sdk(_args: &[String]) -> ActionResult {
 
     if !exists(&extract_path) {
         if !exists(&download_path) {
-            let url = wasi_url(state!(WASI_SDK_VERSION, default: "24"));
+            let url = match wasi_url(OS, ARCH, &state!(WASI_SDK_VERSION, default: "24")) {
+                Some(it) => it,
+                None => action_error!(std::io::Error::other(format!(
+                    "no prebuilt WASI SDK for {OS}-{ARCH}; build one and set {WASI_PATH_VAR}"
+                ))),
+            };
             action_expect!(download(url, &download_path));
         }
 
@@ -125,20 +135,21 @@ pub fn action_stub_plugin(args: &[String]) -> ActionResult {
     action_ok!();
 }
 
-#[allow(unreachable_code)]
-fn binaryen_url(version: impl AsRef<str>) -> String {
-    let version = version.as_ref();
-    #[cfg(all(target_os = "linux", target_arch = "aarch64"))]
-    return format!("https://github.com/WebAssembly/binaryen/releases/download/version_{version}/binaryen-version_{version}-arm64-linux.tar.gz");
-    #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
-    return format!("https://github.com/WebAssembly/binaryen/releases/download/version_{version}/binaryen-version_{version}-x86_64-linux.tar.gz");
-    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
-    return format!("https://github.com/WebAssembly/binaryen/releases/download/version_{version}/binaryen-version_{version}-arm64-macos.tar.gz");
-    #[cfg(all(target_os = "macos", target_arch = "x86_64"))]
-    return format!("https://github.com/WebAssembly/binaryen/releases/download/version_{version}/binaryen-version_{version}-x86_64-macos.tar.gz");
-    #[cfg(all(target_os = "windows", target_arch = "x86_64"))]
-    return format!("https://github.com/WebAssembly/binaryen/releases/download/version_{version}/binaryen-version_{version}-x86_64-windows.tar.gz");
-    panic!("no prebuild binaryen available for current platform")
+/// URL of the prebuilt binaryen release for a platform, as reported by
+/// [`std::env::consts`].
+///
+/// Input:  ("macos", "aarch64", "119")
+/// Output: ".../version_119/binaryen-version_119-arm64-macos.tar.gz"
+fn binaryen_url(os: &str, arch: &str, version: &str) -> Option<String> {
+    let platform = match (os, arch) {
+        ("linux", "aarch64") => "arm64-linux",
+        ("linux", "x86_64") => "x86_64-linux",
+        ("macos", "aarch64") => "arm64-macos",
+        ("macos", "x86_64") => "x86_64-macos",
+        ("windows", "x86_64") => "x86_64-windows",
+        _ => return None,
+    };
+    Some(format!("https://github.com/WebAssembly/binaryen/releases/download/version_{version}/binaryen-version_{version}-{platform}.tar.gz"))
 }
 
 pub fn action_prepare_wasm_opt(args: &[String]) -> ActionResult {
@@ -152,13 +163,16 @@ pub fn action_prepare_wasm_opt(args: &[String]) -> ActionResult {
     let work_dir = state_path!(WORK_DIR);
     let binaryen_tar = work_dir.join("binaryen.tar.gz");
     let wasm_opt_dir = work_dir.join("tools");
-    let wasm_opt_bin = wasm_opt_dir.join(WASM_OPT);
+    let wasm_opt_bin = wasm_opt_dir.join(exe_name(WASM_OPT));
     if !exists(wasm_opt_bin) {
         if !exists(&binaryen_tar) {
-            action_expect!(download(
-                binaryen_url(state!(BINARYEN_VERSION, default: "119")),
-                &binaryen_tar
-            ));
+            let url = match binaryen_url(OS, ARCH, &state!(BINARYEN_VERSION, default: "119")) {
+                Some(it) => it,
+                None => action_error!(std::io::Error::other(format!(
+                    "no prebuilt binaryen for {OS}-{ARCH}"
+                ))),
+            };
+            action_expect!(download(url, &binaryen_tar));
         }
         action_expect!(std::fs::create_dir_all(&wasm_opt_dir));
         action_expect!(untar(
@@ -167,8 +181,9 @@ pub fn action_prepare_wasm_opt(args: &[String]) -> ActionResult {
             [
                 "--strip-components=2".to_string(),
                 format!(
-                    "binaryen-version_{}/bin/{WASM_OPT}",
-                    state!(BINARYEN_VERSION, default: "119")
+                    "binaryen-version_{}/bin/{}",
+                    state!(BINARYEN_VERSION, default: "119"),
+                    exe_name(WASM_OPT)
                 )
             ]
         ));
@@ -247,7 +262,9 @@ pub fn action_build_example(_args: &[String]) -> ActionResult {
 
 pub fn action_ensure_cargo_about(_args: &[String]) -> ActionResult {
     if !cargo_has_tool("cargo-about") {
-        action_expect!(cargo(["install", "cargo-about"]));
+        // The binary sits behind a feature; without it the install reports
+        // success while producing nothing to run.
+        action_expect!(cargo(["install", "cargo-about", "--features", "cli"]));
     }
     action_ok!();
 }
@@ -255,22 +272,20 @@ pub fn action_ensure_cargo_about(_args: &[String]) -> ActionResult {
 pub fn action_make_3rdparty_license_list(_args: &[String]) -> ActionResult {
     let about_input =
         state_path!(THIRDPARTY_LICENSE_PATH, default: "$<root>/dist/3rdparty_license.hbs");
-    let output = cargo([
+    let about_output_file = state_path!(TYPST_PKG).join("3rdparty_license.html");
+    // Let cargo-about write the file itself: it refuses to run at all when its
+    // stdout is redirected under PowerShell, and capturing it gained nothing.
+    let mut command = action_expect!(cargo([
         OsStr::new("about"),
         OsStr::new("generate"),
+        OsStr::new("--output-file"),
+        about_output_file.as_os_str(),
         about_input.as_os_str(),
-    ]);
-    let output = action_expect!(action_expect!(output).output());
-    // cargo-about reports failures on stderr and leaves stdout empty, so
-    // without this the package ships an empty license list.
-    let exit = CommandError::from_exit(output.status);
-    action_expect!(exit.map_err(|err| err.program("cargo about")));
-    let generated = std::ffi::OsString::from_vec(output.stdout)
-        .to_string_lossy()
-        .to_string();
-
-    let about_output_file = state_path!(TYPST_PKG).join("3rdparty_license.html");
-    action_expect!(std::fs::write(about_output_file, generated));
+    ]));
+    let status = action_expect!(command.status());
+    // cargo-about reports failures on stderr, so without this the package
+    // ships an empty license list.
+    action_expect!(CommandError::from_exit(status).map_err(|err| err.program("cargo about")));
     action_ok!();
 }
 
@@ -289,22 +304,25 @@ pub fn action_copy_license(_args: &[String]) -> ActionResult {
     action_ok!();
 }
 
-#[allow(unreachable_code)]
-fn typst_url(version: impl AsRef<str>) -> (String, &'static str, &'static str) {
-    let version = version.as_ref();
-    #[cfg(all(target_os = "linux", target_arch = "aarch64"))]
-    return (format!("https://github.com/typst/typst/releases/download/v{version}/typst-aarch64-unknown-linux-musl.tar.xz"), "typst-aarch64-unknown-linux-musl", "tar.xz");
-    #[cfg(all(target_os = "linux", target_arch = "arm"))]
-    return (format!("https://github.com/typst/typst/releases/download/v{version}/typst-armv7-unknown-linux-musleabi.tar.xz"), "typst-armv7-unknown-linux-musleabi", "tar.xz");
-    #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
-    return (format!("https://github.com/typst/typst/releases/download/v{version}/typst-x86_64-unknown-linux-musl.tar.xz"), "typst-x86_64-unknown-linux-musl", "tar.xz");
-    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
-    return (format!("https://github.com/typst/typst/releases/download/v{version}/typst-aarch64-apple-darwin.tar.xz"), "typst-aarch64-apple-darwin", "tar.xz");
-    #[cfg(all(target_os = "macos", target_arch = "x86_64"))]
-    return (format!("https://github.com/typst/typst/releases/download/v{version}/typst-x86_64-apple-darwin.tar.xz"), "typst-x86_64-apple-darwin", "tar.xz");
-    #[cfg(all(target_os = "windows", target_arch = "x86_64"))]
-    return (format!("https://github.com/typst/typst/releases/download/v{version}/typst-x86_64-pc-windows-msvc.zip"), "typst-x86_64-pc-windows-msvc", "zip");
-    panic!("no prebuild binaryen available for current platform")
+/// URL, archive root directory and extension of the prebuilt typst release for
+/// a platform, as reported by [`std::env::consts`].
+///
+/// Windows is the one platform typst ships as a zip rather than a tarball.
+fn typst_url(os: &str, arch: &str, version: &str) -> Option<(String, String, &'static str)> {
+    let (target, ext) = match (os, arch) {
+        ("linux", "aarch64") => ("aarch64-unknown-linux-musl", "tar.xz"),
+        ("linux", "arm") => ("armv7-unknown-linux-musleabi", "tar.xz"),
+        ("linux", "x86_64") => ("x86_64-unknown-linux-musl", "tar.xz"),
+        ("macos", "aarch64") => ("aarch64-apple-darwin", "tar.xz"),
+        ("macos", "x86_64") => ("x86_64-apple-darwin", "tar.xz"),
+        ("windows", "x86_64") => ("x86_64-pc-windows-msvc", "zip"),
+        _ => return None,
+    };
+    Some((
+        format!("https://github.com/typst/typst/releases/download/v{version}/typst-{target}.{ext}"),
+        format!("typst-{target}"),
+        ext,
+    ))
 }
 
 // should be only used for CI
@@ -313,11 +331,16 @@ pub fn action_install_typst(_args: &[String]) -> ActionResult {
         action_skip!("{} already in PATH", TYPST);
     }
 
-    let (url, base_dir, ext) = typst_url(state!(TYPST_VERSION));
+    let (url, base_dir, ext) = match typst_url(OS, ARCH, &state!(TYPST_VERSION)) {
+        Some(it) => it,
+        None => action_error!(std::io::Error::other(format!(
+            "no prebuilt typst for {OS}-{ARCH}"
+        ))),
+    };
     let work_dir = state_path!(WORK_DIR);
     let typst_archive = work_dir.join(format!("typst.{ext}"));
     let typst_dir = work_dir.join("tools");
-    let typst_bin = typst_dir.join(TYPST);
+    let typst_bin = typst_dir.join(exe_name(TYPST));
 
     if !exists(typst_bin) {
         if !exists(&typst_archive) {
@@ -329,7 +352,7 @@ pub fn action_install_typst(_args: &[String]) -> ActionResult {
             typst_dir,
             [
                 "--strip-components=1".to_string(),
-                format!("{base_dir}/{TYPST}",)
+                format!("{base_dir}/{}", exe_name(TYPST))
             ]
         ));
     }
@@ -339,51 +362,87 @@ pub fn action_install_typst(_args: &[String]) -> ActionResult {
 
 #[cfg(test)]
 mod tests {
-    use super::{binaryen_url, typst_url, wasi_url};
+    use super::*;
 
-    /// Only the branch for the platform the tests run on is compiled, which is
-    /// also the branch that platform's builds depend on.
-    #[test]
-    fn the_download_urls_point_at_the_release_that_was_asked_for() {
-        let wasi = wasi_url("24");
-        assert!(
-            wasi.starts_with(
-                "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-24/"
-            ),
-            "{wasi}"
-        );
-        assert!(wasi.ends_with(".tar.gz"), "{wasi}");
+    /// Every platform this project claims to support, so a URL for one host
+    /// can't rot while another host is the only one building.
+    const SUPPORTED: &[(&str, &str)] = &[
+        ("linux", "aarch64"),
+        ("linux", "x86_64"),
+        ("macos", "aarch64"),
+        ("macos", "x86_64"),
+        ("windows", "x86_64"),
+    ];
 
-        let binaryen = binaryen_url("119");
+    fn assert_downloadable(url: &str) {
+        assert!(url.starts_with("https://"), "not an https url: '{url}'");
         assert!(
-            binaryen.starts_with(
-                "https://github.com/WebAssembly/binaryen/releases/download/version_119/"
-            ),
-            "{binaryen}"
+            !url.contains(char::is_whitespace),
+            "url contains whitespace: '{url}'"
         );
-        assert!(binaryen.ends_with(".tar.gz"), "{binaryen}");
-
-        let (typst, archive, extension) = typst_url("0.13.1");
-        assert!(
-            typst.starts_with("https://github.com/typst/typst/releases/download/v0.13.1/"),
-            "{typst}"
-        );
-        assert!(
-            typst.ends_with(extension),
-            "{typst} should be a {extension}"
-        );
-        assert!(typst.contains(archive), "{typst} should download {archive}");
     }
 
-    /// A stray space in a URL fails at download time with a message about the
-    /// server rather than about the URL, which is a long way from the typo.
     #[test]
-    fn no_download_url_carries_stray_whitespace() {
-        for url in [wasi_url("24"), binaryen_url("119"), typst_url("0.13.1").0] {
+    fn wasi_urls_are_well_formed() {
+        for (os, arch) in SUPPORTED {
+            let url = wasi_url(os, arch, "24").expect("no WASI SDK for {os}-{arch}");
+            assert_downloadable(&url);
             assert!(
-                !url.contains(char::is_whitespace),
-                "{url:?} has whitespace in it"
+                url.starts_with(
+                    "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-24/"
+                ),
+                "not the release that was asked for: '{url}'"
             );
+            assert!(url.ends_with(".tar.gz"), "'{url}' is not a tarball");
         }
+    }
+
+    #[test]
+    fn binaryen_urls_are_well_formed() {
+        for (os, arch) in SUPPORTED {
+            let url = binaryen_url(os, arch, "119").expect("no binaryen for {os}-{arch}");
+            assert_downloadable(&url);
+            assert!(
+                url.starts_with(
+                    "https://github.com/WebAssembly/binaryen/releases/download/version_119/"
+                ),
+                "not the release that was asked for: '{url}'"
+            );
+            assert!(url.ends_with(".tar.gz"), "'{url}' is not a tarball");
+        }
+    }
+
+    #[test]
+    fn typst_urls_are_well_formed() {
+        for (os, arch) in SUPPORTED {
+            let (url, base_dir, ext) = typst_url(os, arch, "0.13.1").expect("no typst");
+            assert_downloadable(&url);
+            assert!(
+                url.starts_with("https://github.com/typst/typst/releases/download/v0.13.1/"),
+                "not the release that was asked for: '{url}'"
+            );
+            // The archive root is the member path prefix, so it has to match
+            // what the URL actually names.
+            assert!(url.contains(&base_dir), "'{base_dir}' not named by '{url}'");
+            assert!(url.ends_with(ext), "'{url}' is not a '{ext}'");
+        }
+    }
+
+    /// Windows is the one platform typst ships as a zip; everything else is a
+    /// tarball, and the extraction path has to keep coping with both.
+    #[test]
+    fn typst_ships_a_zip_only_for_windows() {
+        for (os, arch) in SUPPORTED {
+            let (_, _, ext) = typst_url(os, arch, "0.13.1").expect("no typst");
+            let expected = if *os == "windows" { "zip" } else { "tar.xz" };
+            assert_eq!(ext, expected, "unexpected typst archive for {os}-{arch}");
+        }
+    }
+
+    #[test]
+    fn unsupported_platforms_have_no_url() {
+        assert_eq!(wasi_url("linux", "riscv64", "24"), None);
+        assert_eq!(binaryen_url("windows", "aarch64", "119"), None);
+        assert_eq!(typst_url("freebsd", "x86_64", "0.13.1"), None);
     }
 }

@@ -14,6 +14,65 @@ fn watch_files(path: impl AsRef<Path>) {
     }
 }
 
+/// Paths into a WASI SDK installation, located through `WASI_SDK_PATH`.
+struct WasiSdk {
+    clang: PathBuf,
+    ar: PathBuf,
+    sysroot: PathBuf,
+}
+
+impl WasiSdk {
+    /// Panics with a message naming the offending path rather than letting a
+    /// missing SDK surface later as an opaque "failed to find tool" from `cc`.
+    fn locate() -> Self {
+        let root = match env::var_os("WASI_SDK_PATH") {
+            Some(it) => strip_verbatim(PathBuf::from(it)),
+            None if cfg!(windows) => {
+                panic!("WASI_SDK_PATH must be set to build for wasm32-wasip1 on Windows")
+            }
+            None => PathBuf::from("/opt/wasi-sdk"),
+        };
+        match std::fs::exists(&root) {
+            Ok(true) => {}
+            Ok(false) => panic!("WASI SDK not installed, misconfigured: {}", root.display()),
+            Err(_) => panic!("missing permissions to access WASI SDK: {}", root.display()),
+        }
+
+        let bin = root.join("bin");
+        let pick = |names: &[&str]| {
+            names
+                .iter()
+                .map(|name| bin.join(format!("{name}{}", env::consts::EXE_SUFFIX)))
+                .find(|it| std::fs::exists(it).unwrap_or_default())
+                .unwrap_or_else(|| {
+                    panic!("no {} in WASI SDK: {}", names.join(" or "), bin.display())
+                })
+        };
+
+        Self {
+            clang: pick(&["clang"]),
+            // The Windows build of the SDK only ships the llvm- prefixed archiver.
+            ar: pick(&["ar", "llvm-ar"]),
+            sysroot: root.join("share").join("wasi-sysroot"),
+        }
+    }
+}
+
+/// Drops a Windows extended-length prefix, which `Path::join` would otherwise
+/// carry into a path that clang cannot resolve: the prefix disables path
+/// normalization, so every separator below it has to already be a backslash.
+/// `Path::canonicalize` returns such a path, and that is what xtask exports as
+/// `WASI_SDK_PATH`.
+///
+/// Input:  `\\?\D:\src\target\wasi_sdk`
+/// Output: `D:\src\target\wasi_sdk`
+fn strip_verbatim(path: PathBuf) -> PathBuf {
+    match path.to_str().and_then(|it| it.strip_prefix(r"\\?\")) {
+        Some(stripped) => PathBuf::from(stripped),
+        None => path,
+    }
+}
+
 fn main() -> Result<()> {
     #[allow(non_snake_case)]
     let WASM = env::var("CARGO_CFG_TARGET_FAMILY")
@@ -25,33 +84,7 @@ fn main() -> Result<()> {
             .map(|it| it == "wasm32-wasip1")
             .unwrap_or_default();
 
-    if WASM32_WASIP1 {
-        let sdk_path = match env::var("WASI_SDK_PATH") {
-            Ok(it) => PathBuf::from(it),
-            Err(_) => PathBuf::from("/opt/wasi-sdk"),
-        };
-        // report these errors early with clear error messages
-        match std::fs::exists(&sdk_path) {
-            Ok(true) => {}
-            Ok(false) => panic!(
-                "WASI SDK not installed, misconfigured: {}",
-                sdk_path.display()
-            ),
-            Err(_) => panic!(
-                "missing permissions to access WASI SDK: {}",
-                sdk_path.display()
-            ),
-        }
-
-        let sdk_bin = sdk_path.join("bin");
-        let sdk_sysroot = sdk_path.join("share/wasi-sysroot");
-
-        unsafe {
-            env::set_var("CC", sdk_bin.join("clang"));
-            env::set_var("AR", sdk_bin.join("ar"));
-            env::set_var("CFLAGS", format!("--sysroot={}", sdk_sysroot.display()));
-        }
-    }
+    let wasi_sdk = WASM32_WASIP1.then(WasiSdk::locate);
 
     let files = [
         "zint/backend/2of5.c",
@@ -129,8 +162,12 @@ fn main() -> Result<()> {
         .flag_if_supported("-Wno-shift-op-parentheses")
         .opt_level(2);
 
-    if WASM32_WASIP1 {
-        build.target("wasm32-wasip1");
+    if let Some(sdk) = &wasi_sdk {
+        build
+            .target("wasm32-wasip1")
+            .compiler(&sdk.clang)
+            .archiver(&sdk.ar)
+            .flag(format!("--sysroot={}", sdk.sysroot.display()));
     }
     build.compile("zint");
 
