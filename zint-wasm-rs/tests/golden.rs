@@ -6,16 +6,25 @@
 //! upgrade of the vendored libzint, or a change to how options are passed to
 //! it, shows up as a reviewable diff instead of as a silently different barcode.
 //!
+//! Every case is a test of its own, so a run says which barcodes moved rather
+//! than that some did, and one can be re-run on its own:
+//!
+//! ```sh
+//! cargo test -p zint-wasm-rs --test golden -- symbology::QRCode
+//! ```
+//!
 //! After an intended change, rewrite the files with
 //!
 //! ```sh
-//! UPDATE_GOLDEN=1 cargo test -p zint-wasm-rs --test golden
+//! UPDATE_EXPECT=1 cargo test -p zint-wasm-rs --test golden
 //! ```
 //!
 //! and read the diff before committing it.
 
 use std::{collections::BTreeSet, fs, path::PathBuf};
 
+use expect_test::ExpectFile;
+use libtest_mimic::{Arguments, Failed, Trial};
 use zint_wasm_rs::{
     options::{
         color::Color,
@@ -29,7 +38,43 @@ use zint_wasm_rs::{
 };
 
 const GOLDEN_ROOT: &str = concat![env!("CARGO_MANIFEST_DIR"), "/tests/golden"];
-const UPDATE_VARIABLE: &str = "UPDATE_GOLDEN";
+const FOLDERS: [&str; 2] = ["option", "symbology"];
+
+fn main() {
+    let arguments = Arguments::from_args();
+
+    if std::env::var_os("UPDATE_EXPECT").is_some() {
+        // The files are rewritten in place, and nothing creates the folder they
+        // live in the first time round.
+        for folder in FOLDERS {
+            let directory = PathBuf::from(GOLDEN_ROOT).join(folder);
+            fs::create_dir_all(&directory)
+                .unwrap_or_else(|error| panic!("{}: {error}", directory.display()));
+        }
+    }
+
+    let mut trials: Vec<Trial> = Vec::new();
+    for (folder, cases) in [("option", option_cases()), ("symbology", symbology_cases())] {
+        for case in cases {
+            let path = golden_path(folder, case.name);
+            trials.push(Trial::test(format!("{folder}::{}", case.name), move || {
+                let rendered = Symbol::new(&case.options).encode_svg(case.data, 0, case.rotate)?;
+                ExpectFile {
+                    path,
+                    position: file!(),
+                }
+                .assert_eq(&rendered);
+                Ok(())
+            }));
+        }
+    }
+    trials.push(Trial::test(
+        "meta::no_golden_file_is_left_behind",
+        no_golden_file_is_left_behind,
+    ));
+
+    libtest_mimic::run(&arguments, trials).exit();
+}
 
 /// One barcode to render, and the name of the file holding what it should look
 /// like.
@@ -91,102 +136,50 @@ impl Case {
     }
 }
 
-/// Renders a case, and either compares it against its golden file or rewrites
-/// that file, depending on the `UPDATE_GOLDEN` environment variable.
-///
-/// Returns the failure to report, if there is one, so that a run can show every
-/// case that drifted rather than only the first.
-fn check(folder: &str, case: &Case) -> Result<(), String> {
-    let rendered = Symbol::new(&case.options)
-        .encode_svg(case.data, 0, case.rotate)
-        .map_err(|error| format!("{folder}/{}: {error}", case.name))?;
-
-    let path = golden_path(folder, case.name);
-    if std::env::var_os(UPDATE_VARIABLE).is_some() {
-        let parent = path.parent().expect("golden files live in a folder");
-        fs::create_dir_all(parent).map_err(|error| format!("{}: {error}", parent.display()))?;
-        return fs::write(&path, rendered).map_err(|error| format!("{}: {error}", path.display()));
-    }
-
-    let expected = fs::read_to_string(&path).map_err(|error| {
-        format!(
-            "{folder}/{}: {error}; run with {UPDATE_VARIABLE}=1 to write it",
-            case.name
-        )
-    })?;
-
-    // Git may have handed the file over with the platform's line endings, and
-    // the renderer always produces Unix ones.
-    let expected = expected.replace("\r\n", "\n");
-    if expected == rendered {
-        return Ok(());
-    }
-
-    Err(format!(
-        "{folder}/{}: {}",
-        case.name,
-        first_difference(&expected, &rendered)
-    ))
-}
-
-/// Describes where two renderings start to differ, so that a failing run says
-/// what moved rather than only that something did.
-///
-/// Input:  a golden and a rendering whose third line is the `<svg>` element
-/// Output:
-///
-/// ```text
-/// line 3 differs
-///   expected: <svg width="224" height="117" ...
-///      found: <svg width="226" height="118" ...
-/// ```
-fn first_difference(expected: &str, actual: &str) -> String {
-    for (number, (expected, actual)) in expected.lines().zip(actual.lines()).enumerate() {
-        if expected != actual {
-            return format!(
-                "line {} differs\n  expected: {}\n     found: {}",
-                number + 1,
-                truncated(expected),
-                truncated(actual)
-            );
-        }
-    }
-
-    format!(
-        "expected {} lines, found {}",
-        expected.lines().count(),
-        actual.lines().count()
-    )
-}
-
-fn truncated(line: &str) -> String {
-    const LIMIT: usize = 120;
-    match line.char_indices().nth(LIMIT) {
-        Some((cut, _)) => format!("{}...", &line[..cut]),
-        None => line.to_string(),
-    }
-}
-
 fn golden_path(folder: &str, name: &str) -> PathBuf {
     PathBuf::from(GOLDEN_ROOT)
         .join(folder)
         .join(format!("{name}.svg"))
 }
 
-fn check_all(folder: &str, cases: &[Case]) {
-    let failures: Vec<String> = cases
-        .iter()
-        .filter_map(|case| check(folder, case).err())
-        .collect();
+/// A renamed or removed case would otherwise leave its file behind, and a
+/// leftover file looks exactly like a covered case.
+fn no_golden_file_is_left_behind() -> Result<(), Failed> {
+    let expected: BTreeSet<PathBuf> =
+        [("option", option_cases()), ("symbology", symbology_cases())]
+            .iter()
+            .flat_map(|(folder, cases)| {
+                cases
+                    .iter()
+                    .map(move |case| golden_path(folder, case.name))
+                    .collect::<Vec<_>>()
+            })
+            .collect();
 
-    assert!(
-        failures.is_empty(),
-        "{} of {} golden files did not match:\n\n{}\n\nRe-run with {UPDATE_VARIABLE}=1 once the \
-         change is understood and intended.",
-        failures.len(),
-        cases.len(),
-        failures.join("\n\n")
-    );
+    let mut orphans = Vec::new();
+    for folder in FOLDERS {
+        let directory = PathBuf::from(GOLDEN_ROOT).join(folder);
+        // The folders do not exist yet the first time the files are written.
+        let Ok(entries) = fs::read_dir(&directory) else {
+            continue;
+        };
+        for entry in entries {
+            let path = entry?.path();
+            if !expected.contains(&path) {
+                orphans.push(path.display().to_string());
+            }
+        }
+    }
+
+    if orphans.is_empty() {
+        return Ok(());
+    }
+
+    Err(format!(
+        "these golden files belong to no case any more:\n{}",
+        orphans.join("\n")
+    )
+    .into())
 }
 
 /// Every option that changes the drawing, one case each, so that a change in
@@ -295,53 +288,6 @@ fn option_cases() -> Vec<Case> {
 fn hex(value: &str) -> Color {
     use std::str::FromStr;
     Color::from_str(value).unwrap_or_else(|error| panic!("{value} is not a color: {error}"))
-}
-
-#[test]
-fn every_option_matches_its_golden_file() {
-    check_all("option", &option_cases());
-}
-
-#[test]
-fn every_symbology_matches_its_golden_file() {
-    check_all("symbology", &symbology_cases());
-}
-
-/// A renamed or removed case would otherwise leave its file behind, and a
-/// leftover file looks exactly like a covered case.
-#[test]
-fn no_golden_file_is_left_behind() {
-    let expected: BTreeSet<PathBuf> =
-        [("option", option_cases()), ("symbology", symbology_cases())]
-            .iter()
-            .flat_map(|(folder, cases)| {
-                cases
-                    .iter()
-                    .map(move |case| golden_path(folder, case.name))
-                    .collect::<Vec<_>>()
-            })
-            .collect();
-
-    let mut orphans = Vec::new();
-    for folder in ["option", "symbology"] {
-        let directory = PathBuf::from(GOLDEN_ROOT).join(folder);
-        // The folders do not exist yet the first time the files are written.
-        let Ok(entries) = fs::read_dir(&directory) else {
-            continue;
-        };
-        for entry in entries {
-            let path = entry.expect("readable directory entry").path();
-            if !expected.contains(&path) {
-                orphans.push(path.display().to_string());
-            }
-        }
-    }
-
-    assert!(
-        orphans.is_empty(),
-        "these golden files belong to no case any more:\n{}",
-        orphans.join("\n")
-    );
 }
 
 /// One barcode per symbology, so that a change in what any of them draws is
