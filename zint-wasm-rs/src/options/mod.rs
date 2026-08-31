@@ -12,52 +12,72 @@ pub mod option3;
 pub mod output_options;
 pub mod symbology;
 
+/// The options a caller may set on a symbol.
+///
+/// Every field carries its own `default` rather than the container carrying one
+/// for all of them, because `symbology` has to stay required: a document that
+/// leaves it out has to hear about it instead of quietly being given a Code 128.
 #[derive(Debug, Default, Deserialize)]
 #[cfg_attr(feature = "typst", serde(rename_all = "kebab-case"))]
-#[serde(default)]
+#[serde(deny_unknown_fields)]
 pub struct Options {
     /// Barcode symbol to use
-    #[serde(flatten)]
     pub symbology: Symbology,
     /// Barcode height in X-dimensions (ignored for fixed-width barcodes)
+    #[serde(default)]
     pub height: Option<f32>,
     /// Scale factor when printing barcode, i.e. adjusts X-dimension. Default 1
+    #[serde(default)]
     pub scale: Option<f32>,
     /// Width in X-dimensions of whitespace to left & right of barcode
+    #[serde(default)]
     pub whitespace_width: Option<i32>,
     /// Height in X-dimensions of whitespace above & below the barcode
+    #[serde(default)]
     pub whitespace_height: Option<i32>,
     /// Size of border in X-dimensions
+    #[serde(default)]
     pub border_width: Option<i32>,
     /// Various output parameters (bind, box etc, see below)
+    #[serde(default)]
     pub output_options: Option<OutputOptions>,
     /// foreground color
-    #[serde(alias = "fg_colour")]
-    #[cfg_attr(feature = "typst", serde(alias = "stroke"))]
+    #[serde(alias = "fg_colour", default)]
+    #[cfg_attr(feature = "typst", serde(alias = "stroke", alias = "fg-colour"))]
     pub fg_color: Option<Color>,
     /// background color
-    #[serde(alias = "bg_colour")]
-    #[cfg_attr(feature = "typst", serde(alias = "fill"))]
+    #[serde(alias = "bg_colour", default)]
+    #[cfg_attr(feature = "typst", serde(alias = "fill", alias = "bg-colour"))]
     pub bg_color: Option<Color>,
     /// Primary message data (MaxiCode, Composite)
+    #[serde(default)]
     pub primary: Option<String>,
     /// Symbol-specific options
+    #[serde(default)]
     pub option_1: Option<i32>,
     /// Symbol-specific options
+    #[serde(default)]
     pub option_2: Option<i32>,
     /// Symbol-specific options
+    #[serde(default)]
     pub option_3: Option<Option3>,
     /// Show (1) or hide (0) Human Readable Text (HRT). Default 1
+    #[serde(default)]
     pub show_hrt: Option<bool>,
     /// Encoding of input data
+    #[serde(default)]
     pub input_mode: Option<InputMode>,
     /// Extended Channel Interpretation.
+    #[serde(default)]
     pub eci: Option<i32>,
     /// Size of dots used in BARCODE_DOTTY_MODE.
+    #[serde(default)]
     pub dot_size: Option<f32>,
     /// Gap between barcode and text (HRT) in X-dimensions.
+    #[serde(default)]
     pub text_gap: Option<f32>,
     /// Height in X-dimensions that EAN/UPC guard bars descend.
+    #[serde(default)]
     pub guard_descent: Option<f32>,
 }
 
@@ -206,6 +226,32 @@ mod tests {
         );
     }
 
+    /// Zint's own documentation spells the colours the British way, and inside
+    /// Typst every key is spelled with dashes, so that combination has to be
+    /// understood as well.
+    #[cfg(feature = "typst")]
+    #[test]
+    fn the_british_spelling_is_accepted_with_dashes_too() {
+        let options: Options = from_cbor(
+            cbor!({
+                "symbology" => "Code128",
+                "fg-colour" => "#112233",
+                "bg-colour" => "#445566",
+            })
+            .unwrap(),
+        )
+        .expect("colour spelled the zint way, keyed the Typst way");
+
+        assert_eq!(
+            options.fg_color.map(|it| it.to_hex_string()).as_deref(),
+            Some("112233ff")
+        );
+        assert_eq!(
+            options.bg_color.map(|it| it.to_hex_string()).as_deref(),
+            Some("445566ff")
+        );
+    }
+
     /// Inside Typst a barcode is drawn like any other shape, so it takes the
     /// `stroke` and `fill` names the drawing functions use.
     #[cfg(feature = "typst")]
@@ -239,6 +285,45 @@ mod tests {
         assert!(options.scale.is_none());
         assert!(options.fg_color.is_none());
         assert!(options.primary.is_none());
+    }
+
+    /// A key the library does not know is a typo, and a typo that is dropped
+    /// leaves a barcode that looks right and is not the one that was asked for.
+    ///
+    /// Input:  `{"symbology": "Code128", "show_hrt": false}` for the Typst
+    ///         plugin, which spells its keys with dashes
+    /// Output: an error naming `show_hrt`, rather than a barcode with its text
+    #[test]
+    fn an_unknown_option_is_rejected() {
+        // The separator the other build uses, which is the likeliest typo.
+        let misspelled = if cfg!(feature = "typst") {
+            "show_hrt"
+        } else {
+            "show-hrt"
+        };
+
+        let error =
+            from_cbor::<Options>(cbor!({"symbology" => "Code128", misspelled => false}).unwrap())
+                .expect_err("the key is a misspelling of one this library knows");
+
+        assert!(
+            error.contains(misspelled),
+            "the error should name the key that was not understood: {error}"
+        );
+    }
+
+    /// Every other option falls back to what zint chose, but there is no
+    /// sensible barcode to fall back to, so leaving the symbology out is an
+    /// error rather than a silent Code 128.
+    #[test]
+    fn a_document_without_a_symbology_is_rejected() {
+        let error = from_cbor::<Options>(cbor!({key("scale") => 2.0}).unwrap())
+            .expect_err("a barcode has to say which symbology it is");
+
+        assert!(
+            error.contains("symbology"),
+            "the error should name the missing field: {error}"
+        );
     }
 
     #[test]

@@ -2,9 +2,9 @@
 //!
 //! Options reach this library as CBOR, encoded by Typst's `cbor.encode`, so the
 //! deserialization tests go through that same format rather than a friendlier
-//! one. The hand written visitors and `#[serde(flatten)]` both behave
-//! differently depending on what the format tells `serde` about the data, so a
-//! test against a different format would not prove much about the real input.
+//! one. The hand written visitors behave differently depending on what the
+//! format tells `serde` about the data, so a test against a different format
+//! would not prove much about the real input.
 
 use serde::de::DeserializeOwned;
 
