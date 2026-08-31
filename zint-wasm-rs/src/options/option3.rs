@@ -128,14 +128,27 @@ impl From<QRMask> for QRMatrixOption {
 }
 impl TryFrom<u32> for QRMatrixOption {
     type Error = Error;
+
+    /// The value carries two independent fields in one integer: the low byte
+    /// is either nothing or `ZINT_FULL_MULTIBYTE`, and the high byte is a mask
+    /// number stored one above itself, so 1 through 8. A number outside that
+    /// shape is rejected even when it happens to share bits with one, since
+    /// zint would otherwise read it as a request nobody made.
     fn try_from(value: u32) -> Result<Self, Self::Error> {
-        let mask = QRMatrixOption::from_bits_truncate(value);
-        match mask {
-            invalid if invalid.bits() != value => Err(Error::UnknownOption {
+        let compression = value & 0xFF;
+        let mask = (value >> 8) & 0xFF;
+        let above = value >> 16;
+
+        if above == 0
+            && (compression == 0 || compression == ZINT_FULL_MULTIBYTE)
+            && mask <= QRMask::Mask7 as u32 + 1
+        {
+            Ok(QRMatrixOption::from_bits_retain(value))
+        } else {
+            Err(Error::UnknownOption {
                 which: "option_3",
                 value: Box::new(value),
-            }),
-            valid => Ok(valid),
+            })
         }
     }
 }
@@ -238,6 +251,21 @@ impl From<UltracodeOption> for Option3 {
     }
 }
 
+/// Number of entries in zint's Data Matrix size table, which `option_2`
+/// indexes from 1. Only used to recognise a size that arrived at `option_3`.
+const DATA_MATRIX_SIZES: u32 = 48;
+
+/// Names the option a rejected value plausibly belongs to, so that the error
+/// says what to do rather than only that the value is wrong.
+fn misplaced_value_hint(value: u32) -> &'static str {
+    if (1..=DATA_MATRIX_SIZES).contains(&value) {
+        "; a fixed Data Matrix size belongs in option-2, option-3 only constrains \
+         automatic size selection"
+    } else {
+        ""
+    }
+}
+
 impl TryFrom<u32> for Option3 {
     type Error = Error;
     fn try_from(value: u32) -> Result<Self, Self::Error> {
@@ -247,6 +275,10 @@ impl TryFrom<u32> for Option3 {
             .map(From::<DataMatrixOption>::from)
             .or_else(|_| QRMatrixOption::try_from(value).map(From::<QRMatrixOption>::from))
             .or_else(|_| UltracodeOption::try_from(value).map(From::<UltracodeOption>::from))
+            .map_err(|_| Error::UnknownOption3 {
+                value,
+                hint: misplaced_value_hint(value),
+            })
     }
 }
 
@@ -262,7 +294,10 @@ impl<'de> Deserialize<'de> for Option3 {
             type Value = Option3;
 
             fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-                formatter.write_str("option_3 value")
+                formatter.write_str(
+                    "option_3 value: a name such as \"square\" or \"full-multibyte\", \
+                     or the number zint documents for the symbology",
+                )
             }
 
             fn visit_u64<E>(self, v: u64) -> Result<Self::Value, E>
@@ -454,7 +489,6 @@ mod tests {
             DataMatrixOption::try_from(42).expect_err("42 is not a Data Matrix option"),
             QRMatrixOption::try_from(42).expect_err("42 is not a QR option"),
             UltracodeOption::try_from(42).expect_err("42 is not an Ultracode option"),
-            Option3::try_from(42).expect_err("42 is not an option_3 value"),
         ] {
             assert!(
                 matches!(
@@ -466,6 +500,71 @@ mod tests {
                 ),
                 "unexpected error: {error:?}"
             );
+        }
+
+        let error = Option3::try_from(42).expect_err("42 is not an option_3 value");
+        assert!(
+            matches!(error, Error::UnknownOption3 { value: 42, .. }),
+            "unexpected error: {error:?}"
+        );
+    }
+
+    /// A rejected number is most often a Data Matrix size, which selects a
+    /// fixed symbol from zint's size table and is an option_2 value. The error
+    /// is the only place a document finds that out.
+    #[test]
+    fn a_data_matrix_size_is_sent_to_option_2() {
+        // 12x36, the size reported as not working.
+        let error =
+            from_cbor::<Option3>(cbor!(28).unwrap()).expect_err("28 is a size, not an option");
+
+        assert!(error.contains("option-2"), "unexpected error: {error}");
+
+        for size in [1, 8, 28, 48] {
+            let error = Option3::try_from(size).expect_err("a size is not an option_3 value");
+            assert!(
+                error.to_string().contains("option-2"),
+                "size {size} should point at option-2: {error}"
+            );
+        }
+    }
+
+    /// Above the size table there is nothing to point at, so the error names
+    /// the values it does accept and leaves it there.
+    #[test]
+    fn a_number_that_is_not_a_size_either_lists_the_accepted_values() {
+        let error = Option3::try_from(1000).expect_err("1000 is not an option_3 value");
+        let message = error.to_string();
+
+        assert!(!message.contains("option-2"), "unexpected error: {message}");
+        for expected in ["100", "101", "128", "200", "0x800"] {
+            assert!(
+                message.contains(expected),
+                "the error should name {expected}: {message}"
+            );
+        }
+    }
+
+    /// `option_3` is two fields in one integer, and only some numbers are a
+    /// combination of them. A number that merely shares bits with one used to
+    /// pass through and reach zint as a request nobody made.
+    #[test]
+    fn a_number_that_only_shares_bits_with_an_option_is_rejected() {
+        for value in [8, 64, 72, 192, 0x1100, 0x900] {
+            assert!(
+                Option3::try_from(value).is_err(),
+                "{value} is not an option_3 value"
+            );
+        }
+    }
+
+    #[test]
+    fn a_mask_together_with_full_multibyte_is_accepted() {
+        for value in [0x100, 0x800, 200 | 0x100, 200 | 0x600, 200 | 0x800] {
+            let option = Option3::try_from(value)
+                .unwrap_or_else(|error| panic!("{value:#x} should be an option_3 value: {error}"));
+
+            assert_eq!(option.as_i32(), value as i32);
         }
     }
 

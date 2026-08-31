@@ -318,6 +318,45 @@ mod tests {
         );
     }
 
+    /// A fixed Data Matrix size is an `option-2` value, but `dm-size` reads as
+    /// though it were an `option-3` one, so documents pass it there. The error
+    /// is where that gets sorted out.
+    ///
+    /// Input:  `option-3: dm-size(12, 36)`, which is 28
+    /// Output: an error naming `option-2`, rather than a symbol of some other
+    ///         size or a rejection that says only that 28 is wrong
+    #[test]
+    fn a_data_matrix_size_given_to_option_3_says_where_it_belongs() {
+        let error = gen_with_options(
+            &options(cbor!({"symbology" => "DataMatrix", "option-3" => 28}).unwrap()),
+            b"A12345B",
+        )
+        .expect_err("a size is not an option-3 value");
+
+        assert!(
+            matches!(error, Error::BadOptions(_)),
+            "unexpected error: {error:?}"
+        );
+        assert!(
+            error.to_string().contains("option-2"),
+            "the error should say where the size belongs: {error}"
+        );
+
+        let rendered = svg(
+            options(cbor!({"symbology" => "DataMatrix", "option-2" => 28}).unwrap()),
+            b"A12345B",
+        );
+
+        assert_eq!(
+            svg_size(&rendered),
+            SvgSize {
+                width: 72.0,
+                height: 24.0
+            },
+            "option-2 draws the 12x36 symbol that was asked for"
+        );
+    }
+
     #[test]
     fn options_that_are_not_cbor_are_reported_as_bad_options() {
         let error = gen_with_options(&[0xFF, 0xFF, 0xFF], b"A12345B")

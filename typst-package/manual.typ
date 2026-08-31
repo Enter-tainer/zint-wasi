@@ -386,6 +386,9 @@ Output options allow specifying how `Zint` should generate the barcode/symbol.
 As there's constants associated with `option_3` values, this package allows specifying the
 value as either an #typst-type("int") or a #typst-type("str").
 
+A fixed Data Matrix size is not one of them: #raw("dm-size(height, width)") returns an
+`option-2` value, and giving it to `option-3` is an error.
+
 The following table documents supported values and their #typst-type("str") representations:
 
 #tablex(
