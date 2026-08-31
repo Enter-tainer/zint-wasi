@@ -142,7 +142,7 @@ pub fn action_stub_plugin(args: &[String]) -> ActionResult {
 /// Output: ".../version_119/binaryen-version_119-arm64-macos.tar.gz"
 fn binaryen_url(os: &str, arch: &str, version: &str) -> Option<String> {
     let platform = match (os, arch) {
-        ("linux", "aarch64") => "arm64-linux",
+        ("linux", "aarch64") => "aarch64-linux",
         ("linux", "x86_64") => "x86_64-linux",
         ("macos", "aarch64") => "arm64-macos",
         ("macos", "x86_64") => "x86_64-macos",
@@ -410,6 +410,18 @@ mod tests {
             );
             assert!(url.ends_with(".tar.gz"), "'{url}' is not a tarball");
         }
+    }
+
+    /// Binaryen names its ARM Linux archive after the target the compiler
+    /// uses, unlike the WASI SDK, which calls the same platform arm64; the
+    /// other name is only carried by the macOS archive.
+    #[test]
+    fn binaryen_names_arm_linux_after_the_compiler() {
+        let url = binaryen_url("linux", "aarch64", "119").expect("no binaryen for linux-aarch64");
+        assert!(
+            url.ends_with("/binaryen-version_119-aarch64-linux.tar.gz"),
+            "not the archive binaryen publishes: '{url}'"
+        );
     }
 
     #[test]
