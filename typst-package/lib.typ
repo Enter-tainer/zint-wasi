@@ -770,7 +770,7 @@
   data,
   "Mailmark2D",
   options: (
-    option_2: dm-size(height, width),
+    option-2: dm-size(height, width),
     ..options,
   ),
   ..args,
@@ -798,7 +798,7 @@
   data,
   type,
   options: (
-    option_1: int(mode),
+    option-1: int(mode),
     ..options,
   ),
   ..args,

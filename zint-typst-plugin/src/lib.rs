@@ -60,8 +60,51 @@ mod tests {
         encoded
     }
 
-    fn svg(options: Vec<u8>, text: &str) -> String {
-        let rendered = gen_with_options(&options, text.as_bytes())
+    /// The size of the drawing, in the user units of the SVG root element.
+    #[derive(Debug, PartialEq)]
+    struct SvgSize {
+        width: f64,
+        height: f64,
+    }
+
+    /// Reads the size off the root element of a rendered SVG. Only the two
+    /// attributes are looked at, so the order zint writes them in, the other
+    /// attributes it adds and the way it breaks lines do not matter.
+    ///
+    /// Input:  a document containing
+    ///         `<svg width="224" height="117" version="1.1" ...>`
+    /// Output: `SvgSize { width: 224.0, height: 117.0 }`
+    fn svg_size(document: &str) -> SvgSize {
+        let start = document.find("<svg").expect("SVG root element");
+        let tag = &document[start..];
+        let tag = &tag[..tag.find('>').expect("SVG root element is closed")];
+
+        SvgSize {
+            width: attribute(tag, "width"),
+            height: attribute(tag, "height"),
+        }
+    }
+
+    /// The numeric value of one attribute of an element's start tag.
+    ///
+    /// Input:  `<svg width="224" height="117" version="1.1"`, `height`
+    /// Output: `117.0`
+    fn attribute(tag: &str, name: &str) -> f64 {
+        let value = tag
+            .split_whitespace()
+            .find_map(|pair| pair.strip_prefix(name)?.strip_prefix('='))
+            .unwrap_or_else(|| panic!("the root element has no {name} attribute: {tag}"));
+        let value = value
+            .strip_prefix('"')
+            .and_then(|value| value.strip_suffix('"'))
+            .unwrap_or_else(|| panic!("the {name} attribute is not quoted: {value}"));
+        value.parse().unwrap_or_else(|error| {
+            panic!("the {name} attribute is not a number: {value}: {error}")
+        })
+    }
+
+    fn svg(options: Vec<u8>, text: &[u8]) -> String {
+        let rendered = gen_with_options(&options, text)
             .unwrap_or_else(|error| panic!("the plugin should have rendered a barcode: {error}"));
         String::from_utf8(rendered).expect("zint renders SVG as text")
     }
@@ -70,7 +113,7 @@ mod tests {
     fn a_barcode_comes_back_as_an_svg_document() {
         let rendered = svg(
             options(cbor!({"symbology" => "Code128"}).unwrap()),
-            "A12345B",
+            b"A12345B",
         );
 
         assert!(rendered.starts_with("<?xml version=\"1.0\""));
@@ -89,11 +132,10 @@ mod tests {
                     "symbology" => "Code128",
                     "show-hrt" => false,
                     "stroke" => "#1F4788",
-                    "fg-colour" => "#1F4788",
                 })
                 .unwrap(),
             ),
-            "A12345B",
+            b"A12345B",
         );
 
         assert!(!rendered.contains("<text"), "the text was switched off");
@@ -134,6 +176,53 @@ mod tests {
         );
     }
 
+    /// `mailmark-2d` and `barcode-composite` in `lib.typ` are the only helpers
+    /// that set an option themselves, and both do it by number. What they ask
+    /// for has to reach zint, or the symbol is quietly drawn the way zint would
+    /// have drawn it anyway.
+    #[test]
+    fn the_numbered_options_reach_zint() {
+        // The Mailmark 2D example from the manual, spaces and all.
+        let default_size = svg(
+            options(cbor!({"symbology" => "DataMatrix"}).unwrap()),
+            b"12345",
+        );
+        // 16 is what `dm-size(64, 64)` returns, far larger than this payload
+        // needs, so zint would never have chosen it on its own.
+        let asked_for = svg(
+            options(cbor!({"symbology" => "DataMatrix", "option-2" => 16}).unwrap()),
+            b"12345",
+        );
+
+        assert_ne!(
+            svg_size(&default_size),
+            svg_size(&asked_for),
+            "the requested Data Matrix size did not reach zint"
+        );
+
+        let chosen_by_zint = svg(
+            options(cbor!({"symbology" => "EANXCC", "primary" => "331234567890"}).unwrap()),
+            b"[99]1234-abcd",
+        );
+        // CC-B, where zint picks CC-A for a message this short.
+        let cc_b = svg(
+            options(
+                cbor!({
+                    "symbology" => "EANXCC",
+                    "primary" => "331234567890",
+                    "option-1" => 2,
+                })
+                .unwrap(),
+            ),
+            b"[99]1234-abcd",
+        );
+
+        assert_ne!(
+            chosen_by_zint, cc_b,
+            "the requested composite mode did not reach zint"
+        );
+    }
+
     #[test]
     fn options_that_are_not_cbor_are_reported_as_bad_options() {
         let error = gen_with_options(&[0xFF, 0xFF, 0xFF], b"A12345B")
@@ -158,7 +247,7 @@ mod tests {
                 })
                 .unwrap(),
             ),
-            "[99]1234-abcd",
+            b"[99]1234-abcd",
         );
 
         assert!(rendered.contains("<svg "));
