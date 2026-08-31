@@ -18,7 +18,18 @@ hex = "0.4"
 bitflags = { version = "2.4", features = ["serde"] }
 thiserror = "1.0"
 
+# The golden files are one test each rather than one test over all of them, so
+# `libtest-mimic` supplies the harness in place of the built-in one.
+[[test]]
+name = "golden"
+harness = false
+
 [dev-dependencies]
 # Already in the tree as the Typst plugin's option format; the deserialization
 # tests use it so they exercise the same wire format the plugin receives.
 ciborium = "0.2.1"
+
+# The golden file harness: `expect-test` compares against a file and rewrites it
+# on request, `libtest-mimic` turns each case into a test of its own.
+expect-test = "1.5.1"
+libtest-mimic = "0.8.2"

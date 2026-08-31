@@ -56,10 +56,18 @@ renders to, one file per case. They are not a claim that the current output is
 right; they are there so that a change to it is visible, which is what makes an
 upgrade of the vendored Zint reviewable.
 
-After an intended change, rewrite them and read the diff before committing it:
+Every case is a test of its own, so a run says which barcodes moved rather than
+that some did, and one can be re-run on its own:
 
 ```sh
-UPDATE_GOLDEN=1 cargo test -p zint-wasm-rs --test golden
+cargo test -p zint-wasm-rs --test golden -- symbology::QRCode
+```
+
+After an intended change, rewrite the files and read the diff before committing
+it:
+
+```sh
+UPDATE_EXPECT=1 cargo test -p zint-wasm-rs --test golden
 ```
 
 ### Mutation testing
