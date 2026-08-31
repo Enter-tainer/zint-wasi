@@ -124,7 +124,8 @@ They accept the same arguments as `barcode` function but don't require `symbolog
 
 All exported functions support optionally providing the `options` dictionary which is passed to Zint. This provides means to fully configure generated images.
 
-The following values are valid for the `options` dictionary:
+The following values are valid for the `options` dictionary.
+A key that is not one of them is an error, so a misspelled option is reported instead of being ignored:
 
 #let detailed(dest, content) = link(dest, underline(content))
 

@@ -176,6 +176,26 @@ mod tests {
         );
     }
 
+    /// A misspelled key used to be dropped, which left the document with a
+    /// barcode that had quietly ignored what it was told.
+    #[test]
+    fn a_misspelled_option_is_reported_rather_than_ignored() {
+        let error = gen_with_options(
+            &options(cbor!({"symbology" => "Code128", "show_hrt" => false}).unwrap()),
+            b"A12345B",
+        )
+        .expect_err("the option is spelled `show-hrt`");
+
+        assert!(
+            matches!(error, Error::BadOptions(_)),
+            "unexpected error: {error:?}"
+        );
+        assert!(
+            error.to_string().contains("show_hrt"),
+            "the error should name the key that was not understood: {error}"
+        );
+    }
+
     /// `mailmark-2d` and `barcode-composite` in `lib.typ` are the only helpers
     /// that set an option themselves, and both do it by number. What they ask
     /// for has to reach zint, or the symbol is quietly drawn the way zint would

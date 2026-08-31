@@ -3,7 +3,7 @@ use zint_wasm_sys::*;
 
 #[allow(clippy::upper_case_acronyms)]
 #[derive(Debug, Clone, Copy, Default, Deserialize)]
-#[serde(tag = "symbology", rename_all = "PascalCase")]
+#[serde(rename_all = "PascalCase")]
 #[non_exhaustive]
 #[repr(i32)]
 pub enum Symbology {
@@ -131,7 +131,7 @@ pub enum Symbology {
 #[cfg(test)]
 mod tests {
     use super::Symbology;
-    use crate::test_support::from_cbor;
+    use crate::{options::Options, test_support::from_cbor};
     use ciborium::cbor;
     use std::{collections::HashMap, ffi::CStr, os::raw::c_char};
     use zint_wasm_sys::{ZBarcode_BarcodeName, ZBarcode_ValidID};
@@ -321,15 +321,15 @@ mod tests {
         }
     }
 
-    /// Typst documents the symbology by its Rust name, so the serde tag and the
-    /// variant name have to stay the same string.
+    /// Typst documents the symbology by its Rust name, so the name a document
+    /// carries and the variant name have to stay the same string.
     #[test]
     fn every_symbology_deserializes_from_its_own_name() {
         for (symbology, variant, _) in SYMBOLOGIES {
-            let parsed: Symbology = from_cbor(cbor!({ "symbology" => *variant }).unwrap())
-                .unwrap_or_else(|error| panic!("{variant} is not accepted as a tag: {error}"));
+            let parsed: Options = from_cbor(cbor!({ "symbology" => *variant }).unwrap())
+                .unwrap_or_else(|error| panic!("{variant} is not accepted: {error}"));
 
-            assert_eq!(parsed as i32, *symbology as i32, "{variant}");
+            assert_eq!(parsed.symbology as i32, *symbology as i32, "{variant}");
         }
     }
 
@@ -349,16 +349,16 @@ mod tests {
             ("Mailmark", Symbology::Mailmark4S),
             ("RSS14CC", Symbology::DBarOmnCC),
         ] {
-            let parsed: Symbology = from_cbor(cbor!({ "symbology" => alias }).unwrap())
+            let parsed: Options = from_cbor(cbor!({ "symbology" => alias }).unwrap())
                 .unwrap_or_else(|error| panic!("{alias} is not accepted: {error}"));
 
-            assert_eq!(parsed as i32, expected as i32, "{alias}");
+            assert_eq!(parsed.symbology as i32, expected as i32, "{alias}");
         }
     }
 
     #[test]
     fn an_unknown_symbology_is_rejected() {
-        let error = from_cbor::<Symbology>(cbor!({ "symbology" => "Code129" }).unwrap())
+        let error = from_cbor::<Options>(cbor!({ "symbology" => "Code129" }).unwrap())
             .expect_err("Code129 does not exist");
         assert!(error.contains("Code129"), "unexpected error: {error}");
     }
