@@ -12,21 +12,21 @@
 # `<archive>.sha256`. WASI SDK and Typst publish none, so those were taken from
 # the archives themselves.
 
-ae6c1417ea161e54bc54c0a168976af57a0c6e53078857886057a71a0d928646  wasi-sdk-24/wasi-sdk-24.0-arm64-linux.tar.gz
-c6c38aab56e5de88adf6c1ebc9c3ae8da72f88ec2b656fb024eda8d4167a0bc5  wasi-sdk-24/wasi-sdk-24.0-x86_64-linux.tar.gz
-aeae999396d5f5caa5ce419f52e83c35869d5fd21d40af80acba2c80f51b0b3a  wasi-sdk-24/wasi-sdk-24.0-arm64-macos.tar.gz
-4bfc274ae8b68c771dd93e32ad4bd695336ca46b585beb3b1260e5602dbc11a2  wasi-sdk-24/wasi-sdk-24.0-x86_64-macos.tar.gz
-0f934c6e7e171b5627c81b697a9e57e96d65cd889f56ce6077350de48978afd3  wasi-sdk-24/wasi-sdk-24.0-x86_64-windows.tar.gz
+f7e243dff54d60bcc576e94d6166b69f410f2500ae4a9ceef34315be10e77971  wasi-sdk-34/wasi-sdk-34.0-arm64-linux.tar.gz
+b761e3a0721dbae9c09a0059e5fdb2bf917d1b4a8a7b430fb3b5aafb0984b2c4  wasi-sdk-34/wasi-sdk-34.0-x86_64-linux.tar.gz
+9c59398106b417f8f14913380fdf0097a8cc0ff4af9eb3ce0065a859e88d49e9  wasi-sdk-34/wasi-sdk-34.0-arm64-macos.tar.gz
+87d27fa8adc68dee59bfbf2e22a6d34ef717c34d6bf1d8af2a56fc929d9ce0eb  wasi-sdk-34/wasi-sdk-34.0-x86_64-macos.tar.gz
+cccb5c323a9b34f0349a9b09e8804a0a7632c68c3310f4b5f437ed57d7e71d8f  wasi-sdk-34/wasi-sdk-34.0-x86_64-windows.tar.gz
 
-537b0c137afcde45ea42df72e46fc19738c60af8ca78be9319967eefb6f8bcf6  version_119/binaryen-version_119-aarch64-linux.tar.gz
-716bcf9f5f36a6f466239fbb09a925eeaf54c46411ccefac979ec649e7c06d2d  version_119/binaryen-version_119-x86_64-linux.tar.gz
-c12dffafb3e3274026268e90577bd86d98186f7be32457618672f8ca437d8d53  version_119/binaryen-version_119-arm64-macos.tar.gz
-eed19e583d7bc2a7482bced15ec3fa56a87811b310f37241b5016a66fc95cc4b  version_119/binaryen-version_119-x86_64-macos.tar.gz
-e76eb6852208bc0044ad7015cfcaa351ef0992e18b966a83eddd5f6253fdbefc  version_119/binaryen-version_119-x86_64-windows.tar.gz
+c58562417836c5d0493d89bdefc434933bdc097db641b483df86bcfa557a107f  version_132/binaryen-version_132-aarch64-linux.tar.gz
+195ddc94f9bc89f45abdabb0b9eea86023d727ba90eac8b35b80f2544fc30572  version_132/binaryen-version_132-x86_64-linux.tar.gz
+98aad827847af7ef990ed7098d885725c8e5b5aae75073403635617ae4e259aa  version_132/binaryen-version_132-arm64-macos.tar.gz
+40c3de90bb3766bd0282a895e139a6f50253dba49b4f5bb89e66faca162d832e  version_132/binaryen-version_132-x86_64-macos.tar.gz
+2089428ec98c899b45ee5d00636ddd6e2da8636cc473ef50b165cc25793ef7cb  version_132/binaryen-version_132-x86_64-windows.tar.gz
 
-4f5b7ee6e57fb639019ee0f6bffcf940edad228ede6ff5269a9f05a1544ceed4  v0.13.1/typst-aarch64-unknown-linux-musl.tar.xz
-0bc8fce6bf4f6523c755a1800325a33de19d246a0076efd9f8c5d5c01974edc2  v0.13.1/typst-armv7-unknown-linux-musleabi.tar.xz
-7d214bfeffc2e585dc422d1a09d2b144969421281e8c7f5d784b65fc69b5673f  v0.13.1/typst-x86_64-unknown-linux-musl.tar.xz
-541e4f9eaca3f34ee865f81fc663e4839cb84d6253f71a372cd855b0a7283213  v0.13.1/typst-aarch64-apple-darwin.tar.xz
-4dabfe647f7f01ed9cc13ad8196a6c7f5e16f0732821b522d50740d3a9f5207b  v0.13.1/typst-x86_64-apple-darwin.tar.xz
-44170d0632298ba68cbabc43dbfb6908b17ca9236859e0767b0e5d54b2d19f48  v0.13.1/typst-x86_64-pc-windows-msvc.zip
+5aa8d74a3d906e60ea12a66ac2f37f8eef1b14cbad7182a745e393a10c23dcee  v0.15.1/typst-aarch64-unknown-linux-musl.tar.xz
+44986312e557b9ac0f2c71d5d5156c0ad93b2da374d54c859d6c0c7c0b73709f  v0.15.1/typst-armv7-unknown-linux-musleabi.tar.xz
+a6d077d0a95eed5a2eba715b2dae06be954f624ccbf85758a03f389ded33118c  v0.15.1/typst-x86_64-unknown-linux-musl.tar.xz
+48f62ed034aa3a7978309579ac6ca00045e2ef0da73114e8af27cfd8e74dc05a  v0.15.1/typst-aarch64-apple-darwin.tar.xz
+7f9fdd9584866245de9a79e0add8f9236fae6f40a8a45e2c4771ccc14db4e0fa  v0.15.1/typst-x86_64-apple-darwin.tar.xz
+19ce3551153c2fe7ee9fa2f95208310c8f4d3209fedb699e0333faf8913f6736  v0.15.1/typst-x86_64-pc-windows-msvc.zip
