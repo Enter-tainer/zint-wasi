@@ -1,3 +1,7 @@
+# Licenses that third-party crates may carry. `cargo about` refuses to
+# generate the license list if any dependency falls outside this set, so a
+# dependency update that switches licenses fails the package step until the
+# new license has been reviewed and added here.
 accepted = [
     "Apache-2.0",
     "MIT",
@@ -5,8 +9,10 @@ accepted = [
     "BSD-2-Clause",
     "ISC",
     "Unlicense",
-    "Unicode-DFS-2016",
     "Apache-2.0 WITH LLVM-exception",
-    "GPL-3.0",
     "Zlib",
+    # unicode-ident (via proc-macro2/syn)
+    "Unicode-3.0",
+    # xxhash-rust (via typst plugin dependencies)
+    "BSL-1.0",
 ]

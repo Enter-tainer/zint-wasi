@@ -78,7 +78,7 @@ declare_actions![
     },
     RunCI: {
         arg: "ci", name: "",
-        require: [PackagePlugin, InstallTypst, CompileManual],
+        require: [PackagePlugin, InstallTypst, CompileManual, ThirdPartyLicense],
         run: None
     },
     All: { // alias for package
@@ -411,9 +411,12 @@ mod tests {
     }
 
     /// The workflow runs `cargo xtask ci` and then uploads the plugin and the
-    /// manual, so those steps have to stay part of that task.
+    /// manual, so those steps have to stay part of that task. The licence list
+    /// is part of it too, so that a dependency bringing in a licence that
+    /// `about.toml` does not accept fails the pull request rather than the
+    /// release.
     #[test]
-    fn the_ci_task_still_produces_the_plugin_and_the_manual() {
+    fn the_ci_task_still_produces_the_plugin_the_manual_and_the_licence_list() {
         let reached = reachable(Action::RunCI);
 
         for required in [
@@ -425,6 +428,8 @@ mod tests {
             Action::PackagePlugin,
             Action::InstallTypst,
             Action::CompileManual,
+            Action::EnsureCargoAbout,
+            Action::ThirdPartyLicense,
         ] {
             assert!(
                 reached.contains(&required),
