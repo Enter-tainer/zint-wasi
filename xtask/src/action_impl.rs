@@ -451,6 +451,35 @@ mod tests {
         }
     }
 
+    /// A tool can only be moved to another version together with the digest of
+    /// what that version downloads, or the build stops on the archive it has
+    /// never seen. The versions come from the same state the build reads, and
+    /// every platform is checked from any one of them, so this fails on the
+    /// bump rather than on the machine that builds next.
+    #[test]
+    fn every_archive_a_supported_platform_downloads_is_pinned() {
+        let wasi = state!(WASI_SDK_VERSION, default: "24");
+        let binaryen = state!(BINARYEN_VERSION, default: "119");
+        let typst = state!(TYPST_VERSION, default: "0.13.1");
+
+        for (os, arch) in SUPPORTED {
+            let urls = [
+                wasi_url(os, arch, &wasi).expect("no WASI SDK for {os}-{arch}"),
+                binaryen_url(os, arch, &binaryen).expect("no binaryen for {os}-{arch}"),
+                typst_url(os, arch, &typst)
+                    .expect("no typst for {os}-{arch}")
+                    .0,
+            ];
+            for url in urls {
+                let artifact = crate::tools::release_and_name(&url);
+                assert!(
+                    crate::checksum::pinned(&artifact).is_some(),
+                    "no digest is pinned for '{artifact}'"
+                );
+            }
+        }
+    }
+
     #[test]
     fn unsupported_platforms_have_no_url() {
         assert_eq!(wasi_url("linux", "riscv64", "24"), None);

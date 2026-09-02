@@ -11,8 +11,9 @@ use std::{
     sync::OnceLock,
 };
 
+use crate::checksum::ChecksumError;
 use crate::log::*;
-use crate::state_path;
+use crate::{state, state_path};
 
 pub fn exists(path: impl AsRef<Path>) -> bool {
     std::fs::exists(path.as_ref()).ok().unwrap_or_default()
@@ -283,14 +284,69 @@ pub fn download(url: impl AsRef<str>, target: impl AsRef<Path>) -> Result<(), Do
         target.as_ref().display()
     );
     let result = (runner)(url.as_ref(), target.as_ref());
+    let result = result.and_then(|()| verify_download(url.as_ref(), target.as_ref()));
     end_group!();
     result
+}
+
+/// The release folder and file name a download URL ends in, which is how an
+/// archive is named in `xtask/toolchain.sha256`.
+///
+/// Input:  `https://github.com/.../download/version_119/binaryen-version_119-x86_64-linux.tar.gz`
+/// Output: `version_119/binaryen-version_119-x86_64-linux.tar.gz`
+pub fn release_and_name(url: &str) -> String {
+    let path = url.split(['?', '#']).next().unwrap_or(url);
+    let mut segments = path.rsplit('/');
+    let name = segments.next().unwrap_or_default();
+    match segments.next() {
+        Some(release) if !release.is_empty() => format!("{release}/{name}"),
+        _ => name.to_string(),
+    }
+}
+
+/// Checks a downloaded archive against the digest the source tree pins for it.
+fn verify_download(url: &str, target: &Path) -> Result<(), DownloadError> {
+    let artifact = release_and_name(url);
+    match crate::checksum::verify(target, &artifact) {
+        Ok(()) => {
+            info!("\t- digest matches the one pinned for '{}'", artifact);
+            Ok(())
+        }
+        // Nothing says the archive is wrong, only that this build has never
+        // seen it, so it is left where it is for whoever has to look at it.
+        Err(error @ ChecksumError::Unpinned { .. }) if unpinned_downloads_allowed() => {
+            warn!(error);
+            Ok(())
+        }
+        Err(error) => {
+            if matches!(error, ChecksumError::Mismatch { .. }) {
+                // An archive that is not the pinned one must not be left
+                // behind: a later run takes any file that is already there for
+                // the download it made itself.
+                let _ = std::fs::remove_file(target);
+            }
+            Err(DownloadError::Checksum(error))
+        }
+    }
+}
+
+/// Whether the build may go on with an archive no digest is pinned for, which
+/// is what someone bumping a tool version needs before they have the digest.
+fn unpinned_downloads_allowed() -> bool {
+    !matches!(
+        state!(ALLOW_UNPINNED_DOWNLOADS, default: "0").as_str(),
+        "" | "0" | "false" | "no"
+    )
 }
 
 #[derive(Debug)]
 pub enum DownloadError {
     CommandError(CommandError),
-    BadUrl { url: String },
+    BadUrl {
+        url: String,
+    },
+    /// The archive that arrived is not the one that was pinned
+    Checksum(ChecksumError),
     IO(io::Error),
 }
 impl std::fmt::Display for DownloadError {
@@ -298,6 +354,7 @@ impl std::fmt::Display for DownloadError {
         match self {
             DownloadError::CommandError(exit) => std::fmt::Display::fmt(exit, f),
             DownloadError::BadUrl { url } => write!(f, "can't resolve url: '{url}'"),
+            DownloadError::Checksum(error) => std::fmt::Display::fmt(error, f),
             DownloadError::IO(io) => write!(f, "io error: {io}"),
         }
     }
@@ -306,6 +363,7 @@ impl std::error::Error for DownloadError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
             Self::CommandError(source) => Some(source),
+            Self::Checksum(source) => Some(source),
             Self::IO(source) => Some(source),
             _ => None,
         }

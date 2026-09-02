@@ -35,6 +35,8 @@ prefixed with `XTASK_` (`XTASK_<OPTION>`).
   - `WASI_SDK_VERSION`: WASI SDK version used to compile the package
   - `BINARYEN_VERSION`: binaryen version used for `wasm-opt`
   - `TYPST_VERSION`: typst version used to compile the manual
+- Downloads:
+  - `ALLOW_UNPINNED_DOWNLOADS`: build with an archive no digest is pinned for
 - Paths:
   - `WORK_DIR`: path to the output directory
   - `TYPST_PKG`: path to the typst package directory
@@ -47,3 +49,17 @@ break things.
 The `xtask/state` is expected to be part of the source tree in VCS, this allows
 xtask to keep track of changes to state that become visible only during builds
 (e.g. file hashes).
+
+## Downloaded toolchains
+
+The WASI SDK, `wasm-opt` and `typst` are downloaded from their release pages
+when they are not already installed. Every archive is checked against the digest
+listed for it in [`xtask/toolchain.sha256`](./toolchain.sha256), so a build uses
+either the bytes this repository was tested against or none at all.
+
+Moving a tool to another version therefore means adding the digests that version
+publishes, for every platform the build supports. Running a build prints the
+line to add for the archive it just downloaded, and
+`XTASK_ALLOW_UNPINNED_DOWNLOADS=1` gets a build through until those lines are
+in. It excuses only an archive that is not listed: one that is listed and hashes
+to something else always stops the build.

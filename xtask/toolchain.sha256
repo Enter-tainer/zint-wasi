@@ -1,0 +1,32 @@
+# The archives this build is allowed to download, each named by the release it
+# is published under, because the same file name is reused release after
+# release. The format is the one `sha256sum` writes, so an archive can be
+# checked by hand with `sha256sum --check` from the folder it was downloaded to.
+#
+# A download that hashes to something else stops the build. When a tool version
+# changes, add its lines here as well: `cargo xtask` prints the line to add,
+# with the digest of what it just downloaded, and it is worth comparing that
+# against what upstream publishes before pasting it in.
+#
+# The binaryen digests below are the ones published beside each archive as
+# `<archive>.sha256`. WASI SDK and Typst publish none, so those were taken from
+# the archives themselves.
+
+ae6c1417ea161e54bc54c0a168976af57a0c6e53078857886057a71a0d928646  wasi-sdk-24/wasi-sdk-24.0-arm64-linux.tar.gz
+c6c38aab56e5de88adf6c1ebc9c3ae8da72f88ec2b656fb024eda8d4167a0bc5  wasi-sdk-24/wasi-sdk-24.0-x86_64-linux.tar.gz
+aeae999396d5f5caa5ce419f52e83c35869d5fd21d40af80acba2c80f51b0b3a  wasi-sdk-24/wasi-sdk-24.0-arm64-macos.tar.gz
+4bfc274ae8b68c771dd93e32ad4bd695336ca46b585beb3b1260e5602dbc11a2  wasi-sdk-24/wasi-sdk-24.0-x86_64-macos.tar.gz
+0f934c6e7e171b5627c81b697a9e57e96d65cd889f56ce6077350de48978afd3  wasi-sdk-24/wasi-sdk-24.0-x86_64-windows.tar.gz
+
+537b0c137afcde45ea42df72e46fc19738c60af8ca78be9319967eefb6f8bcf6  version_119/binaryen-version_119-aarch64-linux.tar.gz
+716bcf9f5f36a6f466239fbb09a925eeaf54c46411ccefac979ec649e7c06d2d  version_119/binaryen-version_119-x86_64-linux.tar.gz
+c12dffafb3e3274026268e90577bd86d98186f7be32457618672f8ca437d8d53  version_119/binaryen-version_119-arm64-macos.tar.gz
+eed19e583d7bc2a7482bced15ec3fa56a87811b310f37241b5016a66fc95cc4b  version_119/binaryen-version_119-x86_64-macos.tar.gz
+e76eb6852208bc0044ad7015cfcaa351ef0992e18b966a83eddd5f6253fdbefc  version_119/binaryen-version_119-x86_64-windows.tar.gz
+
+4f5b7ee6e57fb639019ee0f6bffcf940edad228ede6ff5269a9f05a1544ceed4  v0.13.1/typst-aarch64-unknown-linux-musl.tar.xz
+0bc8fce6bf4f6523c755a1800325a33de19d246a0076efd9f8c5d5c01974edc2  v0.13.1/typst-armv7-unknown-linux-musleabi.tar.xz
+7d214bfeffc2e585dc422d1a09d2b144969421281e8c7f5d784b65fc69b5673f  v0.13.1/typst-x86_64-unknown-linux-musl.tar.xz
+541e4f9eaca3f34ee865f81fc663e4839cb84d6253f71a372cd855b0a7283213  v0.13.1/typst-aarch64-apple-darwin.tar.xz
+4dabfe647f7f01ed9cc13ad8196a6c7f5e16f0732821b522d50740d3a9f5207b  v0.13.1/typst-x86_64-apple-darwin.tar.xz
+44170d0632298ba68cbabc43dbfb6908b17ca9236859e0767b0e5d54b2d19f48  v0.13.1/typst-x86_64-pc-windows-msvc.zip

@@ -2,6 +2,7 @@ use action::Action;
 use state::GlobalState;
 
 mod action;
+mod checksum;
 mod log;
 mod state;
 #[cfg(test)]
