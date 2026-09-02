@@ -95,6 +95,41 @@ cargo mutants -p zint-wasm-rs
 It is not part of CI: a full run takes far longer than a pull request should
 wait for, and what it produces is a list to read rather than a pass or a fail.
 
+## Release
+
+A release is cut by the `CD` workflow under the repository's Actions tab, started by hand
+from `master`. Given a version, it moves that version into every file that repeats it, builds
+the package, commits and tags the result as `v<version>`, publishes a GitHub release with the
+package and the manual attached, and opens the pull request on
+[typst/packages](https://github.com/typst/packages) that puts the version on Typst Universe.
+Leaving the version empty releases the version the manifests already carry.
+
+The workflow refuses to run if the tag exists or the version is already on Universe, so a
+failed run can be started again. A dry run builds and uploads the assets without committing,
+tagging, releasing or publishing, and may be started from any branch.
+
+It needs two things set up once:
+
+- A `TYPST_PACKAGES_TOKEN` repository secret holding a personal access token with the
+  `public_repo` scope of the person who submits to Universe. The token creates or reuses that
+  person's fork of `typst/packages`, pushes the version there and opens the pull request in
+  their name, which is what Universe expects: an update should come from whoever submitted the
+  previous version.
+- If `master` is protected, the branch rules have to let the workflow push the release commit
+  and the tag.
+
+The same steps can be run by hand:
+
+```sh
+cargo xtask set-version 0.4.0   # moves the version, refreshes Cargo.lock
+cargo xtask version             # prints it, after checking every copy agrees
+cargo xtask bundle              # builds the package and lays it out under target/bundle/tiaoma/0.4.0
+```
+
+The bundle leaves out the files `typst.toml` excludes, as Universe does. The Universe pull
+request, on the other hand, gets the whole `typst-package` directory, excluded files included,
+which Universe links from the package page.
+
 ## License
 
 The code in this repository is licensed under the MIT license; a copy can be found in the
