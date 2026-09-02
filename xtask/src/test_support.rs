@@ -40,3 +40,41 @@ impl Drop for TempFile {
         let _ = std::fs::remove_file(&self.0);
     }
 }
+
+/// A directory in the temporary directory that removes itself again, with
+/// everything a test put into it.
+pub struct TempDir(PathBuf);
+
+impl TempDir {
+    pub fn new() -> Self {
+        static COUNTER: AtomicU32 = AtomicU32::new(0);
+
+        let name = format!(
+            "zint-wasi-xtask-dir-{}-{}",
+            std::process::id(),
+            COUNTER.fetch_add(1, Ordering::Relaxed)
+        );
+        let path = std::env::temp_dir().join(name);
+        std::fs::create_dir_all(&path).expect("writable temporary directory");
+
+        Self(path)
+    }
+
+    pub fn path(&self) -> &Path {
+        &self.0
+    }
+
+    /// Writes `contents` to `relative`, creating the directories on the way.
+    pub fn write(&self, relative: &str, contents: &str) {
+        let path = self.0.join(relative);
+        std::fs::create_dir_all(path.parent().expect("a file below the directory"))
+            .expect("writable temporary directory");
+        std::fs::write(path, contents).expect("writable temporary directory");
+    }
+}
+
+impl Drop for TempDir {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.0);
+    }
+}

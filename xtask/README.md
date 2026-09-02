@@ -15,6 +15,14 @@ cargo xtask <COMMAND> [ARGS...]
   - `--debug`: creates a debug build of the plugin
 - `build-manual`: compiles the manual
 - `package`: packages all requirements needed for publishing
+- `bundle`: runs `package`, fetching typst if it is not installed, and lays the
+  package out as it is published under `<WORK_DIR>/bundle/<name>/<version>`,
+  without the files `typst.toml` excludes
+- `set-version <major.minor.patch>`: moves the package version in `typst.toml`,
+  the `@preview` import in the package README, the crates that follow the
+  package version and `Cargo.lock`
+- `version`: prints the package version, after checking that every file
+  `set-version` writes agrees with it
 
 Command arguments are transitive, which means that running
 `cargo xtask package --debug` will pass that flag to all task that `package`

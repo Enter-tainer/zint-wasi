@@ -86,6 +86,24 @@ declare_actions![
         require: [PackagePlugin, InstallTypst, CompileManual, ThirdPartyLicense],
         run: None
     },
+    SetVersion: {
+        arg: "set-version", name: "set version",
+        require: [],
+        run: Some(action_set_version)
+    },
+    // Hidden so that its stdout is the version alone, for scripts to read.
+    Version: {
+        arg: "version", name: "",
+        require: [],
+        run: Some(action_print_version)
+    },
+    // Typst is installed first so that a machine without it still gets the
+    // manual, and the bundle is what a release is cut from.
+    Bundle: {
+        arg: "bundle", name: "bundle package",
+        require: [InstallTypst, Package],
+        run: Some(action_bundle)
+    },
     All: { // alias for package
         arg: "all", name: "",
         require: [Package],
@@ -335,6 +353,9 @@ mod tests {
         Package,
         InstallTypst,
         RunCI,
+        SetVersion,
+        Version,
+        Bundle,
         All,
     ];
 
@@ -380,6 +401,9 @@ mod tests {
             ("build-manual", Action::CompileManual),
             ("package", Action::Package),
             ("ci", Action::RunCI),
+            ("set-version", Action::SetVersion),
+            ("version", Action::Version),
+            ("bundle", Action::Bundle),
             ("all", Action::All),
         ] {
             assert_eq!(Action::parse_arg(argument), Ok(expected), "{argument}");
@@ -470,11 +494,34 @@ mod tests {
         assert!(reached.contains(&Action::PackagePlugin));
     }
 
+    /// The release workflow runs `cargo xtask bundle` and zips what it lays
+    /// out, so the bundle has to be built from a complete package, with the
+    /// manual compiled by a typst that was fetched if the runner has none.
+    #[test]
+    fn the_bundle_task_packages_everything_first() {
+        let reached = reachable(Action::Bundle);
+
+        assert!(reached.contains(&Action::Package));
+        assert!(reached.contains(&Action::InstallTypst));
+        assert!(reached.contains(&Action::CompileManual));
+        assert!(reached.contains(&Action::ThirdPartyLicense));
+    }
+
+    /// The version tasks are for scripts; if they pulled in a build, reading
+    /// the version would take minutes and could fail for unrelated reasons.
+    #[test]
+    fn the_version_tasks_build_nothing() {
+        assert!(Action::Version.dependencies().is_empty());
+        assert!(Action::SetVersion.dependencies().is_empty());
+    }
+
     #[test]
     fn only_named_actions_are_announced_while_they_run() {
         assert_eq!(Action::BuildPlugin.name(), Some("build plugin"));
         assert_eq!(Action::OptPlugin.name(), Some("optimize wasm"));
         assert_eq!(Action::CopyLicense.name(), None);
+        // Its stdout is read by scripts, so nothing else may end up there.
+        assert_eq!(Action::Version.name(), None);
         assert_eq!(Action::All.name(), None);
     }
 
