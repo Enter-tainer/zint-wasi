@@ -133,7 +133,7 @@ mod tests {
     use super::Symbology;
     use crate::{options::Options, test_support::from_cbor};
     use ciborium::cbor;
-    use std::{collections::HashMap, ffi::CStr, os::raw::c_char};
+    use std::{collections::HashMap, os::raw::c_char};
     use zint_wasm_sys::{ZBarcode_BarcodeName, ZBarcode_ValidID};
 
     /// Declares the symbologies the tests below run over, each with the name
@@ -273,12 +273,7 @@ mod tests {
         if unknown != 0 {
             return None;
         }
-        let name = unsafe {
-            // Safety: zint terminates the name it wrote and never fills the
-            // buffer completely.
-            CStr::from_ptr(name.as_ptr())
-        };
-        Some(name.to_string_lossy().into_owned())
+        Some(crate::util::read_cstr(&name))
     }
 
     #[test]

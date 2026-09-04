@@ -1,4 +1,4 @@
-use std::{fmt::Display, mem::MaybeUninit, str::Utf8Error};
+use std::{fmt::Display, mem::MaybeUninit};
 
 use serde::Deserialize;
 use zint_wasm_sys::*;
@@ -210,11 +210,17 @@ impl Display for ValidationFailiure {
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
-    /// Error originating from Zint
-    #[error(transparent)]
-    Zint(#[from] ZintError),
-    #[error("zint returned non-utf8 SVG result")]
-    InvalidResultSVG(#[source] Utf8Error),
+    /// A failure zint reported, with whatever it had to say about it.
+    ///
+    /// `kind` is the return code, which is stable enough to match on. `detail`
+    /// is the sentence zint wrote alongside it, which names the actual problem
+    /// and is what a document author can act on, and is passed on as written.
+    #[error("{}", detail.clone().unwrap_or_else(|| kind.to_string()))]
+    Zint {
+        #[source]
+        kind: ZintError,
+        detail: Option<String>,
+    },
     /// Invalid output options
     #[error("invalid input mode: {0}")]
     InvalidInputMode(ValidationFailiure),
@@ -409,13 +415,25 @@ mod tests {
     }
 
     /// A zint failure reaches Typst as the plugin's error string, so it must
-    /// not be wrapped in wording of our own.
+    /// not be wrapped in wording of our own. Zint's own explanation is the
+    /// message when there is one; the meaning of the return code is the
+    /// fallback for a code raised without one.
     #[test]
     fn a_zint_error_is_reported_verbatim() {
-        let error = Error::from(ZintError::InvalidCheck);
+        let explained = Error::Zint {
+            kind: ZintError::InvalidCheck,
+            detail: Some("Error 275: Invalid check digit '2', expecting '1'".to_owned()),
+        };
+        assert_eq!(
+            explained.to_string(),
+            "Error 275: Invalid check digit '2', expecting '1'"
+        );
 
-        assert_eq!(error.to_string(), ZintError::InvalidCheck.to_string());
-        assert!(matches!(error, Error::Zint(ZintError::InvalidCheck)));
+        let bare = Error::Zint {
+            kind: ZintError::InvalidCheck,
+            detail: None,
+        };
+        assert_eq!(bare.to_string(), ZintError::InvalidCheck.to_string());
     }
 
     #[test]

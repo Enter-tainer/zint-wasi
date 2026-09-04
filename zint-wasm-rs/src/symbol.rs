@@ -139,19 +139,32 @@ impl Symbol {
         let result = ZintResult::from(unsafe {
             ZBarcode_Encode_and_Print(self.inner, source.as_ptr(), length, rotate_angle) as u32
         });
-        if let Some(err) = result.as_error() {
-            return Err(Error::Zint(err));
+        if let Some(kind) = result.as_error() {
+            return Err(Error::Zint {
+                kind,
+                detail: self.explanation(),
+            });
         }
         let svg = unsafe {
-            let memfile = std::slice::from_raw_parts(self.memfile, self.memfile_size as usize);
-            memfile
+            // Safety: zint wrote `memfile_size` bytes at `memfile`, and the
+            // symbol outlives this borrow.
+            std::slice::from_raw_parts(self.memfile, self.memfile_size as usize)
         };
-        let svg = String::from_utf8_lossy(svg).to_string();
 
-        match result.as_error() {
-            Some(err) => Err(Error::Zint(err)),
-            None => Ok(svg),
-        }
+        Ok(String::from_utf8_lossy(svg).to_string())
+    }
+
+    /// What zint wrote about the last call it was given, if it wrote anything.
+    ///
+    /// The return code carries a category; this carries the specifics, such as
+    /// which check digit was supplied and which one was expected. Zint prefixes
+    /// it with `Error` or `Warning` and its own message number.
+    fn explanation(&self) -> Option<String> {
+        let message = crate::util::read_cstr(&self.errtxt);
+
+        // A code can be raised without anything being written, and an empty
+        // explanation explains nothing.
+        (!message.is_empty()).then_some(message)
     }
 }
 
@@ -205,7 +218,7 @@ mod tests {
             Options,
         },
     };
-    use std::{ffi::CStr, os::raw::c_char, str::FromStr};
+    use std::str::FromStr;
 
     /// Extracts the pixel dimensions from the `<svg>` element of a Zint SVG.
     ///
@@ -228,19 +241,6 @@ mod tests {
                 .expect("numeric attribute")
         };
         (attribute("width"), attribute("height"))
-    }
-
-    /// Reads one of the symbol's fixed size C string fields back as Rust.
-    ///
-    /// Input:  `symbol.fgcolour`, holding `000000ff\0`
-    /// Output: `"000000ff"`
-    fn c_string(field: &[c_char]) -> String {
-        let value = unsafe {
-            // Safety: every field this is used on is written by
-            // `copy_into_cstr`, which always terminates, or zeroed by zint.
-            CStr::from_ptr(field.as_ptr())
-        };
-        value.to_string_lossy().into_owned()
     }
 
     fn code128() -> Options {
@@ -286,9 +286,9 @@ mod tests {
             symbol.output_options,
             (OutputOptions::BARCODE_BOX | OutputOptions::BARCODE_MEMORY_FILE).as_i32()
         );
-        assert_eq!(c_string(&symbol.fgcolour), "112233ff");
-        assert_eq!(c_string(&symbol.bgcolour), "44556677");
-        assert_eq!(c_string(&symbol.primary), "331234567890");
+        assert_eq!(crate::util::read_cstr(&symbol.fgcolour), "112233ff");
+        assert_eq!(crate::util::read_cstr(&symbol.bgcolour), "44556677");
+        assert_eq!(crate::util::read_cstr(&symbol.primary), "331234567890");
         assert_eq!(symbol.option_1, 2);
         assert_eq!(symbol.option_2, 5);
         assert_eq!(symbol.option_3, 200);
@@ -323,7 +323,7 @@ mod tests {
         assert_eq!(symbol.dot_size, 0.8);
         assert_eq!(symbol.text_gap, 1.0);
         assert_eq!(symbol.guard_descent, 5.0);
-        assert_eq!(c_string(&symbol.primary), "");
+        assert_eq!(crate::util::read_cstr(&symbol.primary), "");
     }
 
     /// The plugin has no file system to write to, so the symbol always renders
@@ -352,8 +352,8 @@ mod tests {
     fn colors_default_to_black_on_transparent() {
         let symbol = Symbol::new(&code128()).expect("the options are valid");
 
-        assert_eq!(c_string(&symbol.fgcolour), "000000ff");
-        assert_eq!(c_string(&symbol.bgcolour), "ffffff00");
+        assert_eq!(crate::util::read_cstr(&symbol.fgcolour), "000000ff");
+        assert_eq!(crate::util::read_cstr(&symbol.bgcolour), "ffffff00");
     }
 
     #[test]
@@ -406,8 +406,31 @@ mod tests {
             .encode_svg(b"6975004310002", 0)
             .expect_err("EAN-13 with a wrong check digit is rejected");
         assert!(
-            matches!(error, Error::Zint(ZintError::InvalidCheck)),
+            matches!(
+                error,
+                Error::Zint {
+                    kind: ZintError::InvalidCheck,
+                    ..
+                }
+            ),
             "unexpected error: {error:?}"
+        );
+
+        // The return code says only that a check digit is wrong. Zint knows
+        // which one was given and which one it wanted, and that is the part a
+        // document author can act on.
+        let message = error.to_string();
+        assert_ne!(
+            message,
+            ZintError::InvalidCheck.to_string(),
+            "the message fell back to the meaning of the return code"
+        );
+        // One phrase of zint's, so that a message which is merely different is
+        // not mistaken for the right one. A reworded message here means zint
+        // changed its wording, not that the explanation was lost.
+        assert!(
+            message.contains("check digit"),
+            "unexpected explanation: {message}"
         );
     }
 

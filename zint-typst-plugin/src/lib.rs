@@ -234,7 +234,18 @@ mod tests {
             matches!(error, Error::ZintEncoding(_)),
             "unexpected error: {error:?}"
         );
-        assert!(error.to_string().contains("check digit"));
+        // What the document is shown is zint's own sentence about the payload
+        // it was given, which is more than the return code alone can say.
+        let message = error.to_string();
+        assert_ne!(
+            message,
+            zint_wasm_rs::error::ZintError::InvalidCheck.to_string(),
+            "only the meaning of the return code crossed the plugin boundary"
+        );
+        assert!(
+            message.contains("check digit"),
+            "unexpected explanation: {message}"
+        );
     }
 
     #[test]
