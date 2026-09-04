@@ -224,30 +224,6 @@ pub fn action_build_manual(_args: &[String]) -> ActionResult {
     let manual_target = state_path!(TYPST_PKG).join("manual.pdf");
     action_expect!(typst_compile(&manual_source, &manual_target));
 
-    #[cfg(not(ci))]
-    {
-        if did_files_change!([manual_source] as MANUAL_HASH) {
-            cmd(
-                "git",
-                [
-                    OsStr::new("update-index"),
-                    OsStr::new("--no-assume-unchanged"),
-                    manual_target.as_os_str(),
-                ],
-            );
-            cmd("git", [OsStr::new("add"), manual_target.as_os_str()]);
-        } else {
-            cmd(
-                "git",
-                [
-                    OsStr::new("update-index"),
-                    OsStr::new("--assume-unchanged"),
-                    manual_target.as_os_str(),
-                ],
-            );
-        }
-    }
-
     action_ok!();
 }
 
