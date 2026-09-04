@@ -135,7 +135,6 @@ mod tests {
     use ciborium::cbor;
     use std::{
         collections::{HashMap, HashSet},
-        ffi::CStr,
         os::raw::c_char,
     };
     use zint_wasm_sys::{ZBarcode_BarcodeName, ZBarcode_ValidID};
@@ -277,12 +276,7 @@ mod tests {
         if unknown != 0 {
             return None;
         }
-        let name = unsafe {
-            // Safety: zint terminates the name it wrote and never fills the
-            // buffer completely.
-            CStr::from_ptr(name.as_ptr())
-        };
-        Some(name.to_string_lossy().into_owned())
+        Some(crate::util::read_cstr(&name))
     }
 
     #[test]
