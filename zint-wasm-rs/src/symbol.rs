@@ -104,6 +104,10 @@ impl Symbol {
             result.guard_descent = guard_descent;
         }
 
+        if let Some(warn_level) = options.warn_level {
+            result.warn_level = warn_level as i32;
+        }
+
         Ok(result)
     }
 
@@ -208,7 +212,7 @@ impl Drop for Symbol {
 mod tests {
     use super::Symbol;
     use crate::{
-        error::{Error, ZintError},
+        error::{Error, WarningLevel, ZintError},
         options::{
             color::Color,
             input_mode::InputMode,
@@ -272,6 +276,7 @@ mod tests {
             dot_size: Some(0.75),
             text_gap: Some(1.5),
             guard_descent: Some(4.0),
+            warn_level: Some(WarningLevel::FailAll),
         };
 
         let symbol = Symbol::new(&options).expect("the options are valid");
@@ -301,6 +306,7 @@ mod tests {
         assert_eq!(symbol.dot_size, 0.75);
         assert_eq!(symbol.text_gap, 1.5);
         assert_eq!(symbol.guard_descent, 4.0);
+        assert_eq!(symbol.warn_level, WarningLevel::FailAll as i32);
     }
 
     /// Anything the caller leaves out stays at the value zint picked, so its
@@ -323,6 +329,11 @@ mod tests {
         assert_eq!(symbol.dot_size, 0.8);
         assert_eq!(symbol.text_gap, 1.0);
         assert_eq!(symbol.guard_descent, 5.0);
+        assert_eq!(
+            symbol.warn_level,
+            WarningLevel::Default as i32,
+            "a warning must not fail a document that never asked it to"
+        );
         assert_eq!(crate::util::read_cstr(&symbol.primary), "");
     }
 
@@ -568,20 +579,57 @@ mod tests {
         );
     }
 
+    /// A bar height below what the symbology's standard asks for, which zint
+    /// answers with a symbol and `ZINT_WARN_NONCOMPLIANT`.
+    ///
+    /// Code 39 rather than Code 128: zint gives Code 128 no minimum height, so
+    /// `COMPLIANT_HEIGHT` on one raises nothing at all.
+    fn shorter_than_its_standard_allows() -> Options {
+        let mut options = Options::with_symbology(Symbology::Code39);
+        options.height = Some(1.0);
+        options.output_options = Some(OutputOptions::COMPLIANT_HEIGHT);
+        options
+    }
+
     /// A warning is not a failure: zint still produces the symbol, and a
     /// document that asked for a barcode still gets one.
     #[test]
     fn a_symbol_zint_only_warns_about_is_still_returned() {
-        let mut options = code128();
-        options.height = Some(1.0);
-        options.output_options = Some(OutputOptions::COMPLIANT_HEIGHT);
-
-        let svg = Symbol::new(&options)
+        let svg = Symbol::new(&shorter_than_its_standard_allows())
             .expect("the options are valid")
             .encode_svg(b"A12345B", 0)
             .expect("a symbol that is too short is still a symbol");
 
         assert!(svg.contains("<path d=\"M"));
+    }
+
+    /// A barcode that does not meet its standard renders exactly like one that
+    /// does, so a caller who cannot accept that has to be able to say so and be
+    /// told rather than shipping it.
+    #[test]
+    fn a_warning_can_be_asked_to_fail_instead() {
+        let mut options = shorter_than_its_standard_allows();
+        options.warn_level = Some(WarningLevel::FailAll);
+
+        let error = Symbol::new(&options)
+            .expect("the options are valid")
+            .encode_svg(b"A12345B", 0)
+            .expect_err("the height was asked to be compliant and is not");
+
+        assert!(
+            matches!(
+                error,
+                Error::Zint {
+                    kind: ZintError::Noncompliant,
+                    ..
+                }
+            ),
+            "unexpected error: {error:?}"
+        );
+        assert!(
+            error.to_string().contains("not compliant"),
+            "zint says which standard was missed: {error}"
+        );
     }
 
     #[test]

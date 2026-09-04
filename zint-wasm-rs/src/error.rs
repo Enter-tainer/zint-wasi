@@ -274,7 +274,14 @@ pub enum Error {
 }
 
 /// Warning level (symbol->warn_level)
-#[derive(Debug, Copy, Clone, Deserialize)]
+///
+/// Zint answers some requests with a symbol and a warning rather than with a
+/// failure: a height below what the standard asks for, a truncated human
+/// readable text, an ECI it had to insert on its own. Raising the level turns
+/// those into errors, so that a symbol that does not meet its standard is not
+/// drawn at all.
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "kebab-case")]
 #[repr(u32)]
 pub enum WarningLevel {
     /// Default behaviour
