@@ -1,15 +1,33 @@
 use std::{
     env::consts::{ARCH, OS},
     ffi::OsStr,
-    path::PathBuf,
+    path::{Path, PathBuf},
 };
 
 use super::*;
+use crate::release::*;
 use crate::state::GlobalState;
 use crate::tools::*;
-use crate::{state, state_path};
+use crate::{configure, state, state_path};
 
 const WASI_PATH_VAR: &str = "WASI_SDK_PATH";
+
+// The versions of the toolchain a build downloads, from the state and the
+// environment, falling back to what the workflows pin. Read them only through
+// these three, so that the fallback a build uses is the one
+// `every_archive_a_supported_platform_downloads_is_pinned` finds a digest for:
+// a second copy of a version is a copy nothing tests.
+fn wasi_sdk_version() -> String {
+    state!(WASI_SDK_VERSION, default: "34")
+}
+
+fn binaryen_version() -> String {
+    state!(BINARYEN_VERSION, default: "132")
+}
+
+fn typst_version() -> String {
+    state!(TYPST_VERSION, default: "0.15.1")
+}
 
 fn has_wasi_sdk() -> bool {
     match std::env::var(WASI_PATH_VAR) {
@@ -48,7 +66,7 @@ pub fn action_ensure_wasi_sdk(_args: &[String]) -> ActionResult {
     };
 
     if !exists(&extract_path) {
-        let url = match wasi_url(OS, ARCH, &state!(WASI_SDK_VERSION, default: "34")) {
+        let url = match wasi_url(OS, ARCH, &wasi_sdk_version()) {
             Some(it) => it,
             None => action_error!(std::io::Error::other(format!(
                 "no prebuilt WASI SDK for {OS}-{ARCH}; build one and set {WASI_PATH_VAR}"
@@ -185,7 +203,7 @@ pub fn action_prepare_wasm_opt(args: &[String]) -> ActionResult {
     let wasm_opt_dir = work_dir.join("tools");
     let wasm_opt_bin = wasm_opt_dir.join(exe_name(WASM_OPT));
     if !exists(wasm_opt_bin) {
-        let url = match binaryen_url(OS, ARCH, &state!(BINARYEN_VERSION, default: "132")) {
+        let url = match binaryen_url(OS, ARCH, &binaryen_version()) {
             Some(it) => it,
             None => action_error!(std::io::Error::other(format!(
                 "no prebuilt binaryen for {OS}-{ARCH}"
@@ -200,7 +218,7 @@ pub fn action_prepare_wasm_opt(args: &[String]) -> ActionResult {
                 "--strip-components=2".to_string(),
                 format!(
                     "binaryen-version_{}/bin/{}",
-                    state!(BINARYEN_VERSION, default: "132"),
+                    binaryen_version(),
                     exe_name(WASM_OPT)
                 )
             ]
@@ -325,7 +343,7 @@ pub fn action_install_typst(_args: &[String]) -> ActionResult {
         action_skip!("{} already in PATH", TYPST);
     }
 
-    let (url, base_dir, ext) = match typst_url(OS, ARCH, &state!(TYPST_VERSION)) {
+    let (url, base_dir, ext) = match typst_url(OS, ARCH, &typst_version()) {
         Some(it) => it,
         None => action_error!(std::io::Error::other(format!(
             "no prebuilt typst for {OS}-{ARCH}"
@@ -349,6 +367,153 @@ pub fn action_install_typst(_args: &[String]) -> ActionResult {
         ));
     }
 
+    action_ok!();
+}
+
+/// The crates that follow the package version, relative to the project root.
+///
+/// When another crate starts following it, add its manifest here:
+/// `set-version` rewrites and `version` checks every entry, and the package
+/// manifest and README are handled alongside.
+const VERSIONED_CRATE_MANIFESTS: &[&str] = &[
+    "$<root>/zint-typst-plugin/Cargo.toml",
+    "$<root>/zint-wasm-rs/Cargo.toml",
+];
+
+fn versioned_crate_manifests() -> impl Iterator<Item = PathBuf> {
+    VERSIONED_CRATE_MANIFESTS
+        .iter()
+        .map(|it| PathBuf::from(configure!(*it, state: GlobalState)))
+}
+
+fn package_manifest_path() -> PathBuf {
+    state_path!(TYPST_PKG).join("typst.toml")
+}
+
+fn package_readme_path() -> PathBuf {
+    state_path!(TYPST_PKG).join("README.md")
+}
+
+fn read_package_manifest() -> Result<Manifest, ReleaseError> {
+    Manifest::parse(&std::fs::read_to_string(package_manifest_path())?)
+}
+
+/// Rewrites `path` through `edit`, touching the file only when it changes.
+fn rewrite(
+    path: &Path,
+    edit: impl FnOnce(&str) -> Result<String, ReleaseError>,
+) -> Result<(), ReleaseError> {
+    let before = std::fs::read_to_string(path)?;
+    let after = edit(&before)?;
+    if after == before {
+        info!("- {} already up to date", path.display());
+    } else {
+        std::fs::write(path, after)?;
+        info!("- {}", path.display());
+    }
+    Ok(())
+}
+
+pub fn action_set_version(args: &[String]) -> ActionResult {
+    let Some(version) = args.iter().find(|it| !it.starts_with("--")) else {
+        action_error!(ReleaseError::MissingVersionArgument);
+    };
+    action_expect!(check_version(version));
+
+    let manifest = action_expect!(read_package_manifest());
+    action_expect!(rewrite(&package_manifest_path(), |text| {
+        set_manifest_version(text, version)
+    }));
+    action_expect!(rewrite(&package_readme_path(), |text| {
+        set_import_version(text, &manifest.name, version)
+    }));
+    for path in versioned_crate_manifests() {
+        action_expect!(rewrite(&path, |text| set_manifest_version(text, version)));
+    }
+
+    // Cargo.lock records the version of every workspace member, so it has to
+    // follow; `--workspace` keeps this from touching any other entry.
+    action_expect!(cargo(["update", "--workspace"]));
+    info!("version set to {}", version);
+    action_ok!();
+}
+
+/// Prints the package version, after checking that every file which repeats
+/// it agrees, so that a release is never cut with the copies out of step.
+pub fn action_print_version(_args: &[String]) -> ActionResult {
+    let manifest = action_expect!(read_package_manifest());
+    let mut mismatches = Vec::new();
+
+    let readme_path = package_readme_path();
+    let readme = action_expect!(std::fs::read_to_string(&readme_path));
+    let imports = import_versions(&readme, &manifest.name);
+    if imports.is_empty() {
+        action_error!(ReleaseError::NotFound(format!(
+            "@preview/{} import in {}",
+            manifest.name,
+            readme_path.display()
+        )));
+    }
+    for imported in imports {
+        if imported != manifest.version {
+            mismatches.push(format!(
+                "{}: imports {} rather than {}",
+                readme_path.display(),
+                imported,
+                manifest.version
+            ));
+        }
+    }
+
+    for path in versioned_crate_manifests() {
+        let text = action_expect!(std::fs::read_to_string(&path));
+        let found = action_expect!(Manifest::parse(&text));
+        if found.version != manifest.version {
+            mismatches.push(format!(
+                "{}: {} rather than {}",
+                path.display(),
+                found.version,
+                manifest.version
+            ));
+        }
+    }
+
+    if !mismatches.is_empty() {
+        action_error!(ReleaseError::Mismatch(mismatches));
+    }
+    println!("{}", manifest.version);
+    action_ok!();
+}
+
+/// Lays the package out as it is published, under
+/// `<work dir>/bundle/<name>/<version>`, which is the layout a local package
+/// directory expects as well.
+pub fn action_bundle(_args: &[String]) -> ActionResult {
+    let manifest = action_expect!(read_package_manifest());
+    let excludes = action_expect!(Excludes::parse(&manifest.exclude));
+    let package_dir = state_path!(TYPST_PKG);
+    let target = state_path!(WORK_DIR)
+        .join("bundle")
+        .join(&manifest.name)
+        .join(&manifest.version);
+
+    // A bundle left by an earlier run may hold files this version no longer
+    // ships, so it is rebuilt from nothing.
+    if exists(&target) {
+        action_expect!(std::fs::remove_dir_all(&target));
+    }
+    let copied = action_expect!(bundle(&package_dir, &target, &excludes));
+
+    info!("bundled {} files into {}", copied.len(), target.display());
+    for path in &copied {
+        info!("- {}", path.display());
+    }
+    summary!(
+        "- Bundled {} files as `{}/{}`",
+        copied.len(),
+        manifest.name,
+        manifest.version
+    );
     action_ok!();
 }
 
@@ -450,9 +615,9 @@ mod tests {
     /// bump rather than on the machine that builds next.
     #[test]
     fn every_archive_a_supported_platform_downloads_is_pinned() {
-        let wasi = state!(WASI_SDK_VERSION, default: "34");
-        let binaryen = state!(BINARYEN_VERSION, default: "132");
-        let typst = state!(TYPST_VERSION, default: "0.15.1");
+        let wasi = wasi_sdk_version();
+        let binaryen = binaryen_version();
+        let typst = typst_version();
 
         for (os, arch) in SUPPORTED {
             let urls = [
