@@ -168,7 +168,7 @@
     return int(26)
   }
   if height == 12 and width == 26 {
-    return int(28)
+    return int(27)
   }
   if height == 12 and width == 36 {
     return int(28)
