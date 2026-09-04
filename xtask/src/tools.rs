@@ -618,6 +618,27 @@ macro_rules! typst_report {
 }
 
 pub const TYPST: &str = "typst";
+
+/// The full `typst compile` argument list, shared by every way of reaching the
+/// tool so that the flags cannot drift between them.
+///
+/// The rendered manual is committed, so it has to come out byte-identical no
+/// matter who builds it. Two things would otherwise leak the machine into the
+/// output: the wall clock, pinned here to the epoch, and the installed font
+/// collection, replaced here by `dist/fonts` and the faces Typst embeds.
+fn typst_compile_args(input: &Path, output: &Path) -> Vec<OsString> {
+    let font_path = state_path!(TYPST_FONT_PATH, default: "$<root>/dist/fonts");
+    vec![
+        OsString::from("compile"),
+        OsString::from("--creation-timestamp=0"),
+        OsString::from("--ignore-system-fonts"),
+        OsString::from("--font-path"),
+        font_path.into_os_string(),
+        input.as_os_str().to_os_string(),
+        output.as_os_str().to_os_string(),
+    ]
+}
+
 pub fn typst_compile(
     input: impl AsRef<Path>,
     output: impl AsRef<Path>,
@@ -635,16 +656,8 @@ pub fn typst_compile(
         if has_command(TYPST) {
             return |input, output| {
                 let begin = std::time::Instant::now();
-                let result = cmd(
-                    TYPST,
-                    [
-                        OsStr::new("compile"),
-                        OsStr::new("--creation-timestamp=0"),
-                        input.as_os_str(),
-                        output.as_os_str(),
-                    ],
-                )
-                .program_output(TYPST);
+                let result = cmd(TYPST, typst_compile_args(input, output))
+                    .program_output(TYPST);
                 let duration = std::time::Instant::now() - begin;
                 Ok((result, duration))
             }
@@ -655,11 +668,7 @@ pub fn typst_compile(
                 let begin = std::time::Instant::now();
                 let result = cmd(
                     local_tool_path(exe_name(TYPST)),
-                    [
-                        OsStr::new("compile"),
-                        input.as_os_str(),
-                        output.as_os_str(),
-                    ],
+                    typst_compile_args(input, output),
                 )
                 .program_output(TYPST);
                 let duration = std::time::Instant::now() - begin;
