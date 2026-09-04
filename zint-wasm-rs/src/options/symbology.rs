@@ -133,7 +133,11 @@ mod tests {
     use super::Symbology;
     use crate::{options::Options, test_support::from_cbor};
     use ciborium::cbor;
-    use std::{collections::HashMap, ffi::CStr, os::raw::c_char};
+    use std::{
+        collections::{HashMap, HashSet},
+        ffi::CStr,
+        os::raw::c_char,
+    };
     use zint_wasm_sys::{ZBarcode_BarcodeName, ZBarcode_ValidID};
 
     /// Declares the symbologies the tests below run over, each with the name
@@ -307,6 +311,150 @@ mod tests {
                 Some(*expected),
                 "{variant} ({}) resolves to the wrong zint symbology",
                 *symbology as i32
+            );
+        }
+    }
+
+    /// One shortcut function in `lib.typ`.
+    #[derive(Debug, PartialEq, Eq)]
+    struct Shortcut<'a> {
+        /// The name a document calls, such as `upce-cc`.
+        name: &'a str,
+        /// The parameter list as written, so the order it declares can be
+        /// compared against the order it forwards.
+        parameters: &'a str,
+        /// `barcode` or `barcode-primary`.
+        target: &'a str,
+        /// The arguments passed on before the symbology name.
+        forwarded: Vec<&'a str>,
+        /// The symbology the shortcut draws.
+        symbology: &'a str,
+    }
+
+    /// The shortcut functions in `lib.typ`, which are the ones whose whole body
+    /// is a call to `barcode` or `barcode-primary` naming a symbology.
+    ///
+    /// Input:  the lines
+    ///         `#let upce-cc(primary, data, options: (:), ..args) = barcode-primary(`
+    ///         `  primary,`
+    ///         `  data,`
+    ///         `  "UPCECC",`
+    /// Output: one `Shortcut` with name `upce-cc`, target `barcode-primary`,
+    ///         forwarded `["primary", "data"]` and symbology `UPCECC`
+    fn shortcuts() -> Vec<Shortcut<'static>> {
+        parse_shortcuts(include_str!("../../../typst-package/lib.typ"))
+    }
+
+    fn parse_shortcuts(lib: &str) -> Vec<Shortcut<'_>> {
+        lib.split("\n#let ")
+            .skip(1)
+            .filter_map(parse_shortcut)
+            .collect()
+    }
+
+    fn parse_shortcut(definition: &str) -> Option<Shortcut<'_>> {
+        let (signature, body) = definition.split_once('\n')?;
+        // The file's line endings are whatever the checkout produced, and a
+        // Windows one leaves a carriage return here that would hide the
+        // parenthesis the signature is split on.
+        let (name, rest) = signature.trim_end().split_once('(')?;
+        // The first `) = ` closes the parameter list; the `(:)` default before
+        // it is followed by a comma, never by an equals sign.
+        let (parameters, target) = rest.split_once(") = ")?;
+        let target = target.strip_suffix('(')?;
+        if target != "barcode" && target != "barcode-primary" {
+            return None;
+        }
+
+        let mut forwarded = Vec::new();
+        let mut symbology = None;
+        for line in body.lines().map(str::trim) {
+            if let Some(name) = line.strip_suffix("\",").and_then(|it| it.strip_prefix('"')) {
+                symbology = Some(name);
+                break;
+            }
+            // A line that is not a bare argument ends the run of positional
+            // ones, so a call that names no symbology yields nothing.
+            match line.strip_suffix(',') {
+                Some(argument) => forwarded.push(argument),
+                None => break,
+            }
+        }
+
+        Some(Shortcut {
+            name,
+            parameters,
+            target,
+            forwarded,
+            symbology: symbology?,
+        })
+    }
+
+    /// Git hands a Windows checkout CRLF unless something pins the file, and
+    /// nothing pins `lib.typ`, so the same source has to parse either way.
+    #[test]
+    fn the_shortcuts_parse_whatever_line_endings_the_checkout_used() {
+        const LIB: &str = include_str!("../../../typst-package/lib.typ");
+
+        let unix = LIB.replace("\r\n", "\n");
+        let windows = unix.replace('\n', "\r\n");
+
+        let from_unix = parse_shortcuts(&unix);
+        assert!(!from_unix.is_empty(), "no shortcuts were parsed at all");
+        assert_eq!(from_unix, parse_shortcuts(&windows));
+    }
+
+    /// A symbology the plugin accepts but that no shortcut draws is one a
+    /// document can only reach by spelling out `barcode(data, "Name")`, and
+    /// nothing says which those are. Ten composite symbologies sat in that gap
+    /// with a golden file each and no way to draw one.
+    ///
+    /// The Typst package is a layer above this crate, but this is where the
+    /// list of symbologies lives, so this is where the two can be compared.
+    #[test]
+    fn every_symbology_is_reachable_from_typst() {
+        let drawn: HashSet<&str> = shortcuts().iter().map(|it| it.symbology).collect();
+
+        let unreachable: Vec<&str> = SYMBOLOGIES
+            .iter()
+            .map(|(_, variant, _)| *variant)
+            .filter(|variant| !drawn.contains(variant))
+            .collect();
+
+        assert!(
+            unreachable.is_empty(),
+            "no shortcut function draws these: {}",
+            unreachable.join(", ")
+        );
+    }
+
+    /// A composite symbol is two symbols, and both of its parts are strings, so
+    /// nothing about a swapped pair looks wrong. Zint rejects seven of the ten
+    /// outright, but for `GS1128CC`, `DBarExpCC` and `DBarExpStkCC` the linear
+    /// component is itself a GS1 element string: reversed, they encode just as
+    /// happily and draw a symbol carrying each part in the other's place.
+    #[test]
+    fn a_composite_shortcut_passes_the_linear_component_first() {
+        let all = shortcuts();
+        let composites: Vec<&Shortcut> = all
+            .iter()
+            .filter(|it| it.target == "barcode-primary")
+            .collect();
+
+        assert!(!composites.is_empty(), "no composite shortcuts were parsed");
+
+        for shortcut in composites {
+            assert!(
+                shortcut.parameters.starts_with("primary, data,"),
+                "{} declares ({})",
+                shortcut.name,
+                shortcut.parameters
+            );
+            assert_eq!(
+                shortcut.forwarded,
+                ["primary", "data"],
+                "{} forwards them in the wrong order",
+                shortcut.name
             );
         }
     }
