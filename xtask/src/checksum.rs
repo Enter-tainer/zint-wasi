@@ -68,6 +68,18 @@ pub fn of_file(path: impl AsRef<Path>) -> io::Result<String> {
     Ok(hex(&digest.finalize()))
 }
 
+/// The name of any one of the pinned archives, for tests that need a name this
+/// build knows without hardcoding a version that later moves.
+#[cfg(test)]
+pub fn some_pinned_artifact() -> &'static str {
+    PINNED
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty() && !line.starts_with('#'))
+        .find_map(|line| line.split_once("  ").map(|(_, name)| name.trim()))
+        .expect("at least one pinned archive")
+}
+
 fn hex(bytes: &[u8]) -> String {
     bytes.iter().map(|byte| format!("{byte:02x}")).collect()
 }
@@ -177,12 +189,7 @@ mod tests {
     #[test]
     fn a_file_that_is_not_the_pinned_archive_is_reported() {
         let file = TempFile::holding("abc");
-        let artifact = PINNED
-            .lines()
-            .map(str::trim)
-            .filter(|line| !line.is_empty() && !line.starts_with('#'))
-            .find_map(|line| line.split_once("  ").map(|(_, name)| name))
-            .expect("at least one pinned archive");
+        let artifact = super::some_pinned_artifact();
 
         let error = verify(file.path(), artifact).expect_err("that is not the archive");
         assert!(

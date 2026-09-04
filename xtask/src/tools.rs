@@ -278,15 +278,44 @@ pub fn download(url: impl AsRef<str>, target: impl AsRef<Path>) -> Result<(), Do
         }
     });
     group!("Download: {}", target.as_ref().display());
-    info!(
-        "\t- downloading '{}' to '{}'",
-        url.as_ref(),
-        target.as_ref().display()
-    );
-    let result = (runner)(url.as_ref(), target.as_ref());
-    let result = result.and_then(|()| verify_download(url.as_ref(), target.as_ref()));
+    let result = if is_pinned_archive(url.as_ref(), target.as_ref()) {
+        info!(
+            "\t- '{}' is already the archive pinned for it",
+            target.as_ref().display()
+        );
+        Ok(())
+    } else {
+        // Whatever is there is not the archive, so it goes before the
+        // transfer starts. A download that then fails leaves no file at
+        // all, rather than the rejected one for the next run to find.
+        if exists(target.as_ref()) {
+            std::fs::remove_file(target.as_ref()).map_err(DownloadError::IO)?;
+        }
+        info!(
+            "\t- downloading '{}' to '{}'",
+            url.as_ref(),
+            target.as_ref().display()
+        );
+        (runner)(url.as_ref(), target.as_ref())
+            .and_then(|()| verify_download(url.as_ref(), target.as_ref()))
+    };
     end_group!();
     result
+}
+
+/// Whether `target` already holds the archive that `url` publishes.
+///
+/// An interrupted transfer leaves a partial file behind, and nothing about
+/// the file itself tells a partial download from a complete one. The only
+/// file worth reusing is therefore one whose digest is pinned and matches;
+/// every other file, including one nothing is pinned for, is fetched again.
+fn is_pinned_archive(url: &str, target: &Path) -> bool {
+    if !exists(target) {
+        return false;
+    }
+    let artifact = release_and_name(url);
+    crate::checksum::pinned(&artifact).is_some()
+        && crate::checksum::verify(target, &artifact).is_ok()
 }
 
 /// The release folder and file name a download URL ends in, which is how an
@@ -1045,10 +1074,53 @@ impl std::error::Error for CommandError {
 #[cfg(test)]
 mod tests {
     use super::{
-        exists, hash_files, wasm_custom_sections, CommandError, DownloadError, FileSize,
-        TARGET_FEATURES_SECTION,
+        exists, hash_files, is_pinned_archive, wasm_custom_sections, CommandError, DownloadError,
+        FileSize, TARGET_FEATURES_SECTION,
     };
     use crate::test_support::TempFile;
+
+    /// A release URL ending in `artifact`, which is how the digests name it.
+    fn url_for(artifact: &str) -> String {
+        format!("https://example.invalid/releases/download/{artifact}")
+    }
+
+    /// Nothing to reuse, and asking for the digest of a file that is not there
+    /// must not be an error either.
+    #[test]
+    fn an_archive_that_is_not_there_is_not_reused() {
+        let missing = std::env::temp_dir().join("zint-wasi-xtask-no-such-archive.tar.gz");
+        let _ = std::fs::remove_file(&missing);
+
+        assert!(!is_pinned_archive(
+            &url_for(crate::checksum::some_pinned_artifact()),
+            &missing
+        ));
+    }
+
+    /// The one that bit: an interrupted transfer leaves a partial archive at the
+    /// path the next run looks at, and taking it for the finished download skips
+    /// the digest check entirely.
+    #[test]
+    fn an_archive_that_is_not_the_pinned_one_is_not_reused() {
+        let partial = TempFile::holding("not the archive");
+
+        assert!(!is_pinned_archive(
+            &url_for(crate::checksum::some_pinned_artifact()),
+            partial.path()
+        ));
+    }
+
+    /// Without a digest there is no way to tell a partial download from a whole
+    /// one, so a file nothing is pinned for is fetched again rather than reused.
+    #[test]
+    fn an_archive_nothing_is_pinned_for_is_not_reused() {
+        let file = TempFile::holding("whatever this is");
+
+        assert!(!is_pinned_archive(
+            &url_for("nobody-pinned-this.tar.gz"),
+            file.path()
+        ));
+    }
 
     /// Builds a module header followed by `sections`.
     fn module(sections: &[u8]) -> Vec<u8> {
