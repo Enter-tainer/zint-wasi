@@ -438,9 +438,12 @@ where
     result
 }
 
-const WASI_STUB: &str = "wasi-stub";
-/// Tries running wasi-stub from PATH, then from `./target/release` dir, then
-/// from `./target/debug`, if all else fails, builds it with cargo.
+pub const WASI_STUB: &str = "wasi-stub";
+/// Replaces the WASI imports of `input` with stubs, writing the result to
+/// `output`.
+///
+/// The tool is taken from PATH, where `EnsureWasiStub` puts it when the host
+/// does not have it already.
 pub fn wasi_stub(input: impl AsRef<Path>, output: impl AsRef<Path>) -> Result<(), CommandError> {
     if !exists(&input) {
         return Err(CommandError::file_not_found("input", &input).program(WASI_STUB));
@@ -451,67 +454,22 @@ pub fn wasi_stub(input: impl AsRef<Path>, output: impl AsRef<Path>) -> Result<()
         }
     }
 
-    let runner = make_runner!(Fn(input: &Path, output: &Path) -> Result<(), CommandError> {
-        let runner = |executable: &OsStr| {
-            let executable = executable.to_owned();
-            Box::new(move |file: &Path, output: &Path| {
-                cmd(
-                    executable.as_os_str(),
-                    [
-                        OsStr::new("-r"),
-                        OsStr::new("0"),
-                        file.as_os_str(),
-                        OsStr::new("-o"),
-                        output.as_os_str(),
-                    ],
-                )
-                .program_status(WASI_STUB)
-            })
-        };
-
-        if has_command(WASI_STUB) {
-            return runner(OsStr::new(WASI_STUB));
-        }
-
-        let min_proto_path = state_path!(WASM_MIN_PROTOCOL_DIR, default: "$<root>/zint-typst-plugin/vendor/wasm-minimal-protocol");
-        let try_prebuilt = |kind: &str| {
-            let executable_path = min_proto_path
-                .join("target")
-                .join(kind)
-                .join(exe_name(WASI_STUB));
-            if !exists(&executable_path) {
-                return None;
-            }
-            let executable_path = executable_path
-                .canonicalize()
-                .expect("unable to canonicalize path that exists");
-            Some(runner(executable_path.as_os_str()))
-        };
-        if let Some(it) = try_prebuilt("release") {
-            return it;
-        }
-        if let Some(it) = try_prebuilt("debug") {
-            return it;
-        }
-
-        Box::new(move |file: &Path, output: &Path| {
-            let min_proto_path = min_proto_path.join("Cargo.toml");
-            cargo([
-                OsStr::new("run"),
-                OsStr::new("--manifest-path"),
-                min_proto_path.as_os_str(),
-                OsStr::new("--bin=wasi-stub"),
-                OsStr::new("--release"),
-                OsStr::new("--"),
-                OsStr::new("-r"),
-                OsStr::new("0"),
-                file.as_os_str(),
-                OsStr::new("-o"),
-                output.as_os_str(),
-            ])?.program_status(WASI_STUB)
-        })
-    });
-    (runner)(input.as_ref(), output.as_ref()).map_err(|err| err.program(WASI_STUB))
+    // `-r 0` is the return value the stubs hand back; the default is 76, which
+    // is meant to be noticed. No `--stub-module` or `--stub-function` is
+    // passed: since 0.3.0 either of them turns off the default stubbing of
+    // `wasi_snapshot_preview1`, which is the whole point of the run.
+    cmd(
+        OsStr::new(WASI_STUB),
+        [
+            OsStr::new("-r"),
+            OsStr::new("0"),
+            input.as_ref().as_os_str(),
+            OsStr::new("-o"),
+            output.as_ref().as_os_str(),
+        ],
+    )
+    .program_status(WASI_STUB)
+    .map_err(|err| err.program(WASI_STUB))
 }
 
 const TARGET_FEATURES_SECTION: &str = "target_features";

@@ -16,9 +16,14 @@ declare_actions![
         require: [],
         run: Some(action_ensure_wasi_sdk)
     },
+    EnsureWasiStub: {
+        arg: "", name: "prepare wasi-stub",
+        require: [],
+        run: Some(action_ensure_wasi_stub)
+    },
     StubPlugin: {
         arg: "", name: "stub wasi",
-        require: [BuildPlugin],
+        require: [BuildPlugin, EnsureWasiStub],
         run: Some(action_stub_plugin)
     },
     EnsureWasmOpt: {
@@ -316,6 +321,7 @@ mod tests {
 
     all_actions![
         EnsureWasi,
+        EnsureWasiStub,
         StubPlugin,
         EnsureWasmOpt,
         OptPlugin,
@@ -422,6 +428,7 @@ mod tests {
         for required in [
             Action::EnsureWasi,
             Action::BuildPlugin,
+            Action::EnsureWasiStub,
             Action::StubPlugin,
             Action::EnsureWasmOpt,
             Action::OptPlugin,
@@ -436,6 +443,17 @@ mod tests {
                 "{required:?} is no longer part of the CI task"
             );
         }
+    }
+
+    /// `wasi-stub` is run as a plain command off PATH, so the step that puts
+    /// it there has to stay part of stubbing. Without it the build fails on a
+    /// missing tool on any host that has never installed one.
+    #[test]
+    fn stubbing_installs_the_tool_it_runs() {
+        assert!(
+            reachable(Action::StubPlugin).contains(&Action::EnsureWasiStub),
+            "stubbing no longer ensures wasi-stub is installed"
+        );
     }
 
     /// Packaging is what a release is cut from, so it has to keep collecting

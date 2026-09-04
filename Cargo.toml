@@ -6,8 +6,6 @@ members = [
     "zint-wasm-sys",
     "zint-wasm-rs",
     "zint-typst-plugin",
-    "zint-typst-plugin/vendor/wasm-minimal-protocol/crates/macro",
-    "zint-typst-plugin/vendor/wasm-minimal-protocol/crates/wasi-stub",
     "xtask"
 ]
 default-members = [
