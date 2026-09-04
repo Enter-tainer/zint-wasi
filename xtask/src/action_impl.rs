@@ -12,6 +12,23 @@ use crate::{configure, state, state_path};
 
 const WASI_PATH_VAR: &str = "WASI_SDK_PATH";
 
+// The versions of the toolchain a build downloads, from the state and the
+// environment, falling back to what the workflows pin. Read them only through
+// these three, so that the fallback a build uses is the one
+// `every_archive_a_supported_platform_downloads_is_pinned` finds a digest for:
+// a second copy of a version is a copy nothing tests.
+fn wasi_sdk_version() -> String {
+    state!(WASI_SDK_VERSION, default: "34")
+}
+
+fn binaryen_version() -> String {
+    state!(BINARYEN_VERSION, default: "132")
+}
+
+fn typst_version() -> String {
+    state!(TYPST_VERSION, default: "0.15.1")
+}
+
 fn has_wasi_sdk() -> bool {
     match std::env::var(WASI_PATH_VAR) {
         Ok(it) => exists(it),
@@ -49,7 +66,7 @@ pub fn action_ensure_wasi_sdk(_args: &[String]) -> ActionResult {
     };
 
     if !exists(&extract_path) {
-        let url = match wasi_url(OS, ARCH, &state!(WASI_SDK_VERSION, default: "34")) {
+        let url = match wasi_url(OS, ARCH, &wasi_sdk_version()) {
             Some(it) => it,
             None => action_error!(std::io::Error::other(format!(
                 "no prebuilt WASI SDK for {OS}-{ARCH}; build one and set {WASI_PATH_VAR}"
@@ -186,7 +203,7 @@ pub fn action_prepare_wasm_opt(args: &[String]) -> ActionResult {
     let wasm_opt_dir = work_dir.join("tools");
     let wasm_opt_bin = wasm_opt_dir.join(exe_name(WASM_OPT));
     if !exists(wasm_opt_bin) {
-        let url = match binaryen_url(OS, ARCH, &state!(BINARYEN_VERSION, default: "132")) {
+        let url = match binaryen_url(OS, ARCH, &binaryen_version()) {
             Some(it) => it,
             None => action_error!(std::io::Error::other(format!(
                 "no prebuilt binaryen for {OS}-{ARCH}"
@@ -201,7 +218,7 @@ pub fn action_prepare_wasm_opt(args: &[String]) -> ActionResult {
                 "--strip-components=2".to_string(),
                 format!(
                     "binaryen-version_{}/bin/{}",
-                    state!(BINARYEN_VERSION, default: "132"),
+                    binaryen_version(),
                     exe_name(WASM_OPT)
                 )
             ]
@@ -326,8 +343,7 @@ pub fn action_install_typst(_args: &[String]) -> ActionResult {
         action_skip!("{} already in PATH", TYPST);
     }
 
-    let (url, base_dir, ext) = match typst_url(OS, ARCH, &state!(TYPST_VERSION, default: "0.15.1"))
-    {
+    let (url, base_dir, ext) = match typst_url(OS, ARCH, &typst_version()) {
         Some(it) => it,
         None => action_error!(std::io::Error::other(format!(
             "no prebuilt typst for {OS}-{ARCH}"
@@ -599,9 +615,9 @@ mod tests {
     /// bump rather than on the machine that builds next.
     #[test]
     fn every_archive_a_supported_platform_downloads_is_pinned() {
-        let wasi = state!(WASI_SDK_VERSION, default: "34");
-        let binaryen = state!(BINARYEN_VERSION, default: "132");
-        let typst = state!(TYPST_VERSION, default: "0.15.1");
+        let wasi = wasi_sdk_version();
+        let binaryen = binaryen_version();
+        let typst = typst_version();
 
         for (os, arch) in SUPPORTED {
             let urls = [
