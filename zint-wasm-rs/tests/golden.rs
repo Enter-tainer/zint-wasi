@@ -281,7 +281,7 @@ fn option_cases() -> Vec<Case> {
         Case::new("option-3-qr-mask", Symbology::QRCode, "https://example.com")
             .option_3(Option3::from(QRMatrixOption::from(QRMask::Mask3))),
         Case::new("option-3-data-matrix-square", Symbology::DataMatrix, DATA)
-            .option_3(Option3::from(DataMatrixOption::Square)),
+            .option_3(Option3::from(DataMatrixOption::SQUARE)),
         Case::new("rotate-90", Symbology::Code128, DATA).rotated(90),
         Case::new("rotate-180", Symbology::Code128, DATA).rotated(180),
         Case::new("rotate-270", Symbology::Code128, DATA).rotated(270),

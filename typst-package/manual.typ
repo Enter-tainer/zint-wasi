@@ -421,6 +421,11 @@ The following table documents supported values and their #typst-type("str") repr
   [Enable Ultracode compression *(experimental)*],
 )
 
+`Zint` reads the Data Matrix shape and the 144x144 ECC placement out of different
+parts of the same number, so the two can be asked for together by adding them:
+#typst-val("228") is #raw("DM_SQUARE") with #raw("DM_ISO_144"), and #typst-val("229")
+is #raw("DM_DMRE") with it. There is no #typst-type("str") spelling for a combination.
+
 #pagebreak()
 = Examples <examples>
 

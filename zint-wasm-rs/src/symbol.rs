@@ -199,7 +199,7 @@ mod tests {
         options::{
             color::Color,
             input_mode::InputMode,
-            option3::{Option3, QRMatrixOption},
+            option3::{DataMatrixOption, Option3, QRMatrixOption},
             output_options::OutputOptions,
             symbology::Symbology,
             Options,
@@ -408,6 +408,36 @@ mod tests {
         assert!(
             matches!(error, Error::Zint(ZintError::InvalidCheck)),
             "unexpected error: {error:?}"
+        );
+    }
+
+    /// Zint reads the Data Matrix shape and the 144x144 ECC placement out of
+    /// different parts of `option_3`, so asking for both has to reach it as
+    /// both rather than as one or as nothing.
+    ///
+    /// There is no golden file for this: only the 144x144 symbol places its ECC
+    /// two ways, and a snapshot of one is 64 KB of path data. What matters is
+    /// that the two drawings are not the same one.
+    #[test]
+    fn a_data_matrix_shape_and_iso_144_placement_both_reach_zint() {
+        let square_at_144 = |option_3: u32| {
+            let mut options = Options::with_symbology(Symbology::DataMatrix);
+            // 24 is the 144x144 entry of zint's size table, the only symbol
+            // whose ECC placement `DM_ISO_144` changes.
+            options.option_2 = Some(24);
+            options.option_3 = Some(
+                Option3::try_from(option_3).unwrap_or_else(|error| panic!("{option_3}: {error}")),
+            );
+            Symbol::new(&options)
+                .expect("the options are valid")
+                .encode_svg(b"A12345B", 0)
+                .expect("a fixed size Data Matrix encodes")
+        };
+
+        assert_ne!(
+            square_at_144(DataMatrixOption::SQUARE.bits()),
+            square_at_144((DataMatrixOption::SQUARE | DataMatrixOption::ISO_144).bits()),
+            "the ISO placement was lost behind the shape"
         );
     }
 

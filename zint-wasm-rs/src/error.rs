@@ -244,8 +244,9 @@ pub enum Error {
     /// An `option_3` value that names nothing zint defines, for any symbology
     #[error(
         "invalid option value for option_3: {value}; expected 100 (square), 101 (rect), \
-         128 (iso-144, or Ultracode compression), 200 (full-multibyte), or a QR mask \
-         between 0x100 and 0x800{hint}"
+         128 (iso-144, or Ultracode compression), 228 or 229 (either shape together \
+         with iso-144), 200 (full-multibyte), or a QR mask between 0x100 and \
+         0x800{hint}"
     )]
     UnknownOption3 { value: u32, hint: &'static str },
     /// A value that does not fit the fixed size field zint keeps it in
