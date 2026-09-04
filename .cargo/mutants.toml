@@ -3,9 +3,6 @@
 # See the testing section of the README for how it is run. Everything excluded
 # here is excluded because no test could catch it, not because it is untested.
 
-# The workspace also vendors wasm-minimal-protocol, which is not ours to test.
-exclude_globs = ["zint-typst-plugin/vendor/**"]
-
 # Dropping a Symbol is what frees the zint symbol behind it. Nothing a test can
 # observe changes when that is left undone, so the mutant always survives.
 exclude_re = ["<impl Drop for Symbol>::drop"]

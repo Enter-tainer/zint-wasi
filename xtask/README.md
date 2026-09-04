@@ -35,12 +35,12 @@ prefixed with `XTASK_` (`XTASK_<OPTION>`).
   - `WASI_SDK_VERSION`: WASI SDK version used to compile the package
   - `BINARYEN_VERSION`: binaryen version used for `wasm-opt`
   - `TYPST_VERSION`: typst version used to compile the manual
+  - `WASI_STUB_VERSION`: `wasi-stub` version installed when the host has none
 - Downloads:
   - `ALLOW_UNPINNED_DOWNLOADS`: build with an archive no digest is pinned for
 - Paths:
   - `WORK_DIR`: path to the output directory
   - `TYPST_PKG`: path to the typst package directory
-  - `WASM_MIN_PROTOCOL_DIR`: path to `wasm-minimal-protocol` project used to compile `wasi-stub`
 
 A bunch of other, unlisted, variables are also defined/used, but they're
 constants related to project structure for the most part and changing them will

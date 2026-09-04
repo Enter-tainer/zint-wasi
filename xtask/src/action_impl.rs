@@ -94,6 +94,28 @@ pub fn action_build_plugin(args: &[String]) -> ActionResult {
     action_ok!();
 }
 
+pub fn action_ensure_wasi_stub(_args: &[String]) -> ActionResult {
+    if has_command(WASI_STUB) {
+        action_skip!("{} already in PATH", WASI_STUB);
+    }
+
+    // Installed from source rather than downloaded like the other tools: the
+    // release publishes binaries for x86_64 alone, and this build supports ARM
+    // hosts as well. A host that would rather not compile it can put any
+    // `wasi-stub` of its own in PATH, which is checked first.
+    // The list carries no trailing comma on purpose: `action_expect!` matches
+    // `cargo([..])` as its own case and runs it, and anything it does not
+    // match is only evaluated, which would build the command and drop it.
+    action_expect!(cargo([
+        "install".to_string(),
+        "wasi-stub".to_string(),
+        "--locked".to_string(),
+        "--version".to_string(),
+        state!(WASI_STUB_VERSION, default: "0.3.1")
+    ]));
+    action_ok!();
+}
+
 pub fn action_stub_plugin(args: &[String]) -> ActionResult {
     let release = state_path!(PROJECT_ROOT)
         .join("target")
