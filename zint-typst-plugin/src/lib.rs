@@ -49,6 +49,7 @@ pub fn gen_with_options(options: &[u8], text: &[u8]) -> Result<Vec<u8>> {
 mod tests {
     use super::{gen_with_options, Error};
     use ciborium::{cbor, Value};
+    use std::collections::BTreeMap;
 
     /// Encodes options the way Typst's `cbor.encode` does, which is the only
     /// way this function is ever called.
@@ -355,6 +356,146 @@ mod tests {
             },
             "option-2 draws the 12x36 symbol that was asked for"
         );
+    }
+
+    /// Every entry of `dm-size`, against the symbol zint actually draws for it.
+    ///
+    /// The table in `lib.typ` is a hand-copied transcription of zint's size
+    /// table, so nothing but a check like this one says whether an entry names
+    /// the size it claims. A wrong entry is silent: the document asks for one
+    /// size and gets another that encodes just as happily.
+    #[test]
+    fn every_data_matrix_size_draws_the_symbol_it_names() {
+        // Data Matrix draws two SVG units per module, and the default output
+        // carries no quiet zone, so the drawing is exactly the symbol. A change
+        // in either would fail every entry at once rather than one of them,
+        // which is what tells the two apart.
+        const UNITS_PER_MODULE: f64 = 2.0;
+        // Short enough for the 3 codewords of the smallest symbol; every larger
+        // one pads.
+        const DATA: &[u8] = b"1";
+
+        let table = dm_size_table();
+        for &(height, width, option_2) in &table {
+            let rendered = svg(
+                options(cbor!({"symbology" => "DataMatrix", "option-2" => option_2}).unwrap()),
+                DATA,
+            );
+
+            assert_eq!(
+                svg_size(&rendered),
+                SvgSize {
+                    width: f64::from(width) * UNITS_PER_MODULE,
+                    height: f64::from(height) * UNITS_PER_MODULE,
+                },
+                "dm-size({height}, {width}) returns {option_2}, which draws something else"
+            );
+        }
+    }
+
+    /// `option_2` indexes zint's size table from 1, so the values `dm-size`
+    /// returns have to be every number from 1 to the length of the table, each
+    /// once. A repeat means one size names another's entry, and a gap means a
+    /// size zint supports cannot be asked for at all; both are what a hand
+    /// transcription gets wrong, and neither is visible in a rendered symbol.
+    #[test]
+    fn the_data_matrix_sizes_use_every_option_2_value_once() {
+        let table = dm_size_table();
+        let mut by_value: BTreeMap<u32, (u32, u32)> = BTreeMap::new();
+
+        for &(height, width, option_2) in &table {
+            if let Some((other_height, other_width)) = by_value.insert(option_2, (height, width)) {
+                panic!(
+                    "dm-size returns {option_2} for both {other_height}x{other_width} \
+                     and {height}x{width}"
+                );
+            }
+        }
+
+        let expected: Vec<u32> = (1..=table.len() as u32).collect();
+        let actual: Vec<u32> = by_value.keys().copied().collect();
+        assert_eq!(
+            actual,
+            expected,
+            "the {} sizes should cover option-2 1 to {} with no gaps",
+            table.len(),
+            table.len()
+        );
+    }
+
+    /// The `(height, width, option-2)` entries of `dm-size` in `lib.typ`.
+    ///
+    /// Input:  the lines
+    ///         `  if height == 12 and width == 26 {`
+    ///         `    return int(27)`
+    /// Output: the entry `(12, 26, 27)`
+    fn dm_size_table() -> Vec<(u32, u32, u32)> {
+        parse_dm_size_table(include_str!("../../typst-package/lib.typ"))
+    }
+
+    fn parse_dm_size_table(lib: &str) -> Vec<(u32, u32, u32)> {
+        let (_, body) = lib
+            .split_once("#let dm-size(")
+            .expect("lib.typ defines dm-size");
+
+        let mut entries = Vec::new();
+        let mut size = None;
+        // The arms are indented, so a closing brace of its own ends the
+        // function. This walks the lines rather than slicing on a newline
+        // because the file's line endings are whatever the checkout produced,
+        // and a Windows one holds no `\n}\n` at all.
+        let body = body
+            .lines()
+            .map(str::trim_end)
+            .take_while(|line| *line != "}");
+        for line in body.map(str::trim_start) {
+            if let Some(condition) = line.strip_prefix("if height == ") {
+                let (height, width) = condition
+                    .strip_suffix(" {")
+                    .and_then(|condition| condition.split_once(" and width == "))
+                    .unwrap_or_else(|| panic!("unexpected condition in dm-size: {line}"));
+                let previous = size.replace((number(height), number(width)));
+                assert!(
+                    previous.is_none(),
+                    "a size is named by no return before: {line}"
+                );
+            } else if let Some(value) = line.strip_prefix("return int(") {
+                let (height, width) = size
+                    .take()
+                    .unwrap_or_else(|| panic!("a size is returned by no condition: {line}"));
+                let value = value
+                    .strip_suffix(')')
+                    .unwrap_or_else(|| panic!("unexpected return in dm-size: {line}"));
+                entries.push((height, width, number(value)));
+            }
+        }
+
+        assert!(size.is_none(), "dm-size ends on a condition with no return");
+        assert!(!entries.is_empty(), "dm-size returns no sizes at all");
+        entries
+    }
+
+    /// A decimal integer out of the table, so a non-numeric one names itself
+    /// rather than failing as a parse somewhere up the call stack.
+    ///
+    /// Input:  `"27"`
+    /// Output: `27`
+    fn number(text: &str) -> u32 {
+        text.parse()
+            .unwrap_or_else(|error| panic!("{text} is not a number: {error}"))
+    }
+
+    /// Git hands a Windows checkout CRLF unless something pins the file, and
+    /// nothing pins `lib.typ`, so the same source has to parse either way.
+    #[test]
+    fn the_size_table_parses_whatever_line_endings_the_checkout_used() {
+        const LIB: &str = include_str!("../../typst-package/lib.typ");
+
+        let unix = LIB.replace("\r\n", "\n");
+        let windows = unix.replace('\n', "\r\n");
+
+        assert_eq!(parse_dm_size_table(&unix), parse_dm_size_table(&windows));
+        assert_eq!(parse_dm_size_table(&unix), dm_size_table());
     }
 
     #[test]
