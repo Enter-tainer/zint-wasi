@@ -805,3 +805,78 @@
   ),
   ..args,
 )
+
+// Composite symbols carry a linear component alongside the 2D one, so their
+// shortcuts take it as `primary` the way `barcode-primary` does. Zint chooses
+// the composite mode by itself; `option-1` overrides it, as `barcode-composite`
+// does.
+#let eanx-cc(primary, data, options: (:), ..args) = barcode-primary(
+  primary,
+  data,
+  "EANXCC",
+  options: options,
+  ..args,
+)
+#let gs1-128-cc(primary, data, options: (:), ..args) = barcode-primary(
+  primary,
+  data,
+  "GS1128CC",
+  options: options,
+  ..args,
+)
+#let dbar-omn-cc(primary, data, options: (:), ..args) = barcode-primary(
+  primary,
+  data,
+  "DBarOmnCC",
+  options: options,
+  ..args,
+)
+#let dbar-ltd-cc(primary, data, options: (:), ..args) = barcode-primary(
+  primary,
+  data,
+  "DBarLtdCC",
+  options: options,
+  ..args,
+)
+#let dbar-exp-cc(primary, data, options: (:), ..args) = barcode-primary(
+  primary,
+  data,
+  "DBarExpCC",
+  options: options,
+  ..args,
+)
+#let dbar-stk-cc(primary, data, options: (:), ..args) = barcode-primary(
+  primary,
+  data,
+  "DBarStkCC",
+  options: options,
+  ..args,
+)
+#let dbar-omn-stk-cc(primary, data, options: (:), ..args) = barcode-primary(
+  primary,
+  data,
+  "DBarOmnStkCC",
+  options: options,
+  ..args,
+)
+#let dbar-exp-stk-cc(primary, data, options: (:), ..args) = barcode-primary(
+  primary,
+  data,
+  "DBarExpStkCC",
+  options: options,
+  ..args,
+)
+#let upca-cc(primary, data, options: (:), ..args) = barcode-primary(
+  primary,
+  data,
+  "UPCACC",
+  options: options,
+  ..args,
+)
+#let upce-cc(primary, data, options: (:), ..args) = barcode-primary(
+  primary,
+  data,
+  "UPCECC",
+  options: options,
+  ..args,
+)
