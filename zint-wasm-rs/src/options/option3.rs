@@ -5,35 +5,66 @@ use zint_wasm_sys::*;
 
 use crate::error::Error;
 
-/// Data Matrix specific options
-#[derive(Debug, Clone, Copy, Deserialize)]
-#[allow(clippy::upper_case_acronyms)]
-#[serde(untagged, try_from = "u32")]
-#[repr(u32)]
-pub enum DataMatrixOption {
-    /// Only consider square versions on automatic symbol size selection
-    Square = DM_SQUARE,
-    /// Consider DMRE versions on automatic symbol size selection
-    DMRE = DM_DMRE,
-    /// Use ISO instead of "de facto" format for 144x144 (i.e. don't skew ECC)
-    ISO144 = DM_ISO_144,
+/// The part of `option_3` zint reads as the Data Matrix shape, which is a
+/// choice between three values rather than a set of bits.
+const DM_SHAPE: u32 = 0x7F;
+
+bitflags::bitflags! {
+    /// Data Matrix specific options
+    ///
+    /// Not every combination of these is meaningful, which is why this is not
+    /// an enum: the low seven bits hold the shape as a *value*, and only
+    /// `ISO_144` is a bit of its own. `SQUARE` and `DMRE` are alternatives and
+    /// differ in a single bit, so combining them or asking `contains` about
+    /// them answers the wrong question. Use [`DataMatrixOption::shape`].
+    #[derive(Debug, Clone, Copy, Deserialize)]
+    #[serde(try_from = "u32")]
+    pub struct DataMatrixOption: u32 {
+        /// Only consider square versions on automatic symbol size selection
+        const SQUARE = DM_SQUARE;
+        /// Consider DMRE versions on automatic symbol size selection
+        const DMRE = DM_DMRE;
+        /// Use ISO instead of "de facto" format for 144x144 (i.e. don't skew ECC)
+        const ISO_144 = DM_ISO_144;
+    }
+}
+
+impl DataMatrixOption {
+    /// The shape zint will read out of this value: `DM_SQUARE`, `DM_DMRE`, or
+    /// zero for the size it would have chosen anyway.
+    ///
+    /// `contains` cannot answer this and will say yes when it should not:
+    /// `DM_SQUARE` is `0b1100100` and `DM_DMRE` is `0b1100101`, so a DMRE value
+    /// contains every bit of a square one.
+    pub fn shape(self) -> u32 {
+        self.bits() & DM_SHAPE
+    }
 }
 
 impl TryFrom<u32> for DataMatrixOption {
     type Error = Error;
 
+    /// The value carries two independent fields in one integer: the low seven
+    /// bits choose the shape and are either nothing, `DM_SQUARE` or `DM_DMRE`,
+    /// and the eighth bit is `DM_ISO_144`. Zint reads them separately, so
+    /// "square only, and place the 144x144 ECC the ISO way" is a request it
+    /// honours and 228 is how it is spelled.
     fn try_from(value: u32) -> Result<Self, Self::Error> {
-        Ok(match value {
-            DM_SQUARE => Self::Square,
-            DM_DMRE => Self::DMRE,
-            DM_ISO_144 => Self::ISO144,
-            other => {
-                return Err(Error::UnknownOption {
-                    which: "option_3",
-                    value: Box::new(other),
-                })
-            }
-        })
+        let shape = value & DM_SHAPE;
+        let unknown = value & !(DM_SHAPE | DM_ISO_144);
+
+        // Zero passes: it sets no shape and no flag, which is the size zint
+        // would have chosen anyway, and is what leaving `option_3` out means.
+        let recognised = unknown == 0 && (shape == 0 || shape == DM_SQUARE || shape == DM_DMRE);
+
+        if recognised {
+            Ok(DataMatrixOption::from_bits_retain(value))
+        } else {
+            Err(Error::UnknownOption {
+                which: "option_3",
+                value: Box::new(value),
+            })
+        }
     }
 }
 
@@ -320,9 +351,9 @@ impl<'de> Deserialize<'de> for Option3 {
             {
                 let lower = v.to_lowercase().replace('_', "-");
                 Ok(match lower.as_str() {
-                    "dm-square" | "square" => Option3::from(DataMatrixOption::Square),
+                    "dm-square" | "square" => Option3::from(DataMatrixOption::SQUARE),
                     "dm-dmre" | "dmre" | "rect" => Option3::from(DataMatrixOption::DMRE),
-                    "dm-iso-144" | "iso-144" => Option3::from(DataMatrixOption::ISO144),
+                    "dm-iso-144" | "iso-144" => Option3::from(DataMatrixOption::ISO_144),
                     "zint-full-multibyte" | "full-multibyte" => {
                         Option3::from(QRMatrixOption::FULL_MULITIBYTE)
                     }
@@ -343,14 +374,15 @@ mod tests {
     use super::{DataMatrixOption, Option3, QRMask, QRMatrixOption, UltracodeOption};
     use crate::{error::Error, test_support::from_cbor};
     use ciborium::cbor;
+    use zint_wasm_sys::{DM_DMRE, DM_SQUARE};
 
     /// `option_3` is a single integer whose meaning depends on the symbology,
     /// so what these types have to get right is the number that reaches zint.
     #[test]
     fn the_options_match_the_values_zint_defines() {
-        assert_eq!(Option3::from(DataMatrixOption::Square).as_i32(), 100);
+        assert_eq!(Option3::from(DataMatrixOption::SQUARE).as_i32(), 100);
         assert_eq!(Option3::from(DataMatrixOption::DMRE).as_i32(), 101);
-        assert_eq!(Option3::from(DataMatrixOption::ISO144).as_i32(), 128);
+        assert_eq!(Option3::from(DataMatrixOption::ISO_144).as_i32(), 128);
         assert_eq!(Option3::from(QRMatrixOption::FULL_MULITIBYTE).as_i32(), 200);
         assert_eq!(Option3::from(UltracodeOption::Compression).as_i32(), 128);
     }
@@ -375,6 +407,66 @@ mod tests {
             QRMatrixOption::MASK_7.bits(),
             QRMatrixOption::from(QRMask::Mask7).bits()
         );
+    }
+
+    /// The Data Matrix shape and the 144x144 ECC placement occupy different
+    /// parts of the same integer, which is what lets them be requested
+    /// together. Zint reads the shape as `option_3 & 0x7F` and the placement as
+    /// `option_3 & DM_ISO_144`, so neither hides the other.
+    #[test]
+    fn a_shape_and_iso_144_placement_fit_in_the_same_integer() {
+        let both = DataMatrixOption::SQUARE | DataMatrixOption::ISO_144;
+
+        assert_eq!(Option3::from(both).as_i32(), 228);
+        assert_eq!(both.shape(), DM_SQUARE, "the shape is still square");
+        assert!(
+            both.contains(DataMatrixOption::ISO_144),
+            "the placement is still ISO"
+        );
+
+        // `shape()` rather than `contains`, which cannot tell the two shapes
+        // apart: DM_DMRE has every bit DM_SQUARE has.
+        for (value, shape) in [(228, DM_SQUARE), (229, DM_DMRE)] {
+            let parsed = DataMatrixOption::try_from(value)
+                .unwrap_or_else(|error| panic!("{value} is a Data Matrix option: {error}"));
+
+            assert_eq!(parsed.bits(), value);
+            assert_eq!(parsed.shape(), shape, "{value} names the wrong shape");
+            assert!(parsed.contains(DataMatrixOption::ISO_144));
+        }
+    }
+
+    /// The combinations have to survive the guess `Option3` makes, which tries
+    /// each of the three option types in turn and takes the first that accepts.
+    #[test]
+    fn a_combination_survives_the_option_3_dispatch() {
+        for value in [228, 229] {
+            let option = Option3::try_from(value)
+                .unwrap_or_else(|error| panic!("{value} is an option_3 value: {error}"));
+
+            assert_eq!(option.as_i32(), value as i32);
+        }
+
+        // The form a document actually sends.
+        let option: Option3 = from_cbor(cbor!(228).unwrap()).expect("228 is an option_3 value");
+        assert_eq!(option.as_i32(), 228);
+    }
+
+    /// Masking the shape must not turn every integer into a Data Matrix
+    /// option: a number whose low seven bits name no shape, or that sets a bit
+    /// zint does not read, is still a mistake worth reporting.
+    #[test]
+    fn a_value_outside_the_two_fields_is_still_rejected() {
+        for value in [
+            27,  // a fixed size, which belongs in option-2
+            155, // 27 with the ISO 144 bit set
+            356, // 100 with a bit zint reads for nothing
+        ] {
+            assert!(
+                DataMatrixOption::try_from(value).is_err(),
+                "{value} is not a Data Matrix option"
+            );
+        }
     }
 
     /// A fixed mask and Kanji compression occupy different bytes of the same
@@ -468,11 +560,12 @@ mod tests {
         assert_eq!(option.as_i32(), 128);
         assert_eq!(
             unsafe {
-                // Safety: 128 is a valid discriminant of both types, which is
-                // exactly the ambiguity being asserted here.
+                // Safety: 128 is a valid value of both types, which is exactly
+                // the ambiguity being asserted here.
                 option.as_data_matrix()
-            } as u32,
-            DataMatrixOption::ISO144 as u32
+            }
+            .bits(),
+            DataMatrixOption::ISO_144.bits()
         );
         assert_eq!(
             unsafe {
@@ -573,7 +666,7 @@ mod tests {
     #[test]
     fn debug_shows_the_number_zint_receives() {
         assert_eq!(
-            format!("{:?}", Option3::from(DataMatrixOption::Square)),
+            format!("{:?}", Option3::from(DataMatrixOption::SQUARE)),
             "100"
         );
         assert_eq!(
