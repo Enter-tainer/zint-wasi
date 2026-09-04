@@ -509,6 +509,44 @@ mod tests {
         assert_eq!(parse_dm_size_table(&unix), dm_size_table());
     }
 
+    /// A symbol that does not meet its standard renders exactly like one that
+    /// does, so a document that cannot ship the first has to be able to ask to
+    /// be stopped rather than to be shown it.
+    ///
+    /// Input:  a Code 39 one X-dimension high, with the height held to the
+    ///         standard, which zint answers with a symbol and a warning
+    /// Output: nothing at all, and zint's reason for it
+    #[test]
+    fn a_document_can_ask_for_a_warning_to_stop_it() {
+        let too_short = cbor!({
+            "symbology" => "Code39",
+            "height" => 1.0,
+            "output-options" => {"compliant-height" => true},
+        })
+        .unwrap();
+
+        let rendered = svg(options(too_short.clone()), b"ASSET-0042189");
+        assert!(
+            rendered.contains("<svg "),
+            "a warning on its own still draws the symbol"
+        );
+
+        let mut strict = too_short;
+        strict
+            .as_map_mut()
+            .expect("the options are a CBOR map")
+            .push((Value::from("warn-level"), Value::from("fail-all")));
+
+        let error = gen_with_options(&options(strict), b"ASSET-0042189")
+            .expect_err("the height was asked to be compliant and is not");
+
+        let message = error.to_string();
+        assert!(
+            message.contains("not compliant"),
+            "the document should be told which standard was missed: {message}"
+        );
+    }
+
     #[test]
     fn options_that_are_not_cbor_are_reported_as_bad_options() {
         let error = gen_with_options(&[0xFF, 0xFF, 0xFF], b"A12345B")

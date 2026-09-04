@@ -224,6 +224,17 @@ A key that is not one of them is an error, so a misspelled option is reported in
   typst-type("float"),
   [Height in X-dimensions that EAN/UPC guard bars descend.],
   typst-val("5.0"),
+  [warn-level],
+  typst-type("str"),
+  [
+    What to do about a symbol `Zint` will draw but has warned about, such as a
+    bar height below the minimum its standard sets, a truncated human readable
+    text, or an ECI it inserted on its own. Such a symbol renders exactly like a
+    compliant one, so a document that cannot ship it has to ask to be stopped:
+    #typst-val("\"default\"") draws it anyway, #typst-val("\"fail-all\"") fails
+    the compilation and says what was not complied with.
+  ],
+  typst-val("\"default\""),
 )
 
 #pagebreak()

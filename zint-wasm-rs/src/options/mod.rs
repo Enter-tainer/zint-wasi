@@ -4,6 +4,7 @@ use self::{
     color::Color, input_mode::InputMode, option3::Option3, output_options::OutputOptions,
     symbology::Symbology,
 };
+use crate::error::WarningLevel;
 
 pub mod capability;
 pub mod color;
@@ -79,6 +80,9 @@ pub struct Options {
     /// Height in X-dimensions that EAN/UPC guard bars descend.
     #[serde(default)]
     pub guard_descent: Option<f32>,
+    /// Whether a symbol zint only warns about is still a symbol.
+    #[serde(default)]
+    pub warn_level: Option<WarningLevel>,
 }
 
 impl Options {
@@ -94,6 +98,7 @@ impl Options {
 mod tests {
     use super::{
         input_mode::InputMode, output_options::OutputOptions, symbology::Symbology, Options,
+        WarningLevel,
     };
     use crate::test_support::from_cbor;
     use ciborium::cbor;
@@ -136,6 +141,7 @@ mod tests {
                 key("dot_size") => 0.75,
                 key("text_gap") => 1.5,
                 key("guard_descent") => 4.0,
+                key("warn_level") => "fail-all",
             })
             .unwrap(),
         )
@@ -172,6 +178,7 @@ mod tests {
         assert_eq!(options.dot_size, Some(0.75));
         assert_eq!(options.text_gap, Some(1.5));
         assert_eq!(options.guard_descent, Some(4.0));
+        assert_eq!(options.warn_level, Some(WarningLevel::FailAll));
     }
 
     /// Anything left out has to stay unset, because zint's own defaults are
@@ -200,6 +207,7 @@ mod tests {
         assert!(options.dot_size.is_none());
         assert!(options.text_gap.is_none());
         assert!(options.guard_descent.is_none());
+        assert!(options.warn_level.is_none());
     }
 
     /// Zint spells colour the British way, so documents written against its
