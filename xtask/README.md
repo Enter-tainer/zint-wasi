@@ -41,6 +41,7 @@ prefixed with `XTASK_` (`XTASK_<OPTION>`).
 - Paths:
   - `WORK_DIR`: path to the output directory
   - `TYPST_PKG`: path to the typst package directory
+  - `TYPST_FONT_PATH`: path to the only fonts the manual and example may use
 
 A bunch of other, unlisted, variables are also defined/used, but they're
 constants related to project structure for the most part and changing them will

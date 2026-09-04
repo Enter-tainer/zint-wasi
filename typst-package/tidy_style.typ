@@ -140,7 +140,7 @@
   pad(
     x: 10pt,
     {
-      set text(font: "Cascadia Mono", size: 0.85em, weight: 340)
+      set text(font: "DejaVu Sans Mono", size: 0.85em, weight: 340)
       text(
         fn.name,
         fill: style-args.colors.at(
