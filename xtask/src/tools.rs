@@ -83,6 +83,135 @@ pub fn cargo<S: AsRef<OsStr>>(
     Ok(cmd(CARGO, args))
 }
 
+/// Where cargo writes what it builds.
+///
+/// Asked of cargo rather than taken to be `<root>/target`: `CARGO_TARGET_DIR`,
+/// `--target-dir` and `build.target-dir` each move it, and a task that reads a
+/// built artifact from the wrong place fails on a missing file rather than on
+/// what is actually wrong.
+pub fn cargo_target_dir() -> Result<PathBuf, CommandError> {
+    let metadata = cargo(["metadata", "--format-version", "1", "--no-deps"])?
+        .output()
+        .map_err(|err| CommandError::inaccessible("metadata", err).program(CARGO))?;
+    CommandError::from_exit(metadata.status).map_err(|err| err.program(CARGO))?;
+
+    json_top_level_string(
+        &String::from_utf8_lossy(&metadata.stdout),
+        "target_directory",
+    )
+    .map(PathBuf::from)
+    .ok_or_else(|| {
+        CommandError::inaccessible(
+            "metadata",
+            io::Error::other("'cargo metadata' reported no 'target_directory'"),
+        )
+        .program(CARGO)
+    })
+}
+
+/// The value of a top-level string field of a JSON object.
+///
+/// Only the top level is read, so a package carrying the same key in its own
+/// `metadata` cannot be mistaken for the field being asked for, and only
+/// string values are understood. That is all `cargo metadata` is asked for
+/// here, and it keeps a JSON parser out of xtask. Anything else, a `\u`
+/// escape included, is refused rather than guessed at.
+///
+/// Input:  `{"packages":[{"metadata":{"a":"no"}}],"a":"C:\\w"}` with key `a`
+/// Output: `C:\w`
+fn json_top_level_string(json: &str, key: &str) -> Option<String> {
+    let json = json.as_bytes();
+    let mut at = json_space_end(json, 0);
+    if json.get(at)? != &b'{' {
+        return None;
+    }
+    at = json_space_end(json, at + 1);
+
+    while json.get(at)? == &b'"' {
+        let (found, after_key) = json_string(json, at)?;
+        at = json_space_end(json, after_key);
+        if json.get(at)? != &b':' {
+            return None;
+        }
+        at = json_space_end(json, at + 1);
+
+        if found == key {
+            return json_string(json, at).map(|(value, _)| value);
+        }
+        at = json_space_end(json, json_value_end(json, at)?);
+        if json.get(at)? != &b',' {
+            return None;
+        }
+        at = json_space_end(json, at + 1);
+    }
+    None
+}
+
+fn json_space_end(json: &[u8], from: usize) -> usize {
+    json[from..]
+        .iter()
+        .position(|it| !it.is_ascii_whitespace())
+        .map(|it| from + it)
+        .unwrap_or(json.len())
+}
+
+/// The string starting at `from`, unescaped, and the index just past it.
+fn json_string(json: &[u8], from: usize) -> Option<(String, usize)> {
+    if json.get(from)? != &b'"' {
+        return None;
+    }
+    let mut value = Vec::new();
+    let mut at = from + 1;
+    loop {
+        match json.get(at)? {
+            b'"' => return String::from_utf8(value).ok().map(|it| (it, at + 1)),
+            b'\\' => {
+                value.push(match json.get(at + 1)? {
+                    b'"' => b'"',
+                    b'\\' => b'\\',
+                    b'/' => b'/',
+                    b'b' => 0x08,
+                    b'f' => 0x0c,
+                    b'n' => b'\n',
+                    b'r' => b'\r',
+                    b't' => b'\t',
+                    _ => return None,
+                });
+                at += 2;
+            }
+            byte => {
+                value.push(*byte);
+                at += 1;
+            }
+        }
+    }
+}
+
+/// The index just past the value starting at `from`, whatever its type.
+fn json_value_end(json: &[u8], from: usize) -> Option<usize> {
+    let mut depth = 0usize;
+    let mut at = from;
+    loop {
+        match json.get(at)? {
+            b'"' => at = json_string(json, at)?.1,
+            b'[' | b'{' => {
+                depth += 1;
+                at += 1;
+            }
+            b']' | b'}' if depth == 0 => return Some(at),
+            b']' | b'}' => {
+                depth -= 1;
+                at += 1;
+                if depth == 0 {
+                    return Some(at);
+                }
+            }
+            b',' if depth == 0 => return Some(at),
+            _ => at += 1,
+        }
+    }
+}
+
 pub fn cargo_has_tool(tool: impl AsRef<str>) -> bool {
     if !has_command(CARGO) {
         return false;
@@ -1083,10 +1212,64 @@ impl std::error::Error for CommandError {
 #[cfg(test)]
 mod tests {
     use super::{
-        exists, hash_files, is_pinned_archive, wasm_custom_sections, CommandError, DownloadError,
-        FileSize, TARGET_FEATURES_SECTION,
+        exists, hash_files, is_pinned_archive, json_top_level_string, wasm_custom_sections,
+        CommandError, DownloadError, FileSize, TARGET_FEATURES_SECTION,
     };
     use crate::test_support::TempFile;
+
+    /// The shape `cargo metadata --format-version 1 --no-deps` prints, cut
+    /// down to the keys that matter here: the field is last, and a package
+    /// carries a `metadata` table that may hold anything at all.
+    const CARGO_METADATA: &str = concat!(
+        r#"{"packages":[{"name":"xtask","metadata":{"target_directory":"decoy","n":[1,2]}}],"#,
+        r#""workspace_members":[],"resolve":null,"#,
+        r#""target_directory":"C:\\src\\zint-wasi\\target","version":1}"#
+    );
+
+    #[test]
+    fn the_target_directory_is_read_from_cargo_metadata() {
+        assert_eq!(
+            json_top_level_string(CARGO_METADATA, "target_directory").as_deref(),
+            Some(r"C:\src\zint-wasi\target"),
+        );
+    }
+
+    /// A package's own `metadata` is free-form, so the same key can appear
+    /// inside it. Reading only the top level is what keeps the two apart.
+    #[test]
+    fn a_key_nested_in_a_package_is_not_mistaken_for_the_field() {
+        let nested = r#"{"packages":[{"metadata":{"wanted":"decoy"}}],"wanted":"real"}"#;
+        assert_eq!(
+            json_top_level_string(nested, "wanted").as_deref(),
+            Some("real"),
+        );
+    }
+
+    #[test]
+    fn escapes_in_a_value_are_undone() {
+        let escaped = r#"{"a":"quote\" slash\\ tab\t"}"#;
+        assert_eq!(
+            json_top_level_string(escaped, "a").as_deref(),
+            Some("quote\" slash\\ tab\t"),
+        );
+    }
+
+    /// Anything the reader does not implement has to fail rather than return
+    /// a path that is not the one cargo reported.
+    #[test]
+    fn anything_the_reader_does_not_understand_is_refused() {
+        for json in [
+            r#"{"a":"unterminated}"#,
+            r#"{"a":"\u0041"}"#,
+            r#"{"a":42}"#,
+            r#"{"a":null}"#,
+            r#"["a"]"#,
+            r#"{"b":"other"}"#,
+            "",
+        ] {
+            assert_eq!(json_top_level_string(json, "a"), None, "{json}");
+        }
+    }
 
     /// A release URL ending in `artifact`, which is how the digests name it.
     fn url_for(artifact: &str) -> String {

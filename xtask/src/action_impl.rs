@@ -115,8 +115,7 @@ pub fn action_ensure_wasi_stub(_args: &[String]) -> ActionResult {
 }
 
 pub fn action_stub_plugin(args: &[String]) -> ActionResult {
-    let release = state_path!(PROJECT_ROOT)
-        .join("target")
+    let release = action_expect!(cargo_target_dir())
         .join(state!(TARGET))
         .join(state!(BUILD_PROFILE))
         .join(state!(PLUGIN_WASM));
