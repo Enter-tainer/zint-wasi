@@ -130,7 +130,7 @@ jobs:
         id: restore-wasi-sdk
         uses: actions/cache/restore@v6
         with:
-          path: ci_work_dir/wasi_sdk
+          path: ${{ env.XTASK_WORK_DIR }}/wasi_sdk
           key: tools-wasi-sdk-${{ env.XTASK_WASI_SDK_VERSION }}
       - name: Restore wasi-stub
         id: restore-wasi-stub
@@ -144,13 +144,13 @@ jobs:
         id: restore-wasm-opt
         uses: actions/cache/restore@v6
         with:
-          path: ci_work_dir/tools/wasm-opt
+          path: ${{ env.XTASK_WORK_DIR }}/tools/wasm-opt
           key: tools-binaryen-${{ env.XTASK_BINARYEN_VERSION }}
       - name: Restore typst
         id: restore-typst
         uses: actions/cache/restore@v6
         with:
-          path: ci_work_dir/tools/typst
+          path: ${{ env.XTASK_WORK_DIR }}/tools/typst
           key: tools-typst-${{ env.XTASK_TYPST_VERSION }}
       - name: Run CI xtask
         run: cargo xtask ci
@@ -161,7 +161,7 @@ jobs:
         if: ${{ !cancelled() && steps.restore-wasi-sdk.outputs.cache-hit != 'true' }}
         uses: actions/cache/save@v6
         with:
-          path: ci_work_dir/wasi_sdk
+          path: ${{ env.XTASK_WORK_DIR }}/wasi_sdk
           key: tools-wasi-sdk-${{ env.XTASK_WASI_SDK_VERSION }}
       - name: Cache wasi-stub
         if: ${{ !cancelled() && steps.restore-wasi-stub.outputs.cache-hit != 'true' }}
@@ -175,13 +175,13 @@ jobs:
         if: ${{ !cancelled() && steps.restore-wasm-opt.outputs.cache-hit != 'true' }}
         uses: actions/cache/save@v6
         with:
-          path: ci_work_dir/tools/wasm-opt
+          path: ${{ env.XTASK_WORK_DIR }}/tools/wasm-opt
           key: tools-binaryen-${{ env.XTASK_BINARYEN_VERSION }}
       - name: Cache typst
         if: ${{ !cancelled() && steps.restore-typst.outputs.cache-hit != 'true' }}
         uses: actions/cache/save@v6
         with:
-          path: ci_work_dir/tools/typst
+          path: ${{ env.XTASK_WORK_DIR }}/tools/typst
           key: tools-typst-${{ env.XTASK_TYPST_VERSION }}
       - uses: actions/upload-artifact@v7
         with:
