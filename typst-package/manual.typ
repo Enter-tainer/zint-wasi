@@ -458,14 +458,38 @@ The following table documents supported values and their #typst-type("str") repr
   )
 ]
 
-#let example-of-simple(name, func-name, func, data, ..extra) = example-entry(
+// The arguments a shortcut takes, as they are written in a document and as they
+// are passed to the function itself.
+//
+// Input:  `("upce-cc", ("0121230", "[15]021231"))`
+// Output: a code block reading `#upce-cc("0121230", "[15]021231")`, broken
+//         across two lines
+#let _example-of(name, func-name, arguments, rendered, ..extra) = example-entry(
   name,
   raw(
-    "#" + func-name + "(\"" + data + "\")",
+    "#" + func-name + "(" + arguments.map(a => "\"" + a + "\"").join(",\n  ") + ")",
     block: true,
     lang: "typ",
   ),
+  rendered,
+  ..extra,
+)
+
+#let example-of-simple(name, func-name, func, data, ..extra) = _example-of(
+  name,
+  func-name,
+  (data,),
   func(data, fit: "contain"),
+  ..extra,
+)
+
+// A composite symbol is two symbols: the linear component comes first, as the
+// `primary`, and the data is what the 2D component carries.
+#let example-of-composite(name, func-name, func, primary, data, ..extra) = _example-of(
+  name,
+  func-name,
+  (primary, data),
+  func(primary, data, fit: "contain"),
   ..extra,
 )
 
@@ -504,7 +528,13 @@ example-of-simple("EAN-13", "eanx", eanx, "6975004310001"),
 example-of-simple("EAN-8", "eanx", eanx, "12345564"),
 example-of-simple("EAN-5", "eanx", eanx, "12345"),
 example-of-simple("EAN-2", "eanx", eanx, "12"),
-// example for "EAN (cc)"
+example-of-composite(
+  "EAN (cc)",
+  "eanx-cc",
+  eanx-cc,
+  "331234567890",
+  "[21]1234-abcd",
+),
 )
 
 #pagebreak()
@@ -525,18 +555,65 @@ example-of-simple("<dbar> (ltd)", "dbar-ltd", dbar-ltd, "988987654321"),
 example-of-simple("<dbar> (exp)", "dbar-exp", dbar-exp, "[01]98898765432106"),
 example-of-simple("<dbar> (stk)", "dbar-stk", dbar-stk, "1234567890"),
 example-of-simple("<dbar> (stk) (omn)", "dbar-omn-stk", dbar-omn-stk, "1234567890"),
-// example for "<dbar> (exp) (stk)"
-// example for "<dbar> (omn) (cc)"
-// example for "<dbar> (omn) (cc)"
-// example for "<dbar> (ltd) (cc)"
-// example for "<dbar> (exp) (cc)"
-// example for "<dbar> (stk) (cc)"
-// example for "<dbar> (omn) (stk) (cc)"
-// example for "<dbar> (exp) (stk) (cc)"
+example-of-simple(
+  "<dbar> (exp) (stk)",
+  "dbar-exp-stk",
+  dbar-exp-stk,
+  "[01]98898765432106[3202]012345[15]991231",
+),
+example-of-composite(
+  "GS1-128 (cc)",
+  "gs1-128-cc",
+  gs1-128-cc,
+  "[01]03212345678906",
+  "[21]A1B2C3D4E5F6G7H8",
+),
+example-of-composite(
+  "<dbar> (omn) (cc)",
+  "dbar-omn-cc",
+  dbar-omn-cc,
+  "0361234567890",
+  "[11]990102",
+),
+example-of-composite(
+  "<dbar> (ltd) (cc)",
+  "dbar-ltd-cc",
+  dbar-ltd-cc,
+  "1311234567890",
+  "[17]010615[10]A123456",
+),
+example-of-composite(
+  "<dbar> (exp) (cc)",
+  "dbar-exp-cc",
+  dbar-exp-cc,
+  "[01]93712345678904[3103]001234",
+  "[91]1A2B3C4D5E",
+),
+example-of-composite(
+  "<dbar> (stk) (cc)",
+  "dbar-stk-cc",
+  dbar-stk-cc,
+  "0341234567890",
+  "[17]010200",
+),
+example-of-composite(
+  "<dbar> (omn) (stk) (cc)",
+  "dbar-omn-stk-cc",
+  dbar-omn-stk-cc,
+  "0401234567890",
+  "[17]050101[10]ABC123",
+),
+example-of-composite(
+  "<dbar> (exp) (stk) (cc)",
+  "dbar-exp-stk-cc",
+  dbar-exp-stk-cc,
+  "[01]00012345678905[10]ABCDEF",
+  "[21]12345678",
+),
 )
 
-// TODO: Remove once utilities and above examples are provided
-Zint supports (omn), (ltd), (exp), (stk) and (cc) variants of GS1. See #l(<options>)[configuration] section for information on how to use them.
+See the #l(<options>)[configuration] section for the options a composite takes,
+`option-1` among them, which picks the composite mode instead of leaving it to Zint.
 
 #pagebreak()
 == C25
@@ -557,8 +634,20 @@ example-of-simple("UPC-A", "upca", upca, "01234500006"),
 example-of-simple("UPC-A (chk)", "upca-chk", upca-chk, "012345000065"),
 example-of-simple("UPC-E", "upce", upce, "123456"),
 example-of-simple("UPC-E (chk)", "upce-chk", upce-chk, "12345670"),
-// example for "UPC-A (cc)"
-// example for "UPC-E (cc)"
+example-of-composite(
+  "UPC-A (cc)",
+  "upca-cc",
+  upca-cc,
+  "61414101234",
+  "[21]A12345678",
+),
+example-of-composite(
+  "UPC-E (cc)",
+  "upce-cc",
+  upce-cc,
+  "0121230",
+  "[15]021231",
+),
 )
 
 #pagebreak()
