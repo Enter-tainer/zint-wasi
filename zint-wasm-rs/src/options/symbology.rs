@@ -133,7 +133,11 @@ mod tests {
     use super::Symbology;
     use crate::{options::Options, test_support::from_cbor};
     use ciborium::cbor;
-    use std::{collections::HashMap, ffi::CStr, os::raw::c_char};
+    use std::{
+        collections::{BTreeMap, HashMap, HashSet},
+        ffi::CStr,
+        os::raw::c_char,
+    };
     use zint_wasm_sys::{ZBarcode_BarcodeName, ZBarcode_ValidID};
 
     /// Declares the symbologies the tests below run over, each with the name
@@ -257,6 +261,130 @@ mod tests {
         BC412 => "BARCODE_BC412",
     ];
 
+    /// Zint's public header, so the tests below can ask what it defines rather
+    /// than only what this crate claims about it.
+    const ZINT_H: &str = include_str!("../../../zint-wasm-sys/zint/backend/zint.h");
+
+    /// The former name of a renamed symbology, the alias that still accepts it,
+    /// and the variant it names now. Zint keeps its own former names, marked
+    /// `Legacy` in the header, and the test below holds the two lists together.
+    const LEGACY_NAMES: &[(&str, &str, Symbology)] = &[
+        ("BARCODE_C25MATRIX", "C25Matrix", Symbology::C25Standard),
+        ("BARCODE_EAN128", "EAN128", Symbology::GS1128),
+        ("BARCODE_RSS14", "RSS14", Symbology::DBarOmn),
+        ("BARCODE_RSS_LTD", "RSSLtd", Symbology::DBarLtd),
+        ("BARCODE_RSS_EXP", "RSSExp", Symbology::DBarExp),
+        ("BARCODE_PDF417TRUNC", "PDF417Trunc", Symbology::PDF417Comp),
+        ("BARCODE_CODE128B", "Code128B", Symbology::Code128AB),
+        ("BARCODE_RSS14STACK", "RSS14Stack", Symbology::DBarStk),
+        (
+            "BARCODE_RSS14STACK_OMNI",
+            "RSS14StackOmni",
+            Symbology::DBarOmnStk,
+        ),
+        ("BARCODE_RSS_EXPSTACK", "RSSExpStack", Symbology::DBarExpStk),
+        ("BARCODE_ONECODE", "OneCode", Symbology::USPSIMail),
+        ("BARCODE_MAILMARK", "Mailmark", Symbology::Mailmark4S),
+        ("BARCODE_EAN128_CC", "EAN128CC", Symbology::GS1128CC),
+        ("BARCODE_RSS14_CC", "RSS14CC", Symbology::DBarOmnCC),
+        ("BARCODE_RSS_LTD_CC", "RSSLtdCC", Symbology::DBarLtdCC),
+        ("BARCODE_RSS_EXP_CC", "RSSExpCC", Symbology::DBarExpCC),
+        (
+            "BARCODE_RSS14STACK_CC",
+            "RSS14StackCC",
+            Symbology::DBarStkCC,
+        ),
+        (
+            "BARCODE_RSS14_OMNI_CC",
+            "RSS14OmniCC",
+            Symbology::DBarOmnStkCC,
+        ),
+        (
+            "BARCODE_RSS_EXPSTACK_CC",
+            "RSSExpStackCC",
+            Symbology::DBarExpStkCC,
+        ),
+    ];
+
+    /// One `#define BARCODE_...` line in zint's header.
+    #[derive(Debug, PartialEq, Eq)]
+    struct ZintSymbology<'a> {
+        constant: &'a str,
+        value: i32,
+        /// Zint marks the former name of a renamed symbology `Legacy` and keeps
+        /// it defined alongside the new one, at the same value.
+        legacy: bool,
+    }
+
+    /// The symbologies zint's header defines, in the order it defines them.
+    ///
+    /// Input:  the lines
+    ///         `#define BARCODE_C25STANDARD     2   /* 2 of 5 Standard (Matrix) */`
+    ///         `#define BARCODE_C25MATRIX       2   /* Legacy */`
+    /// Output: `BARCODE_C25STANDARD` at 2, and `BARCODE_C25MATRIX` at 2 as a
+    ///         legacy name
+    fn zint_symbologies(header: &str) -> Vec<ZintSymbology<'_>> {
+        let mut defines = Vec::new();
+        let mut reached_marker = false;
+
+        for line in header.lines() {
+            // `trim_end` because the checkout's line endings are not ours to
+            // choose, and a carriage return would land inside the comment.
+            let Some(rest) = line.trim_end().strip_prefix("#define ") else {
+                continue;
+            };
+            let mut fields = rest.split_whitespace();
+            let (Some(constant), Some(value)) = (fields.next(), fields.next()) else {
+                continue;
+            };
+            if !constant.starts_with("BARCODE_") {
+                continue;
+            }
+            // Everything past the marker is an output option sharing the
+            // prefix, not a symbology.
+            if constant == "BARCODE_LAST" {
+                reached_marker = true;
+                break;
+            }
+            let Ok(value) = value.parse::<i32>() else {
+                continue;
+            };
+
+            defines.push(ZintSymbology {
+                constant,
+                value,
+                // The comment alone, so that a marker zint spells differently
+                // reads as a live symbology and is reported as one missing a
+                // variant, rather than being quietly dropped from the check.
+                legacy: comment(rest) == Some("Legacy"),
+            });
+        }
+
+        // The two below are what stop this from reporting success because it
+        // understood nothing. A header that declares its symbologies some other
+        // way, or that no longer marks where they end, is the change these
+        // tests exist to notice.
+        assert!(
+            reached_marker,
+            "zint.h no longer marks the end of its symbologies with BARCODE_LAST"
+        );
+        assert!(
+            !defines.is_empty(),
+            "no `#define BARCODE_...` lines were found in zint.h"
+        );
+        defines
+    }
+
+    /// The body of a define's trailing block comment, if it has one.
+    ///
+    /// Input:  `BARCODE_C25MATRIX       2   /* Legacy */`
+    /// Output: `Some("Legacy")`
+    fn comment(define: &str) -> Option<&str> {
+        let (_, rest) = define.split_once("/*")?;
+        let (body, _) = rest.split_once("*/")?;
+        Some(body.trim())
+    }
+
     /// Reads back the name libzint knows a symbology by, which is how these
     /// tests check that a variant still points at the encoder it is named
     /// after.
@@ -311,6 +439,145 @@ mod tests {
         }
     }
 
+    /// Zint to Rust, which is the direction nothing else checks. Every other
+    /// test here starts from a [`Symbology`] and asks zint about it, so a
+    /// symbology zint gains is invisible to all of them: it simply never comes
+    /// up. Reading the header is what makes the submodule moving under the
+    /// crate say so, rather than the new symbology being quietly unavailable.
+    #[test]
+    fn every_symbology_zint_defines_has_a_variant() {
+        let bound: HashSet<&str> = SYMBOLOGIES.iter().map(|(_, _, zint)| *zint).collect();
+
+        let missing: Vec<&str> = zint_symbologies(ZINT_H)
+            .iter()
+            .filter(|it| !it.legacy)
+            .map(|it| it.constant)
+            .filter(|constant| !bound.contains(constant))
+            .collect();
+
+        assert!(
+            missing.is_empty(),
+            "zint defines these symbologies and `Symbology` has no variant for them: {}",
+            missing.join(", ")
+        );
+    }
+
+    /// The other half of the same agreement. Zint keeps the former name of a
+    /// renamed symbology so that older callers keep working, and this crate
+    /// keeps the same names as serde aliases so that older documents do. Both
+    /// lists have to move together, and the value ties each pair to the
+    /// symbology it actually names rather than to a plausible-looking one.
+    #[test]
+    fn every_legacy_name_zint_keeps_is_still_accepted() {
+        let defined = zint_symbologies(ZINT_H);
+        // Ordered, so a failure lists the constants the same way twice running.
+        let legacy: BTreeMap<&str, i32> = defined
+            .iter()
+            .filter(|it| it.legacy)
+            .map(|it| (it.constant, it.value))
+            .collect();
+        let listed: HashSet<&str> = LEGACY_NAMES
+            .iter()
+            .map(|(constant, _, _)| *constant)
+            .collect();
+        assert_eq!(
+            listed.len(),
+            LEGACY_NAMES.len(),
+            "a constant is listed twice, which hides one that is not listed at all"
+        );
+
+        let unhandled: Vec<&str> = legacy
+            .keys()
+            .copied()
+            .filter(|constant| !listed.contains(constant))
+            .collect();
+        assert!(
+            unhandled.is_empty(),
+            "zint still answers to these former names and nothing here accepts them: {}",
+            unhandled.join(", ")
+        );
+
+        for (constant, alias, expected) in LEGACY_NAMES {
+            let value = legacy
+                .get(constant)
+                .unwrap_or_else(|| panic!("zint no longer keeps {constant}"));
+            assert_eq!(
+                *value, *expected as i32,
+                "{constant} is {value} in zint, but {alias} is accepted as {expected:?}"
+            );
+
+            let parsed: Options = from_cbor(cbor!({ "symbology" => *alias }).unwrap())
+                .unwrap_or_else(|error| panic!("{alias} is not accepted: {error}"));
+            assert_eq!(parsed.symbology as i32, *expected as i32, "{alias}");
+        }
+    }
+
+    /// The shapes the parser has to tell apart, so that the two tests above
+    /// cannot report success by having understood nothing.
+    const SAMPLE_HEADER: &str = concat!(
+        "/* Symbologies (`symbol->symbology`) */\n",
+        "    /* Tbarcode 7 codes */\n",
+        "#define BARCODE_CODE11          1   /* Code 11 */\n",
+        "#define BARCODE_C25STANDARD     2   /* 2 of 5 Standard (Matrix) */\n",
+        "#define BARCODE_C25MATRIX       2   /* Legacy */\n",
+        "#define ZINT_MAX_DATA_LEN       17400\n",
+        "#define BARCODE_LAST            146 /* Max barcode number marker */\n",
+        "\n/* Output options (`symbol->output_options`) */\n",
+        "#define BARCODE_BIND            0x00002 /* Boundary bars */\n",
+    );
+
+    #[test]
+    fn the_header_parse_reads_what_it_claims_to() {
+        let parsed = zint_symbologies(SAMPLE_HEADER);
+
+        assert_eq!(
+            parsed,
+            vec![
+                ZintSymbology {
+                    constant: "BARCODE_CODE11",
+                    value: 1,
+                    legacy: false,
+                },
+                ZintSymbology {
+                    constant: "BARCODE_C25STANDARD",
+                    value: 2,
+                    legacy: false,
+                },
+                ZintSymbology {
+                    constant: "BARCODE_C25MATRIX",
+                    value: 2,
+                    legacy: true,
+                },
+            ],
+            "the output option after the marker, and the unrelated define, are not symbologies"
+        );
+    }
+
+    /// Without the marker the parser cannot tell a symbology from an output
+    /// option, and quietly returning the ones it did find would let the
+    /// coverage tests pass on a header they no longer understand.
+    #[test]
+    #[should_panic(expected = "no longer marks the end of its symbologies")]
+    fn a_header_without_the_marker_is_refused() {
+        zint_symbologies("#define BARCODE_CODE11          1   /* Code 11 */\n");
+    }
+
+    #[test]
+    #[should_panic(expected = "no `#define BARCODE_...` lines were found")]
+    fn a_header_that_declares_symbologies_some_other_way_is_refused() {
+        zint_symbologies("enum { BARCODE_CODE11 = 1 };\n#define BARCODE_LAST 146\n");
+    }
+
+    /// Git hands a Windows checkout CRLF unless something pins the file, and
+    /// nothing pins the vendored header, so it has to parse either way.
+    #[test]
+    fn the_header_parses_whatever_line_endings_the_checkout_used() {
+        let unix = ZINT_H.replace("\r\n", "\n");
+        let windows = unix.replace('\n', "\r\n");
+
+        assert_eq!(zint_symbologies(&unix), zint_symbologies(&windows));
+    }
+
     #[test]
     fn no_two_symbologies_share_an_id() {
         let mut seen: HashMap<i32, &str> = HashMap::new();
@@ -330,29 +597,6 @@ mod tests {
                 .unwrap_or_else(|error| panic!("{variant} is not accepted: {error}"));
 
             assert_eq!(parsed.symbology as i32, *symbology as i32, "{variant}");
-        }
-    }
-
-    /// The names these symbologies used to carry, kept so that documents
-    /// written against older zint releases keep working.
-    #[test]
-    fn the_former_names_of_renamed_symbologies_are_accepted() {
-        for (alias, expected) in [
-            ("C25Matrix", Symbology::C25Standard),
-            ("EAN128", Symbology::GS1128),
-            ("RSS14", Symbology::DBarOmn),
-            ("RSSLtd", Symbology::DBarLtd),
-            ("RSSExpStack", Symbology::DBarExpStk),
-            ("OneCode", Symbology::USPSIMail),
-            ("PDF417Trunc", Symbology::PDF417Comp),
-            ("Code128B", Symbology::Code128AB),
-            ("Mailmark", Symbology::Mailmark4S),
-            ("RSS14CC", Symbology::DBarOmnCC),
-        ] {
-            let parsed: Options = from_cbor(cbor!({ "symbology" => alias }).unwrap())
-                .unwrap_or_else(|error| panic!("{alias} is not accepted: {error}"));
-
-            assert_eq!(parsed.symbology as i32, expected as i32, "{alias}");
         }
     }
 
