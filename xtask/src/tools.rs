@@ -83,6 +83,38 @@ pub fn cargo<S: AsRef<OsStr>>(
     Ok(cmd(CARGO, args))
 }
 
+/// Where cargo writes what it builds.
+///
+/// Asked of cargo rather than taken to be `<root>/target`: `CARGO_TARGET_DIR`,
+/// `--target-dir` and `build.target-dir` each move it, and a task that reads a
+/// built artifact from the wrong place fails on a missing file rather than on
+/// what is actually wrong.
+pub fn cargo_target_dir() -> Result<PathBuf, CommandError> {
+    let metadata = cargo(["metadata", "--format-version", "1", "--no-deps"])?
+        .output()
+        .map_err(|err| CommandError::inaccessible("metadata", err).program(CARGO))?;
+    CommandError::from_exit(metadata.status).map_err(|err| err.program(CARGO))?;
+
+    target_directory(&metadata.stdout)
+        .map_err(|err| CommandError::inaccessible("metadata", err).program(CARGO))
+}
+
+/// The directory `cargo metadata --format-version 1` says it builds into.
+///
+/// Only the top-level field is taken: a package's own `metadata` table is
+/// free-form and may carry a key of the same name.
+///
+/// Input:  `{"packages":[{"metadata":{"target_directory":"no"}}],"target_directory":"C:\\w\\target"}`
+/// Output: `C:\w\target`
+fn target_directory(metadata: &[u8]) -> io::Result<PathBuf> {
+    let metadata: serde_json::Value = serde_json::from_slice(metadata)?;
+    metadata
+        .get("target_directory")
+        .and_then(serde_json::Value::as_str)
+        .map(PathBuf::from)
+        .ok_or_else(|| io::Error::other("'cargo metadata' reported no 'target_directory'"))
+}
+
 pub fn cargo_has_tool(tool: impl AsRef<str>) -> bool {
     if !has_command(CARGO) {
         return false;
@@ -1083,10 +1115,64 @@ impl std::error::Error for CommandError {
 #[cfg(test)]
 mod tests {
     use super::{
-        exists, hash_files, is_pinned_archive, wasm_custom_sections, CommandError, DownloadError,
-        FileSize, TARGET_FEATURES_SECTION,
+        exists, hash_files, is_pinned_archive, target_directory, wasm_custom_sections,
+        CommandError, DownloadError, FileSize, TARGET_FEATURES_SECTION,
     };
     use crate::test_support::TempFile;
+    use std::path::PathBuf;
+
+    /// The shape `cargo metadata --format-version 1 --no-deps` prints, cut
+    /// down to the keys that matter here: the field is last, and a package
+    /// carries a `metadata` table that may hold anything at all.
+    const CARGO_METADATA: &str = concat!(
+        r#"{"packages":[{"name":"xtask","metadata":{"target_directory":"decoy","n":[1,2]}}],"#,
+        r#""workspace_members":[],"resolve":null,"#,
+        r#""target_directory":"C:\\src\\zint-wasi\\target","version":1}"#
+    );
+
+    #[test]
+    fn the_target_directory_is_read_from_cargo_metadata() {
+        assert_eq!(
+            target_directory(CARGO_METADATA.as_bytes()).unwrap(),
+            PathBuf::from(r"C:\src\zint-wasi\target"),
+        );
+    }
+
+    /// A package's own `metadata` is free-form, so the same key can appear
+    /// inside it. Only the top-level field counts: output without one is
+    /// refused rather than answered with the package's.
+    #[test]
+    fn a_key_nested_in_a_package_is_not_mistaken_for_the_field() {
+        let nested = br#"{"packages":[{"metadata":{"target_directory":"decoy"}}]}"#;
+        assert!(target_directory(nested).is_err());
+    }
+
+    /// The path has to come out as cargo resolved it, whichever escapes the
+    /// output uses, `\u` included.
+    #[test]
+    fn escapes_in_the_path_are_undone() {
+        let escaped = br#"{"target_directory":"C:\\Users\\Ren\u00e9\\target"}"#;
+        assert_eq!(
+            target_directory(escaped).unwrap(),
+            PathBuf::from(r"C:\Users\René\target"),
+        );
+    }
+
+    /// Output with no string where the path should be has to fail rather than
+    /// hand back a path cargo never reported.
+    #[test]
+    fn output_without_a_target_directory_is_refused() {
+        for json in [
+            "",
+            r#"{"target_directory":"unterminated}"#,
+            r#"{"target_directory":42}"#,
+            r#"{"target_directory":null}"#,
+            r#"["target_directory"]"#,
+            r#"{"other":"field"}"#,
+        ] {
+            assert!(target_directory(json.as_bytes()).is_err(), "{json}");
+        }
+    }
 
     /// A release URL ending in `artifact`, which is how the digests name it.
     fn url_for(artifact: &str) -> String {
