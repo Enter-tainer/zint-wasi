@@ -1,0 +1,14 @@
+<?xml version="1.0" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg width="162" height="118" version="1.1" xmlns="http://www.w3.org/2000/svg">
+ <desc>Zint Generated Symbol</desc>
+ <g id="barcode" fill="#000000">
+  <path d="M6 0h2v4h-2ZM10 0h2v4h-2ZM16 0h8v4h-8ZM34 0h2v4h-2ZM40 0h2v16h-2ZM44 0h2v16h-2ZM50 0h4v4h-4ZM60 0h10v4h-10ZM72 0h2v4h-2ZM76 0h6v4h-6ZM84 0h8v4h-8ZM94 0h2v4h-2ZM100 0h4v4h-4ZM106 0h2v4h-2ZM112 0h12v4h-12ZM128 0h6v16h-6ZM136 0h2v16h-2ZM142 0h4v4h-4ZM148 0h2v16h-2ZM6 4h10v4h-10ZM20 4h2v4h-2ZM26 4h6v4h-6ZM36 4h2v4h-2ZM48 4h6v4h-6ZM60 4h2v8h-2ZM64 4h6v4h-6ZM74 4h4v4h-4ZM80 4h6v4h-6ZM94 4h12v4h-12ZM108 4h2v4h-2ZM116 4h4v4h-4ZM124 4h2v4h-2ZM140 4h6v4h-6ZM6 8h4v4h-4ZM14 8h4v4h-4ZM22 8h2v4h-2ZM32 8h2v4h-2ZM48 8h4v4h-4ZM64 8h2v4h-2ZM76 8h2v4h-2ZM86 8h2v4h-2ZM94 8h2v4h-2ZM100 8h2v4h-2ZM108 8h4v4h-4ZM114 8h4v4h-4ZM140 8h4v4h-4ZM6 12h2v4h-2ZM10 12h2v4h-2ZM14 12h8v4h-8ZM26 12h2v4h-2ZM50 12h2v4h-2ZM60 12h6v4h-6ZM68 12h6v4h-6ZM78 12h8v4h-8ZM88 12h2v4h-2ZM94 12h8v4h-8ZM106 12h2v4h-2ZM112 12h2v4h-2ZM122 12h2v4h-2ZM140 12h2v4h-2ZM14 16h2v4h-2ZM146 16h2v4h-2ZM12 20h2v4h-2ZM148 20h2v4h-2ZM14 24h2v86h-2ZM146 24h2v86h-2ZM18 28h2v82h-2ZM22 28h6v72h-6ZM30 28h4v72h-4ZM36 28h2v72h-2ZM44 28h4v72h-4ZM50 28h8v72h-8ZM60 28h2v72h-2ZM66 28h2v72h-2ZM72 28h4v72h-4ZM78 28h2v82h-2ZM82 28h2v82h-2ZM86 28h2v72h-2ZM96 28h2v72h-2ZM100 28h2v72h-2ZM104 28h2v72h-2ZM114 28h2v72h-2ZM120 28h6v72h-6ZM128 28h2v72h-2ZM132 28h6v72h-6ZM142 28h2v82h-2Z"/>
+  <text x="49" y="117.2" text-anchor="middle" font-family="OCRB, monospace" font-size="20">
+   7432
+  </text>
+  <text x="113" y="117.2" text-anchor="middle" font-family="OCRB, monospace" font-size="20">
+   3654
+  </text>
+ </g>
+</svg>

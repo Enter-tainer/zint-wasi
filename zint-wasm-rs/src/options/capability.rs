@@ -36,6 +36,8 @@ pub enum CapabilityFlags {
     StructApp,
     /// Has compliant height?
     CompliantHeight,
+    /// Can set row separators?
+    Bindable,
 }
 
 impl From<CapabilityFlags> for i32 {
@@ -56,6 +58,7 @@ impl From<CapabilityFlags> for i32 {
             CapabilityFlags::Mask => ZINT_CAP_MASK,
             CapabilityFlags::StructApp => ZINT_CAP_STRUCTAPP,
             CapabilityFlags::CompliantHeight => ZINT_CAP_COMPLIANT_HEIGHT,
+            CapabilityFlags::Bindable => ZINT_CAP_BINDABLE,
         }
         .try_into()
         .unwrap()
@@ -88,6 +91,7 @@ mod tests {
             (CapabilityFlags::Mask, 0x0800),
             (CapabilityFlags::StructApp, 0x1000),
             (CapabilityFlags::CompliantHeight, 0x2000),
+            (CapabilityFlags::Bindable, 0x4000),
         ] {
             assert_eq!(i32::from(capability), expected, "{capability:?}");
         }

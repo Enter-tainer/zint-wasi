@@ -332,12 +332,24 @@ fn symbology_cases() -> Vec<Case> {
         // Mixed-case item description; Extended Code 39 covers the full 7-bit
         // ASCII set.
         Case::new("ExCode39", Symbology::ExCode39, "123.45$@fd"),
+        // The EAN-8 example from the zint manual; seven digits, check digit added
+        // by zint.
+        Case::new("EAN8", Symbology::EAN8, "7432365"),
+        // The standalone 2-digit add-on example from the zint manual, as printed
+        // beside a periodical's main symbol for the issue number.
+        Case::new("EAN2Addon", Symbology::EAN2Addon, "12"),
+        // The standalone 5-digit add-on example from the zint manual, as printed
+        // beside a book's main symbol for the price.
+        Case::new("EAN5Addon", Symbology::EAN5Addon, "54321"),
         // Retail EAN-13 article number that already carries its correct check
         // digit.
         Case::new("EANX", Symbology::EANX, "5024425377399"),
         // EAN-13 supplied with its check digit, which zint validates rather than
         // calculates.
         Case::new("EANXChk", Symbology::EANXChk, "9501101531000"),
+        // The EAN-13 example from the zint manual; twelve digits, check digit
+        // added by zint.
+        Case::new("EAN13", Symbology::EAN13, "451234567890"),
         // GTIN plus net weight and best-before date; GS1 input mode with square-
         // bracket AI delimiters.
         Case::new("GS1128", Symbology::GS1128, "[01]98898765432106[3202]012345[15]991231")
@@ -592,7 +604,7 @@ fn symbology_cases() -> Vec<Case> {
             .primary("[01]93712345678904[3103]001234"),
         // UPC-A article number from GS1 General Specifications Figure 5.11.8-2
         // with a serial number (AI 21) in the 2D part; the same 2D payload is
-        // exercised for UPCA_CC at test_composite.c:3169.
+        // exercised for UPCA_CC at test_composite.c:3450.
         Case::new("UPCACC", Symbology::UPCACC, "[21]A12345678")
             .primary("61414101234"),
         // Zero-suppressed UPC-E article number with a best-before date (AI 15) of
@@ -637,5 +649,13 @@ fn symbology_cases() -> Vec<Case> {
         // Semiconductor wafer ID from SEMI T1-95 Figure 2 (7-18 alphanumerics, no
         // letter O).
         Case::new("BC412", Symbology::BC412, "AQ45670"),
+        // The zint manual's example: DX number 112-1 on frame 10A of a 35mm film.
+        Case::new("DXFilmEdge", Symbology::DXFilmEdge, "112-1/10A"),
+        // The EAN-8 example from the zint manual in the linear part, with the 2D
+        // payload the UPCACC case uses.
+        Case::new("EAN8CC", Symbology::EAN8CC, "[21]A12345678").primary("7432365"),
+        // The zint manual's EAN13_CC example, a GTIN with company internal data
+        // (AI 99) in the 2D part.
+        Case::new("EAN13CC", Symbology::EAN13CC, "[99]1234-abcd").primary("331234567890"),
     ]
 }

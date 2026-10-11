@@ -33,9 +33,12 @@
 - Data Matrix ECC200
 - DotCode
 - Dutch Post KIX Code
+- DX Film Edge
 - EAN variants:
   - EAN-13
   - EAN-8
+  - EAN-2 and EAN-5 add-ons
+- GS1 Composite, with an EAN, UPC, GS1-128 or GS1 DataBar linear part
 - Grid Matrix
 - GS1 DataBar variants:
   - GS1 DataBar
