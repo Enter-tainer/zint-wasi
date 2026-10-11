@@ -14,6 +14,8 @@ cargo xtask <COMMAND> [ARGS...]
 - `package-plugin`: builds the tiaoma wasm plugin
   - `--debug`: creates a debug build of the plugin
 - `build-manual`: compiles the manual
+- `test-package`: compiles `typst-package/tests.typ`, whose assertions check
+  the Typst half of the package against the plugin
 - `package`: packages all requirements needed for publishing
 - `bundle`: runs `package`, fetching typst if it is not installed, and lays the
   package out as it is published under `<WORK_DIR>/bundle/<name>/<version>`,
