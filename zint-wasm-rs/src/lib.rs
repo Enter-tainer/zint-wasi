@@ -1,6 +1,7 @@
 pub mod error;
 pub mod options;
 pub mod symbol;
+pub mod vector;
 
 #[cfg(test)]
 mod test_support;

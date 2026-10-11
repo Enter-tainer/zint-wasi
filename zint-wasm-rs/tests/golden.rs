@@ -20,6 +20,12 @@
 //! ```
 //!
 //! and read the diff before committing it.
+//!
+//! Each case is also drawn a second way, as the shapes `encode_vector` returns,
+//! and those are checked against the SVG zint wrote for the same case. See
+//! `agreement` for why that is compared rather than pinned.
+
+mod agreement;
 
 use std::{collections::BTreeSet, fs, path::PathBuf};
 
@@ -68,6 +74,11 @@ fn main() {
                 Ok(())
             }));
         }
+    }
+    // A second set of cases rather than a clone of the first, as the options
+    // move into the test that renders them.
+    for (folder, cases) in [("option", option_cases()), ("symbology", symbology_cases())] {
+        trials.extend(cases.into_iter().map(|case| agreement_trial(folder, case)));
     }
     trials.push(Trial::test(
         "meta::no_golden_file_is_left_behind",
@@ -135,6 +146,18 @@ impl Case {
         set(&mut self.options);
         self
     }
+}
+
+/// Draws `case` both ways and requires the vector to hold exactly what the SVG
+/// draws.
+fn agreement_trial(folder: &str, case: Case) -> Trial {
+    Trial::test(format!("vector::{folder}::{}", case.name), move || {
+        let data = case.data.as_bytes();
+        let svg = Symbol::new(&case.options)?.encode_svg(data, case.rotate)?;
+        let vector = Symbol::new(&case.options)?.encode_vector(data, case.rotate)?;
+        agreement::vector_draws_what_the_svg_draws(&vector, &svg)?;
+        Ok(())
+    })
 }
 
 fn golden_path(folder: &str, name: &str) -> PathBuf {
@@ -298,6 +321,9 @@ fn option_cases() -> Vec<Case> {
         Case::new("rotate-90", Symbology::Code128, DATA).rotated(90),
         Case::new("rotate-180", Symbology::Code128, DATA).rotated(180),
         Case::new("rotate-270", Symbology::Code128, DATA).rotated(270),
+        // MaxiCode is the one symbology drawn with hexagons, and zint turns each
+        // of them as well as their positions when the symbol is rotated.
+        Case::new("rotate-90-hexagons", Symbology::MaxiCode, "1234567890").rotated(90),
     ]
 }
 
