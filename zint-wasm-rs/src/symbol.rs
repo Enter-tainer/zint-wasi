@@ -1,10 +1,14 @@
 use std::ops::{Deref, DerefMut};
 
-use zint_wasm_sys::{zint_symbol, ZBarcode_Encode_and_Print};
+use zint_wasm_sys::{
+    zint_symbol, ZBarcode_Cap, ZBarcode_Encode_and_Buffer_Vector, ZBarcode_Encode_and_Print,
+    ZINT_CAP_EANUPC,
+};
 
 use crate::{
     error::{Error, ZintResult},
     options::{color::Color, output_options, Options},
+    vector::Vector,
 };
 
 #[repr(transparent)]
@@ -131,24 +135,10 @@ impl Symbol {
     /// hold anything a symbology accepts, NUL bytes and text that is not UTF-8
     /// included. That is what zint's `DATA` input mode is for.
     pub fn encode_svg(self, data: &[u8], rotate_angle: i32) -> Result<String, Error> {
-        let length =
-            i32::try_from(data.len()).map_err(|_| Error::DataTooLong { length: data.len() })?;
-        // Zint reads `length` bytes, but a length of zero means "up to the
-        // terminator" and an empty slice has no address worth reading, so the
-        // payload is always handed over terminated.
-        let mut source = Vec::with_capacity(data.len() + 1);
-        source.extend_from_slice(data);
-        source.push(0);
-
-        let result = ZintResult::from(unsafe {
-            ZBarcode_Encode_and_Print(self.inner, source.as_ptr(), length, rotate_angle) as u32
-        });
-        if let Some(kind) = result.as_error() {
-            return Err(Error::Zint {
-                kind,
-                detail: self.explanation(),
-            });
-        }
+        self.encode(data, |symbol, source, length| unsafe {
+            // Safety: the arguments are the ones `encode` documents.
+            ZBarcode_Encode_and_Print(symbol, source, length, rotate_angle)
+        })?;
         let svg = unsafe {
             // Safety: zint wrote `memfile_size` bytes at `memfile`, and the
             // symbol outlives this borrow.
@@ -156,6 +146,65 @@ impl Symbol {
         };
 
         Ok(svg_text(svg))
+    }
+
+    /// Encodes `data` and returns the shapes zint lays the symbol out as,
+    /// rather than a drawing of them.
+    ///
+    /// These are the shapes every one of zint's vector formats is written from,
+    /// so they draw the same symbol as [`Symbol::encode_svg`], in the same
+    /// coordinates. What they leave out is colour: drawing them is the caller's
+    /// business, and so is what the foreground and background are.
+    pub fn encode_vector(self, data: &[u8], rotate_angle: i32) -> Result<Vector, Error> {
+        self.encode(data, |symbol, source, length| unsafe {
+            // Safety: the arguments are the ones `encode` documents.
+            ZBarcode_Encode_and_Buffer_Vector(symbol, source, length, rotate_angle)
+        })?;
+        let vector = unsafe {
+            // Safety: zint owns the vector until the symbol is deleted, which
+            // happens no earlier than when `self` is dropped below.
+            self.vector.as_ref()
+        }
+        .ok_or(Error::MissingVector)?;
+        // The same rule zint's SVG, EPS and EMF writers apply.
+        let bold = self.output_options & output_options::OutputOptions::BOLD_TEXT.as_i32() != 0
+            && unsafe {
+                // Safety: any `int` is a valid argument; zint range checks it.
+                ZBarcode_Cap(self.symbology, ZINT_CAP_EANUPC)
+            } == 0;
+
+        unsafe {
+            // Safety: the vector is the one zint just built for this symbol.
+            Vector::from_zint(vector, bold)
+        }
+    }
+
+    /// Hands `data` to one of zint's encode functions and turns what it returns
+    /// into an error if it is one.
+    ///
+    /// `encode` is called with the symbol, a pointer to the payload and its
+    /// length in bytes. Zint reads `length` bytes, but a length of zero means
+    /// "up to the terminator" and an empty slice has no address worth reading,
+    /// so the payload is always handed over terminated as well.
+    fn encode(
+        &self,
+        data: &[u8],
+        encode: impl FnOnce(*mut zint_symbol, *const u8, i32) -> i32,
+    ) -> Result<(), Error> {
+        let length =
+            i32::try_from(data.len()).map_err(|_| Error::DataTooLong { length: data.len() })?;
+        let mut source = Vec::with_capacity(data.len() + 1);
+        source.extend_from_slice(data);
+        source.push(0);
+
+        let result = ZintResult::from(encode(self.inner, source.as_ptr(), length) as u32);
+        match result.as_error() {
+            Some(kind) => Err(Error::Zint {
+                kind,
+                detail: self.explanation(),
+            }),
+            None => Ok(()),
+        }
     }
 
     /// What zint wrote about the last call it was given, if it wrote anything.
@@ -662,6 +711,42 @@ mod tests {
         assert!(
             error.to_string().contains("not compliant"),
             "zint says which standard was missed: {error}"
+        );
+    }
+
+    /// The shapes are what a caller draws from, so the bars and the text
+    /// under them both have to be among them.
+    #[test]
+    fn a_vector_holds_the_bars_and_the_text() {
+        let vector = Symbol::new(&code128())
+            .expect("the options are valid")
+            .encode_vector(b"A12345B", 0)
+            .expect("Code128 encodes alphanumeric data");
+
+        assert_eq!((vector.width, vector.height), (224.0, 116.28));
+        assert!(!vector.rectangles.is_empty());
+        let texts: Vec<&str> = vector.texts.iter().map(|it| it.text.as_str()).collect();
+        assert_eq!(texts, ["A12345B"]);
+    }
+
+    /// Asking for shapes instead of a drawing must not lose what zint says
+    /// about a payload it refuses.
+    #[test]
+    fn a_vector_zint_refuses_is_reported_with_its_explanation() {
+        let error = Symbol::new(&Options::with_symbology(Symbology::EANXChk))
+            .expect("the options are valid")
+            .encode_vector(b"6975004310002", 0)
+            .expect_err("EAN-13 with a wrong check digit is rejected");
+
+        assert!(
+            matches!(
+                error,
+                Error::Zint {
+                    kind: ZintError::InvalidCheck,
+                    detail: Some(_),
+                }
+            ),
+            "unexpected error: {error:?}"
         );
     }
 
