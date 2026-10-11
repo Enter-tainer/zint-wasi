@@ -82,6 +82,19 @@
 
 ![example](./example.svg)
 
+Barcodes are drawn with Typst's own shapes, so they take colours, sizes and text styles the way the rest of a document does:
+
+```typ
+#tiaoma.qrcode(
+  "https://typst.app",
+  fill: cmyk(0%, 0%, 0%, 100%),
+  width: 2cm,
+)
+#tiaoma.ean("1234567890128", hrt: (font: "DejaVu Sans Mono", size: 8pt))
+```
+
+A CMYK `fill` reaches the PDF as CMYK, which is what a print shop expects of a black barcode.
+
 ## Manual
 
 Please refer to [manual](./manual.pdf) for more details.

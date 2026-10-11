@@ -263,6 +263,16 @@ pub fn action_build_manual(_args: &[String]) -> ActionResult {
     action_ok!();
 }
 
+pub fn action_test_package(_args: &[String]) -> ActionResult {
+    let tests = state_path!(TYPST_PKG).join("tests.typ");
+    // Nothing is kept: the assertions are the result, and they fail the
+    // compile.
+    let output = state_path!(WORK_DIR).join("tests.pdf");
+    action_expect!(typst_compile(&tests, &output));
+
+    action_ok!();
+}
+
 pub fn action_build_example(_args: &[String]) -> ActionResult {
     let example_source = state_path!(MANUAL_SOURCE, default: || {
         state_path!(TYPST_PKG).join("example.typ").to_string_lossy().to_string()
