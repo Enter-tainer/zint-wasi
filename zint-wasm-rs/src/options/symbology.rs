@@ -128,6 +128,119 @@ pub enum Symbology {
     BC412 = BARCODE_BC412 as i32,
 }
 
+/// The name a person would call the symbology by, such as `Code 128` for
+/// [`Symbology::Code128`].
+///
+/// The names are the descriptions zint gives each symbology in its own header,
+/// word for word, so they say what zint means by each one rather than what this
+/// crate guesses it means. A test holds the two together.
+impl std::fmt::Display for Symbology {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let name = match self {
+            Self::Code11 => "Code 11",
+            Self::C25Standard => "2 of 5 Standard (Matrix)",
+            Self::C25Inter => "2 of 5 Interleaved",
+            Self::C25IATA => "2 of 5 IATA",
+            Self::C25Logic => "2 of 5 Data Logic",
+            Self::C25Ind => "2 of 5 Industrial",
+            Self::Code39 => "Code 39",
+            Self::ExCode39 => "Extended Code 39",
+            Self::EANX => "EAN (European Article Number)",
+            Self::EANXChk => "EAN + Check Digit",
+            Self::GS1128 => "GS1-128",
+            Self::Codabar => "Codabar",
+            Self::Code128 => "Code 128",
+            Self::DPLEIT => "Deutsche Post Leitcode",
+            Self::DPIDENT => "Deutsche Post Identcode",
+            Self::Code16k => "Code 16k",
+            Self::Code49 => "Code 49",
+            Self::Code93 => "Code 93",
+            Self::Flat => "Flattermarken",
+            Self::DBarOmn => "GS1 DataBar Omnidirectional",
+            Self::DBarLtd => "GS1 DataBar Limited",
+            Self::DBarExp => "GS1 DataBar Expanded",
+            Self::Telepen => "Telepen Alpha",
+            Self::UPCA => "UPC-A",
+            Self::UPCAChk => "UPC-A + Check Digit",
+            Self::UPCE => "UPC-E",
+            Self::UPCEChk => "UPC-E + Check Digit",
+            Self::Postnet => "USPS (U.S. Postal Service) POSTNET",
+            Self::MSIPlessey => "MSI Plessey",
+            Self::FIM => "Facing Identification Mark",
+            Self::Logmars => "LOGMARS",
+            Self::Pharma => "Pharmacode One-Track",
+            Self::PZN => "Pharmazentralnummer",
+            Self::PharmaTwo => "Pharmacode Two-Track",
+            Self::CEPNet => "Brazilian CEPNet Postal Code",
+            Self::PDF417 => "PDF417",
+            Self::PDF417Comp => "Compact PDF417 (Truncated PDF417)",
+            Self::MaxiCode => "MaxiCode",
+            Self::QRCode => "QR Code",
+            Self::Code128AB => "Code 128 (Suppress Code Set C)",
+            Self::AusPost => "Australia Post Standard Customer",
+            Self::AusReply => "Australia Post Reply Paid",
+            Self::AusRoute => "Australia Post Routing",
+            Self::AusRedirect => "Australia Post Redirection",
+            Self::ISBNX => "ISBN",
+            Self::RM4SCC => "Royal Mail 4-State Customer Code",
+            Self::DataMatrix => "Data Matrix (ECC200)",
+            Self::EAN14 => "EAN-14",
+            Self::VIN => "Vehicle Identification Number",
+            Self::CodablockF => "Codablock-F",
+            Self::NVE18 => "NVE-18 (SSCC-18)",
+            Self::JapanPost => "Japanese Postal Code",
+            Self::KoreaPost => "Korea Post",
+            Self::DBarStk => "GS1 DataBar Stacked",
+            Self::DBarOmnStk => "GS1 DataBar Stacked Omnidirectional",
+            Self::DBarExpStk => "GS1 DataBar Expanded Stacked",
+            Self::Planet => "USPS PLANET",
+            Self::MicroPDF417 => "MicroPDF417",
+            Self::USPSIMail => "USPS Intelligent Mail (OneCode)",
+            Self::Plessey => "UK Plessey",
+            Self::TelepenNum => "Telepen Numeric",
+            Self::ITF14 => "ITF-14",
+            Self::KIX => "Dutch Post KIX Code",
+            Self::Aztec => "Aztec Code",
+            Self::DAFT => "DAFT Code",
+            Self::DPD => "DPD Code",
+            Self::MicroQR => "Micro QR Code",
+            Self::HIBC128 => "HIBC (Health Industry Barcode) Code 128",
+            Self::HIBC39 => "HIBC Code 39",
+            Self::HIBCDM => "HIBC Data Matrix",
+            Self::HIBCQR => "HIBC QR Code",
+            Self::HIBCPDF => "HIBC PDF417",
+            Self::HIBCMicPDF => "HIBC MicroPDF417",
+            Self::HIBCCodablockF => "HIBC Codablock-F",
+            Self::HIBCAztec => "HIBC Aztec Code",
+            Self::DotCode => "DotCode",
+            Self::HanXin => "Han Xin (Chinese Sensible) Code",
+            Self::Mailmark2D => "Royal Mail 2D Mailmark (CMDM) (Data Matrix)",
+            Self::UPUS10 => "Universal Postal Union S10",
+            Self::Mailmark4S => "Royal Mail 4-State Mailmark",
+            Self::AzRune => "Aztec Runes",
+            Self::Code32 => "Code 32",
+            Self::EANXCC => "EAN Composite",
+            Self::GS1128CC => "GS1-128 Composite",
+            Self::DBarOmnCC => "GS1 DataBar Omnidirectional Composite",
+            Self::DBarLtdCC => "GS1 DataBar Limited Composite",
+            Self::DBarExpCC => "GS1 DataBar Expanded Composite",
+            Self::UPCACC => "UPC-A Composite",
+            Self::UPCECC => "UPC-E Composite",
+            Self::DBarStkCC => "GS1 DataBar Stacked Composite",
+            Self::DBarOmnStkCC => "GS1 DataBar Stacked Omnidirectional Composite",
+            Self::DBarExpStkCC => "GS1 DataBar Expanded Stacked Composite",
+            Self::Channel => "Channel Code",
+            Self::CodeOne => "Code One",
+            Self::GridMatrix => "Grid Matrix",
+            Self::UPNQR => "UPNQR (Univerzalnega Plačilnega Naloga QR)",
+            Self::Ultra => "Ultracode",
+            Self::RMQR => "Rectangular Micro QR Code (rMQR)",
+            Self::BC412 => "IBM BC412 (SEMI T1-95)",
+        };
+        f.write_str(name)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::Symbology;
@@ -310,6 +423,8 @@ mod tests {
     struct ZintSymbology<'a> {
         constant: &'a str,
         value: i32,
+        /// The trailing comment, which is how zint describes the symbology.
+        description: Option<&'a str>,
         /// Zint marks the former name of a renamed symbology `Legacy` and keeps
         /// it defined alongside the new one, at the same value.
         legacy: bool,
@@ -349,13 +464,15 @@ mod tests {
                 continue;
             };
 
+            let description = comment(rest);
             defines.push(ZintSymbology {
                 constant,
                 value,
+                description,
                 // The comment alone, so that a marker zint spells differently
                 // reads as a live symbology and is reported as one missing a
                 // variant, rather than being quietly dropped from the check.
-                legacy: comment(rest) == Some("Legacy"),
+                legacy: description == Some("Legacy"),
             });
         }
 
@@ -577,6 +694,100 @@ mod tests {
         }
     }
 
+    /// The names are zint's, so a symbology zint renames or redescribes on an
+    /// upgrade has to be renamed here too rather than keep a description zint
+    /// itself has given up.
+    #[test]
+    fn every_name_is_the_one_zint_gives() {
+        let defined = zint_symbologies(ZINT_H);
+
+        for (symbology, variant, constant) in SYMBOLOGIES {
+            let define = defined
+                .iter()
+                .find(|it| it.constant == *constant && !it.legacy)
+                .unwrap_or_else(|| panic!("zint no longer describes {constant}"));
+
+            assert_eq!(
+                Some(symbology.to_string().as_str()),
+                define.description,
+                "{variant} is named differently from {constant}"
+            );
+        }
+    }
+
+    /// One row of the symbology table in `manual.typ`.
+    #[derive(Debug, PartialEq, Eq)]
+    struct ManualRow<'a> {
+        /// The value a document passes, such as `Code128`.
+        value: &'a str,
+        /// The name printed next to it, such as `Code 128`.
+        name: &'a str,
+    }
+
+    /// The rows of the symbology table at the end of `manual.typ`, each of
+    /// which is one line holding a value and its name.
+    ///
+    /// Input:  the line `  typst-val("\"Code128\""), [Code 128],`
+    /// Output: `ManualRow { value: "Code128", name: "Code 128" }`
+    fn parse_manual_rows(manual: &str) -> Vec<ManualRow<'_>> {
+        let (_, table) = manual
+            .split_once("= Symbology Values <symbology>")
+            .expect("the manual has a symbology section");
+
+        table
+            .lines()
+            // `trim` because the checkout's line endings are not ours to
+            // choose, and a carriage return would end up inside the name.
+            .filter_map(|line| line.trim().strip_prefix("typst-val(\"\\\""))
+            .map(|row| {
+                let (value, name) = row
+                    .split_once("\\\"\"), [")
+                    .unwrap_or_else(|| panic!("a value without a name: {row}"));
+                let name = name
+                    .strip_suffix("],")
+                    .unwrap_or_else(|| panic!("a name that is not closed: {row}"));
+                ManualRow { value, name }
+            })
+            .collect()
+    }
+
+    /// Git hands a Windows checkout CRLF unless something pins the file, and
+    /// nothing pins `manual.typ`, so the same source has to parse either way.
+    #[test]
+    fn the_manual_parses_whatever_line_endings_the_checkout_used() {
+        let unix = MANUAL.replace("\r\n", "\n");
+        let windows = unix.replace('\n', "\r\n");
+
+        let from_unix = parse_manual_rows(&unix);
+        assert!(!from_unix.is_empty(), "no rows were parsed at all");
+        assert_eq!(from_unix, parse_manual_rows(&windows));
+    }
+
+    const MANUAL: &str = include_str!("../../../typst-package/manual.typ");
+
+    /// The manual lists the values a document may pass and what each one
+    /// draws. The list is written out by hand, so this is what keeps it from
+    /// missing a symbology, listing one that does not exist, or naming one
+    /// differently from everywhere else.
+    #[test]
+    fn the_manual_lists_every_symbology_by_its_name() {
+        let listed: Vec<(&str, &str)> = parse_manual_rows(MANUAL)
+            .iter()
+            .map(|row| (row.value, row.name))
+            .collect();
+        let names: Vec<String> = SYMBOLOGIES
+            .iter()
+            .map(|(symbology, _, _)| symbology.to_string())
+            .collect();
+        let expected: Vec<(&str, &str)> = SYMBOLOGIES
+            .iter()
+            .zip(&names)
+            .map(|((_, variant, _), name)| (*variant, name.as_str()))
+            .collect();
+
+        assert_eq!(listed, expected);
+    }
+
     /// Zint to Rust, which is the direction nothing else checks. Every other
     /// test here starts from a [`Symbology`] and asks zint about it, so a
     /// symbology zint gains is invisible to all of them: it simply never comes
@@ -674,16 +885,19 @@ mod tests {
                 ZintSymbology {
                     constant: "BARCODE_CODE11",
                     value: 1,
+                    description: Some("Code 11"),
                     legacy: false,
                 },
                 ZintSymbology {
                     constant: "BARCODE_C25STANDARD",
                     value: 2,
+                    description: Some("2 of 5 Standard (Matrix)"),
                     legacy: false,
                 },
                 ZintSymbology {
                     constant: "BARCODE_C25MATRIX",
                     value: 2,
+                    description: Some("Legacy"),
                     legacy: true,
                 },
             ],
