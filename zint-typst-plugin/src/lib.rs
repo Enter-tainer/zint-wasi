@@ -32,24 +32,47 @@ pub enum Error {
     ),
     #[error(transparent)]
     ZintEncoding(#[from] zint_wasm_rs::error::Error),
+    /// The plugin returns shapes without colour and `lib.typ` paints them,
+    /// so a colour given to zint would be silently ignored.
+    #[error(
+        "the colours are drawn by Typst, not by Zint; give `fill` and `background` to \
+         the barcode instead of a colour option"
+    )]
+    ColourInOptions,
+    #[error("could not encode the shapes for Typst: {0}")]
+    Shapes(
+        #[from]
+        #[source]
+        ciborium::ser::Error<std::io::Error>,
+    ),
 }
 type Result<T> = std::result::Result<T, crate::Error>;
 
+/// Encodes `text` with `options` and returns, as CBOR, the shapes zint lays
+/// the symbol out as. `lib.typ` draws them with Typst's own primitives, which
+/// is what lets a document's colours reach the PDF as they were given.
 #[wasm_func]
 pub fn gen_with_options(options: &[u8], text: &[u8]) -> Result<Vec<u8>> {
     let options: Options = ciborium::from_reader(options)?;
+    if options.fg_color.is_some() || options.bg_color.is_some() {
+        return Err(Error::ColourInOptions);
+    }
     // The payload travels as bytes and is handed to zint as bytes: Typst's
     // `bytes` may hold anything, and a symbology in DATA mode is meant to take
     // it.
-    let svg = Symbol::new(&options)?.encode_svg(text, 0)?;
-    Ok(svg.into_bytes())
+    let vector = Symbol::new(&options)?.encode_vector(text, 0)?;
+    let mut encoded = Vec::new();
+    ciborium::into_writer(&vector, &mut encoded)?;
+    Ok(encoded)
 }
 
 #[cfg(test)]
 mod tests {
     use super::{gen_with_options, Error};
     use ciborium::{cbor, Value};
+    use serde::Deserialize;
     use std::collections::BTreeMap;
+    use zint_wasm_rs::vector::Ink;
 
     /// Encodes options the way Typst's `cbor.encode` does, which is the only
     /// way this function is ever called.
@@ -62,89 +85,240 @@ mod tests {
         encoded
     }
 
-    /// The size of the drawing, in the user units of the SVG root element.
-    #[derive(Debug, PartialEq)]
-    struct SvgSize {
+    /// The plugin's answer, read the way `lib.typ` reads it: these are the
+    /// fields it uses, and `deny_unknown_fields` makes a renamed or added one
+    /// fail here before it fails a document.
+    #[derive(Debug, PartialEq, Deserialize)]
+    #[serde(deny_unknown_fields)]
+    struct Drawing {
         width: f64,
         height: f64,
+        rectangles: Vec<Rectangle>,
+        hexagons: Vec<Hexagon>,
+        circles: Vec<Circle>,
+        texts: Vec<Text>,
     }
 
-    /// Reads the size off the root element of a rendered SVG. Only the two
-    /// attributes are looked at, so the order zint writes them in, the other
-    /// attributes it adds and the way it breaks lines do not matter.
-    ///
-    /// Input:  a document containing
-    ///         `<svg width="224" height="117" version="1.1" ...>`
-    /// Output: `SvgSize { width: 224.0, height: 117.0 }`
-    fn svg_size(document: &str) -> SvgSize {
-        let start = document.find("<svg").expect("SVG root element");
-        let tag = &document[start..];
-        let tag = &tag[..tag.find('>').expect("SVG root element is closed")];
+    #[derive(Debug, PartialEq, Deserialize)]
+    #[serde(deny_unknown_fields)]
+    struct Rectangle {
+        x: f64,
+        y: f64,
+        width: f64,
+        height: f64,
+        ink: String,
+    }
 
-        SvgSize {
-            width: attribute(tag, "width"),
-            height: attribute(tag, "height"),
+    #[derive(Debug, PartialEq, Deserialize)]
+    #[serde(deny_unknown_fields)]
+    struct Hexagon {
+        x: f64,
+        y: f64,
+        diameter: f64,
+        rotation: i64,
+    }
+
+    #[derive(Debug, PartialEq, Deserialize)]
+    #[serde(deny_unknown_fields)]
+    struct Circle {
+        x: f64,
+        y: f64,
+        diameter: f64,
+        stroke: f64,
+        background: bool,
+    }
+
+    #[derive(Debug, PartialEq, Deserialize)]
+    #[serde(deny_unknown_fields)]
+    struct Text {
+        x: f64,
+        y: f64,
+        size: f64,
+        width: f64,
+        rotation: i64,
+        align: String,
+        text: String,
+        bold: bool,
+    }
+
+    impl Drawing {
+        fn size(&self) -> (f64, f64) {
+            (self.width, self.height)
+        }
+
+        fn texts(&self) -> Vec<&str> {
+            self.texts.iter().map(|it| it.text.as_str()).collect()
         }
     }
 
-    /// The numeric value of one attribute of an element's start tag.
-    ///
-    /// Input:  `<svg width="224" height="117" version="1.1"`, `height`
-    /// Output: `117.0`
-    fn attribute(tag: &str, name: &str) -> f64 {
-        let value = tag
-            .split_whitespace()
-            .find_map(|pair| pair.strip_prefix(name)?.strip_prefix('='))
-            .unwrap_or_else(|| panic!("the root element has no {name} attribute: {tag}"));
-        let value = value
-            .strip_prefix('"')
-            .and_then(|value| value.strip_suffix('"'))
-            .unwrap_or_else(|| panic!("the {name} attribute is not quoted: {value}"));
-        value.parse().unwrap_or_else(|error| {
-            panic!("the {name} attribute is not a number: {value}: {error}")
+    fn drawing(options: Vec<u8>, text: &[u8]) -> Drawing {
+        let rendered = gen_with_options(&options, text)
+            .unwrap_or_else(|error| panic!("the plugin should have drawn a barcode: {error}"));
+        ciborium::from_reader(rendered.as_slice()).unwrap_or_else(|error| {
+            panic!("the plugin answered something lib.typ cannot read: {error}")
         })
     }
 
-    fn svg(options: Vec<u8>, text: &[u8]) -> String {
-        let rendered = gen_with_options(&options, text)
-            .unwrap_or_else(|error| panic!("the plugin should have rendered a barcode: {error}"));
-        String::from_utf8(rendered).expect("zint renders SVG as text")
-    }
-
     #[test]
-    fn a_barcode_comes_back_as_an_svg_document() {
-        let rendered = svg(
+    fn a_barcode_comes_back_as_the_shapes_to_draw() {
+        let drawn = drawing(
             options(cbor!({"symbology" => "Code128"}).unwrap()),
             b"A12345B",
         );
 
-        assert!(rendered.starts_with("<?xml version=\"1.0\""));
-        assert!(rendered.contains("<svg "));
-        assert!(rendered.lines().any(|line| line.trim() == "A12345B"));
+        assert_eq!(drawn.width, 224.0);
+        assert!(!drawn.rectangles.is_empty(), "the bars are there");
+        assert!(drawn.rectangles.iter().all(|it| it.ink == "foreground"));
+        assert_eq!(drawn.texts(), ["A12345B"]);
     }
 
-    /// Typst spells the option names with dashes and names the colors the way
-    /// its own drawing functions do, so this is the shape the plugin actually
-    /// receives.
+    /// Ultracode is the one symbology that draws in colours of its own, and
+    /// the names it uses for them are the ones `lib.typ` looks up.
+    #[test]
+    fn ultracode_names_its_inks() {
+        let drawn = drawing(
+            options(cbor!({"symbology" => "Ultra"}).unwrap()),
+            b"https://aimglobal.org/jcrv3tX",
+        );
+        let inks: std::collections::BTreeSet<&str> =
+            drawn.rectangles.iter().map(|it| it.ink.as_str()).collect();
+
+        assert_eq!(
+            inks,
+            ["black", "cyan", "green", "magenta", "white", "yellow"].into(),
+            "unexpected inks"
+        );
+    }
+
+    /// Every ink Ultracode can name, with an exhaustive match so that one
+    /// added to [`Ink`] cannot be left out.
+    const INKS: [Ink; 9] = [
+        Ink::Foreground,
+        Ink::Cyan,
+        Ink::Blue,
+        Ink::Magenta,
+        Ink::Red,
+        Ink::Yellow,
+        Ink::Green,
+        Ink::Black,
+        Ink::White,
+    ];
+
+    #[allow(dead_code)]
+    fn every_ink_is_listed(ink: Ink) {
+        match ink {
+            Ink::Foreground
+            | Ink::Cyan
+            | Ink::Blue
+            | Ink::Magenta
+            | Ink::Red
+            | Ink::Yellow
+            | Ink::Green
+            | Ink::Black
+            | Ink::White => (),
+        }
+    }
+
+    /// The names `_inks` in `lib.typ` gives a colour to.
+    ///
+    /// Input:  the lines
+    ///         `#let _inks = (`
+    ///         `  cyan: cmyk(100%, 0%, 0%, 0%),`
+    ///         `)`
+    /// Output: `["cyan"]`
+    fn parse_inks(lib: &str) -> Vec<&str> {
+        lib.lines()
+            .map(str::trim)
+            .skip_while(|line| *line != "#let _inks = (")
+            .skip(1)
+            .take_while(|line| *line != ")")
+            .map(|line| {
+                line.split_once(':')
+                    .unwrap_or_else(|| panic!("not an ink: {line}"))
+                    .0
+            })
+            .collect()
+    }
+
+    /// `lib.typ` looks up the colour of every ink but the foreground by name,
+    /// and fails the document on one it does not know. The names are written
+    /// twice, once by serde here and once by hand there, so this is what keeps
+    /// them the same.
+    #[test]
+    fn every_ink_has_a_colour_in_lib_typ() {
+        const LIB: &str = include_str!("../../typst-package/lib.typ");
+
+        let mut named: Vec<String> = INKS
+            .iter()
+            .filter(|ink| **ink != Ink::Foreground)
+            .map(|ink| match Value::serialized(ink) {
+                Ok(Value::Text(name)) => name,
+                other => panic!("{ink:?} is not serialized as a name: {other:?}"),
+            })
+            .collect();
+        named.sort();
+        let mut coloured = parse_inks(LIB);
+        coloured.sort();
+
+        assert_eq!(coloured, named);
+    }
+
+    /// Git hands a Windows checkout CRLF unless something pins the file, and
+    /// nothing pins `lib.typ`, so the same source has to parse either way.
+    #[test]
+    fn the_inks_parse_whatever_line_endings_the_checkout_used() {
+        const LIB: &str = include_str!("../../typst-package/lib.typ");
+
+        let unix = LIB.replace("\r\n", "\n");
+        let windows = unix.replace('\n', "\r\n");
+
+        assert!(!parse_inks(&unix).is_empty(), "no inks were parsed at all");
+        assert_eq!(parse_inks(&unix), parse_inks(&windows));
+    }
+
+    /// `lib.typ` reads every spelling of the colour options as `fill` or
+    /// `background` and sends none of them. One that arrives anyway would set
+    /// a colour in zint that the shapes do not carry, so it is refused rather
+    /// than the barcode quietly coming out black.
+    #[test]
+    fn a_colour_option_is_refused_because_typst_draws_the_colours() {
+        for key in [
+            "fg-color",
+            "fg-colour",
+            "stroke",
+            "bg-color",
+            "bg-colour",
+            "fill",
+        ] {
+            let error = gen_with_options(
+                &options(cbor!({"symbology" => "Code128", key => "1F4788"}).unwrap()),
+                b"A12345B",
+            )
+            .expect_err("the plugin does not draw colours");
+
+            assert!(
+                matches!(error, Error::ColourInOptions),
+                "{key}: unexpected error: {error:?}"
+            );
+        }
+    }
+
+    /// Typst spells the option names with dashes, so this is the shape the
+    /// plugin actually receives.
     #[test]
     fn the_option_names_are_the_ones_typst_sends() {
-        let rendered = svg(
+        let drawn = drawing(
             options(
                 cbor!({
                     "symbology" => "Code128",
                     "show-hrt" => false,
-                    "stroke" => "#1F4788",
                 })
                 .unwrap(),
             ),
             b"A12345B",
         );
 
-        assert!(!rendered.contains("<text"), "the text was switched off");
-        assert!(
-            rendered.contains("#1F4788"),
-            "the bars took the chosen color"
-        );
+        assert!(drawn.texts.is_empty(), "the text was switched off");
     }
 
     /// A Typst `bytes` may hold anything, and the payload used to be read as
@@ -155,23 +329,23 @@ mod tests {
     /// Output: a QR code carrying those four bytes
     #[test]
     fn a_payload_that_is_not_text_is_encoded() {
-        let rendered = svg(
+        let drawn = drawing(
             options(cbor!({"symbology" => "QRCode", "input-mode" => 0}).unwrap()),
             &[0xFF, 0xFE, 0x00, 0x41],
         );
 
-        assert!(rendered.contains("<svg "));
+        assert!(!drawn.rectangles.is_empty());
     }
 
     /// The payload used to be handed over as a C string, which ends at the
     /// first NUL. Everything after it has to be encoded too.
     #[test]
     fn a_nul_byte_is_part_of_the_payload() {
-        let truncated = svg(
+        let truncated = drawing(
             options(cbor!({"symbology" => "QRCode", "input-mode" => 0}).unwrap()),
             b"hz",
         );
-        let whole = svg(
+        let whole = drawing(
             options(cbor!({"symbology" => "QRCode", "input-mode" => 0}).unwrap()),
             b"hz\0bl",
         );
@@ -290,29 +464,29 @@ mod tests {
     #[test]
     fn the_numbered_options_reach_zint() {
         // The Mailmark 2D example from the manual, spaces and all.
-        let default_size = svg(
+        let default_size = drawing(
             options(cbor!({"symbology" => "DataMatrix"}).unwrap()),
             b"12345",
         );
         // 16 is what `dm-size(64, 64)` returns, far larger than this payload
         // needs, so zint would never have chosen it on its own.
-        let asked_for = svg(
+        let asked_for = drawing(
             options(cbor!({"symbology" => "DataMatrix", "option-2" => 16}).unwrap()),
             b"12345",
         );
 
         assert_ne!(
-            svg_size(&default_size),
-            svg_size(&asked_for),
+            default_size.size(),
+            asked_for.size(),
             "the requested Data Matrix size did not reach zint"
         );
 
-        let chosen_by_zint = svg(
+        let chosen_by_zint = drawing(
             options(cbor!({"symbology" => "EANXCC", "primary" => "331234567890"}).unwrap()),
             b"[99]1234-abcd",
         );
         // CC-B, where zint picks CC-A for a message this short.
-        let cc_b = svg(
+        let cc_b = drawing(
             options(
                 cbor!({
                     "symbology" => "EANXCC",
@@ -354,17 +528,14 @@ mod tests {
             "the error should say where the size belongs: {error}"
         );
 
-        let rendered = svg(
+        let rendered = drawing(
             options(cbor!({"symbology" => "DataMatrix", "option-2" => 28}).unwrap()),
             b"A12345B",
         );
 
         assert_eq!(
-            svg_size(&rendered),
-            SvgSize {
-                width: 72.0,
-                height: 24.0
-            },
+            rendered.size(),
+            (72.0, 24.0),
             "option-2 draws the 12x36 symbol that was asked for"
         );
     }
@@ -377,7 +548,7 @@ mod tests {
     /// size and gets another that encodes just as happily.
     #[test]
     fn every_data_matrix_size_draws_the_symbol_it_names() {
-        // Data Matrix draws two SVG units per module, and the default output
+        // Data Matrix draws two units per module, and the default output
         // carries no quiet zone, so the drawing is exactly the symbol. A change
         // in either would fail every entry at once rather than one of them,
         // which is what tells the two apart.
@@ -388,17 +559,17 @@ mod tests {
 
         let table = dm_size_table();
         for &(height, width, option_2) in &table {
-            let rendered = svg(
+            let rendered = drawing(
                 options(cbor!({"symbology" => "DataMatrix", "option-2" => option_2}).unwrap()),
                 DATA,
             );
 
             assert_eq!(
-                svg_size(&rendered),
-                SvgSize {
-                    width: f64::from(width) * UNITS_PER_MODULE,
-                    height: f64::from(height) * UNITS_PER_MODULE,
-                },
+                rendered.size(),
+                (
+                    f64::from(width) * UNITS_PER_MODULE,
+                    f64::from(height) * UNITS_PER_MODULE,
+                ),
                 "dm-size({height}, {width}) returns {option_2}, which draws something else"
             );
         }
@@ -525,9 +696,9 @@ mod tests {
         })
         .unwrap();
 
-        let rendered = svg(options(too_short.clone()), b"ASSET-0042189");
+        let rendered = drawing(options(too_short.clone()), b"ASSET-0042189");
         assert!(
-            rendered.contains("<svg "),
+            !rendered.rectangles.is_empty(),
             "a warning on its own still draws the symbol"
         );
 
@@ -563,7 +734,7 @@ mod tests {
     /// text.
     #[test]
     fn a_composite_symbol_takes_its_linear_part_from_the_options() {
-        let rendered = svg(
+        let rendered = drawing(
             options(
                 cbor!({
                     "symbology" => "EANXCC",
@@ -574,6 +745,6 @@ mod tests {
             b"[99]1234-abcd",
         );
 
-        assert!(rendered.contains("<svg "));
+        assert!(!rendered.rectangles.is_empty());
     }
 }

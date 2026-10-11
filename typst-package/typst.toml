@@ -18,6 +18,7 @@ keywords = [
 exclude = [
   "tidy_style.typ",
   "manual.typ",
+  "tests.typ",
   "manual.pdf",
   "example.typ",
   "example.svg"

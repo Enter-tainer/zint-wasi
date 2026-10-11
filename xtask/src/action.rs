@@ -51,6 +51,13 @@ declare_actions![
         require: [PackagePlugin],
         run: Some(action_build_manual)
     },
+    // The package's own assertions, which fail the compile when the drawing
+    // stops doing what `image` would.
+    TestPackage: {
+        arg: "test-package", name: "test typst package",
+        require: [PackagePlugin],
+        run: Some(action_test_package)
+    },
     CompileExample: {
         arg: "", name: "compile example",
         require: [PackagePlugin],
@@ -83,7 +90,7 @@ declare_actions![
     },
     RunCI: {
         arg: "ci", name: "",
-        require: [PackagePlugin, InstallTypst, CompileManual, ThirdPartyLicense],
+        require: [PackagePlugin, InstallTypst, TestPackage, CompileManual, ThirdPartyLicense],
         run: None
     },
     SetVersion: {
@@ -346,6 +353,7 @@ mod tests {
         BuildPlugin,
         PackagePlugin,
         CompileManual,
+        TestPackage,
         CompileExample,
         CopyLicense,
         EnsureCargoAbout,
@@ -399,6 +407,7 @@ mod tests {
             ("build-plugin", Action::BuildPlugin),
             ("package-plugin", Action::PackagePlugin),
             ("build-manual", Action::CompileManual),
+            ("test-package", Action::TestPackage),
             ("package", Action::Package),
             ("ci", Action::RunCI),
             ("set-version", Action::SetVersion),
@@ -444,7 +453,8 @@ mod tests {
     /// manual, so those steps have to stay part of that task. The licence list
     /// is part of it too, so that a dependency bringing in a licence that
     /// `about.toml` does not accept fails the pull request rather than the
-    /// release.
+    /// release, and so are the package's own tests, which are the only thing
+    /// that runs the Typst half of the package against the plugin.
     #[test]
     fn the_ci_task_still_produces_the_plugin_the_manual_and_the_licence_list() {
         let reached = reachable(Action::RunCI);
@@ -459,6 +469,7 @@ mod tests {
             Action::PackagePlugin,
             Action::InstallTypst,
             Action::CompileManual,
+            Action::TestPackage,
             Action::EnsureCargoAbout,
             Action::ThirdPartyLicense,
         ] {
