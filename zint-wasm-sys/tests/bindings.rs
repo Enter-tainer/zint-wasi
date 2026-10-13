@@ -12,10 +12,10 @@ use zint_wasm_sys::*;
 /// The libzint release the submodule is pinned to.
 ///
 /// `ZBarcode_Version` packs the version as
-/// `major * 10000 + minor * 100 + release * 10 + build`, so 21309 is 2.13.0.9.
+/// `major * 10000 + minor * 100 + release * 10 + build`, so 21600 is 2.16.0.0.
 /// Change this together with the submodule, and expect the golden files in
 /// `zint-wasm-rs` to move with it.
-const PINNED_VERSION: i32 = 21309;
+const PINNED_VERSION: i32 = 21600;
 
 #[test]
 fn the_vendored_library_is_the_release_the_submodule_pins() {
@@ -109,7 +109,12 @@ fn the_fixed_size_fields_are_the_sizes_the_wrapper_relies_on() {
         128,
         "a composite symbol's linear component"
     );
-    assert_eq!(fields.errtxt.len(), 100);
+    assert_eq!(fields.errtxt.len(), 160);
+    assert_eq!(
+        fields.text.len(),
+        256,
+        "the human readable text, whose limit the HRT truncation messages quote"
+    );
 
     unsafe {
         // Safety: see above.

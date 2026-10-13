@@ -286,6 +286,24 @@
   options: options,
   ..args,
 )
+#let ean8(data, options: (:), ..args) = barcode(
+  data,
+  "EAN8",
+  options: options,
+  ..args,
+)
+#let ean-2addon(data, options: (:), ..args) = barcode(
+  data,
+  "EAN2Addon",
+  options: options,
+  ..args,
+)
+#let ean-5addon(data, options: (:), ..args) = barcode(
+  data,
+  "EAN5Addon",
+  options: options,
+  ..args,
+)
 #let eanx(data, options: (:), ..args) = barcode(
   data,
   "EANX",
@@ -295,6 +313,12 @@
 #let eanx-chk(data, options: (:), ..args) = barcode(
   data,
   "EANXChk",
+  options: options,
+  ..args,
+)
+#let ean13(data, options: (:), ..args) = barcode(
+  data,
+  "EAN13",
   options: options,
   ..args,
 )
@@ -767,6 +791,12 @@
   options: options,
   ..args,
 )
+#let dx-film-edge(data, options: (:), ..args) = barcode(
+  data,
+  "DXFilmEdge",
+  options: options,
+  ..args,
+)
 
 #let mailmark-2d(height, width, data, options: (:), ..args) = barcode(
   data,
@@ -810,6 +840,20 @@
 // shortcuts take it as `primary` the way `barcode-primary` does. Zint chooses
 // the composite mode by itself; `option-1` overrides it, as `barcode-composite`
 // does.
+#let ean8-cc(primary, data, options: (:), ..args) = barcode-primary(
+  primary,
+  data,
+  "EAN8CC",
+  options: options,
+  ..args,
+)
+#let ean13-cc(primary, data, options: (:), ..args) = barcode-primary(
+  primary,
+  data,
+  "EAN13CC",
+  options: options,
+  ..args,
+)
 #let eanx-cc(primary, data, options: (:), ..args) = barcode-primary(
   primary,
   data,
