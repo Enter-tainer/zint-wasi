@@ -105,7 +105,8 @@ fn main() -> Result<()> {
         "zint/backend/dotcode.c",
         "zint/backend/eci.c",
         // "zint/backend/emf.c",
-        "zint/backend/filemem.c",
+        // Replaced by patch/filemem.c, which includes it.
+        // "zint/backend/filemem.c",
         "zint/backend/general_field.c",
         // "zint/backend/gif.c",
         "zint/backend/gridmtx.c",
@@ -135,6 +136,7 @@ fn main() -> Result<()> {
         "zint/backend/upcean.c",
         "zint/backend/vector.c",
         "patch/patch.c",
+        "patch/filemem.c",
     ];
 
     // Build zint as a static library.
