@@ -155,7 +155,7 @@ impl Symbol {
             std::slice::from_raw_parts(self.memfile, self.memfile_size as usize)
         };
 
-        Ok(String::from_utf8_lossy(svg).to_string())
+        Ok(svg_text(svg))
     }
 
     /// What zint wrote about the last call it was given, if it wrote anything.
@@ -170,6 +170,20 @@ impl Symbol {
         // explanation explains nothing.
         (!message.is_empty()).then_some(message)
     }
+}
+
+/// The SVG zint wrote, as text.
+///
+/// Zint writes UTF-8, so the strict check comes first: it validates a word at a
+/// time where `from_utf8_lossy` walks every byte, and under Typst's WebAssembly
+/// interpreter that walk costs up to a sixth of the whole call. Anything that is
+/// not UTF-8 is still replaced the way it always was.
+///
+/// Input:  `b"<text>\xFF</text>"`
+/// Output: `"<text>\u{FFFD}</text>"`
+fn svg_text(svg: &[u8]) -> String {
+    String::from_utf8(svg.to_vec())
+        .unwrap_or_else(|error| String::from_utf8_lossy(error.as_bytes()).into_owned())
 }
 
 impl Default for Symbol {
@@ -210,7 +224,7 @@ impl Drop for Symbol {
 
 #[cfg(test)]
 mod tests {
-    use super::Symbol;
+    use super::{svg_text, Symbol};
     use crate::{
         error::{Error, WarningLevel, ZintError},
         options::{
@@ -354,6 +368,25 @@ mod tests {
             configured.output_options,
             (OutputOptions::BARCODE_BIND | OutputOptions::BARCODE_MEMORY_FILE).as_i32()
         );
+    }
+
+    /// What zint writes is UTF-8 and has to come through as it is, multi-byte
+    /// characters included.
+    #[test]
+    fn utf8_svg_text_is_kept_as_written() {
+        let svg = "<text>Grüße 東京</text>";
+
+        assert_eq!(svg_text(svg.as_bytes()), svg);
+        assert_eq!(svg_text(b""), "");
+    }
+
+    /// A byte that is not UTF-8 becomes U+FFFD rather than an error, so a
+    /// symbol is still returned.
+    #[test]
+    fn svg_bytes_that_are_not_utf8_are_replaced() {
+        assert_eq!(svg_text(b"<text>\xFF</text>"), "<text>\u{FFFD}</text>");
+        assert_eq!(svg_text(b"\xC3"), "\u{FFFD}", "a truncated sequence");
+        assert_eq!(svg_text(b"\xC3\xA9\xFF\xC3\xA9"), "é\u{FFFD}é");
     }
 
     /// Zint reads the colors as hex text; leaving them out has to give the
