@@ -1,20 +1,30 @@
-/* Zint's filemem.c, with a faster `fm_putsf`.
+/* Zint's filemem.c, with a faster `fm_putsf` and `fm_printf`.
  *
- * `fm_putsf` writes every coordinate of an SVG, and zint's own formats each one
- * with `sprintf("%.*f")`. wasi-libc formats a float through software emulated
- * long double arithmetic, so under Typst's WebAssembly interpreter printing the
- * SVG costs more than encoding the symbol. The replacement writes the digits
- * from an integer instead, and leaves whatever it cannot do exactly to the
- * original, which is kept under another name.
+ * Both write the SVG, and zint's own go through the C library's printf. Under
+ * Typst's WebAssembly interpreter a single wasi-libc printf call costs tens of
+ * thousands of instructions, and a float through it more, since wasi-libc does
+ * the arithmetic in software emulated long double. Printing the SVG cost more
+ * than encoding the symbol.
  *
- * The output is unchanged: the same digits `sprintf` writes, a tie rounded to
- * even, the trailing zeros dropped, and the sign of a negative value that
- * rounds to zero kept, so -0.001 is still written as "-0".
+ * `fm_putsf` writes every coordinate. The replacement writes the digits from an
+ * integer instead, and leaves whatever it cannot do exactly to the original,
+ * which is kept under another name. The output is unchanged: the same digits
+ * `sprintf` writes, a tie rounded to even, the trailing zeros dropped, and the
+ * sign of a negative value that rounds to zero kept, so -0.001 is still written
+ * as "-0".
+ *
+ * `fm_printf` writes the elements and attributes around them. Every format
+ * `svg.c` passes it takes only plain `%d` and `%s`, which the replacement
+ * writes itself; any other format goes to the C library as before.
  */
 
 #define fm_putsf zint_wasi_fm_putsf_sprintf
+/* Renamed out of the way only; the replacement below falls back to the same
+ * `fm_vprintf` and `vfprintf` the original calls. */
+#define fm_printf zint_wasi_fm_printf_libc
 #include "../zint/backend/filemem.c"
 #undef fm_putsf
+#undef fm_printf
 
 #include <math.h>
 #include <string.h>
@@ -113,4 +123,110 @@ INTERNAL int fm_putsf(const char *prefix, const int dp, const float arg, struct 
         }
     }
     return fm_puts(buf, fmp);
+}
+
+/* Whether `fmt` holds no conversion but a bare `%d` or `%s`.
+ *
+ * Input:  " <g id=\"barcode\" fill=\"#%s\">\n"  -> 1
+ * Input:  "%02X%02X%02X"                       -> 0
+ */
+static int zint_wasi_is_plain_format(const char *fmt) {
+    for (; *fmt; fmt++) {
+        if (*fmt == '%') {
+            fmt++;
+            if (*fmt != 'd' && *fmt != 's') {
+                return 0;
+            }
+        }
+    }
+    return 1;
+}
+
+/* Writes a format `zint_wasi_is_plain_format` accepts. */
+static int zint_wasi_fm_vprintf_plain(struct filemem *restrict const fmp, const char *fmt, va_list ap) {
+    char digits[12]; /* "-2147483648" and the terminator */
+
+    while (*fmt) {
+        const char *literal = fmt;
+        while (*fmt && *fmt != '%') {
+            fmt++;
+        }
+        if (fmt != literal && !fm_write(literal, 1, (size_t) (fmt - literal), fmp)) {
+            return 0;
+        }
+        if (!*fmt) {
+            break;
+        }
+
+        if (fmt[1] == 's') {
+            if (!fm_puts(va_arg(ap, const char *), fmp)) {
+                return 0;
+            }
+        } else {
+            const int value = va_arg(ap, int);
+            /* Through unsigned, so INT_MIN negates without overflowing */
+            unsigned int magnitude = value < 0 ? 0u - (unsigned int) value : (unsigned int) value;
+            char *p = digits + sizeof(digits);
+
+            *--p = '\0';
+            do {
+                *--p = (char) ('0' + magnitude % 10);
+                magnitude /= 10;
+            } while (magnitude);
+            if (value < 0) {
+                *--p = '-';
+            }
+            if (!fm_puts(p, fmp)) {
+                return 0;
+            }
+        }
+        fmt += 2;
+    }
+    return 1;
+}
+
+/* What zint's own `fm_printf` does with its arguments. */
+static int zint_wasi_fm_vprintf_libc(struct filemem *restrict const fmp, const char *fmt, va_list ap) {
+    if (fmp->flags & BARCODE_MEMORY_FILE) {
+        return fm_vprintf(fmp, fmt, ap);
+    }
+    return vfprintf(fmp->fp, fmt, ap) >= 0 ? 1 : fm_seterr(fmp, errno);
+}
+
+static int zint_wasi_fm_vprintf(struct filemem *restrict const fmp, const char *fmt, va_list ap) {
+    assert(fmp && fmt);
+    if (fmp->err) {
+        return 0;
+    }
+    if (zint_wasi_is_plain_format(fmt)) {
+        return zint_wasi_fm_vprintf_plain(fmp, fmt, ap);
+    }
+    return zint_wasi_fm_vprintf_libc(fmp, fmt, ap);
+}
+
+INTERNAL int fm_printf(struct filemem *restrict const fmp, const char *fmt, ...) {
+    va_list ap;
+    int ret;
+
+    va_start(ap, fmt);
+    ret = zint_wasi_fm_vprintf(fmp, fmt, ap);
+    va_end(ap);
+    return ret;
+}
+
+/* For tests/fm_printf.rs: writes one `fm_printf` into the in-memory file of
+ * `symbol`, through the replacement when `fast` is set and through zint's own
+ * `fm_vprintf` otherwise, so the two can be compared. */
+int zint_wasi_fm_printf_to_memory(struct zint_symbol *symbol, const int fast, const char *fmt, ...) {
+    struct filemem fm;
+    va_list ap;
+    int ret;
+
+    if (!fm_open(&fm, symbol, "w")) {
+        return 0;
+    }
+    va_start(ap, fmt);
+    ret = fast ? zint_wasi_fm_vprintf(&fm, fmt, ap) : fm_vprintf(&fm, fmt, ap);
+    va_end(ap);
+    return fm_close(&fm, symbol) && ret;
 }
