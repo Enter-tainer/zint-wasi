@@ -1,20 +1,20 @@
-/* Zint's filemem.c, with a faster `fm_putsf`.
+/* Zint's filemem.c, with a faster `zint_fm_putsf`.
  *
- * `fm_putsf` writes every coordinate of an SVG, and zint's own formats each one
- * with `sprintf("%.*f")`. wasi-libc formats a float through software emulated
- * long double arithmetic, so under Typst's WebAssembly interpreter printing the
- * SVG costs more than encoding the symbol. The replacement writes the digits
- * from an integer instead, and leaves whatever it cannot do exactly to the
- * original, which is kept under another name.
+ * `zint_fm_putsf` writes every coordinate of an SVG, and zint's own formats
+ * each one with `sprintf("%.*f")`. wasi-libc formats a float through software
+ * emulated long double arithmetic, so under Typst's WebAssembly interpreter
+ * printing the SVG costs more than encoding the symbol. The replacement writes
+ * the digits from an integer instead, and leaves whatever it cannot do exactly
+ * to the original, which is kept under another name.
  *
  * The output is unchanged: the same digits `sprintf` writes, a tie rounded to
  * even, the trailing zeros dropped, and the sign of a negative value that
  * rounds to zero kept, so -0.001 is still written as "-0".
  */
 
-#define fm_putsf zint_wasi_fm_putsf_sprintf
+#define zint_fm_putsf zint_wasi_fm_putsf_sprintf
 #include "../zint/backend/filemem.c"
-#undef fm_putsf
+#undef zint_fm_putsf
 
 #include <math.h>
 #include <string.h>
@@ -96,7 +96,7 @@ int zint_wasi_format_fixed(char buf[ZINT_WASI_FIXED_SIZE], const int dp, const f
     return length;
 }
 
-INTERNAL int fm_putsf(const char *prefix, const int dp, const float arg, struct filemem *restrict const fmp) {
+INTERNAL int zint_fm_putsf(const char *prefix, const int dp, const float arg, struct filemem *restrict const fmp) {
     char buf[ZINT_WASI_FIXED_SIZE];
 
     if (!zint_wasi_format_fixed(buf, dp, arg)) {
@@ -108,9 +108,9 @@ INTERNAL int fm_putsf(const char *prefix, const int dp, const float arg, struct 
         return 0;
     }
     if (prefix && *prefix) {
-        if (!fm_puts(prefix, fmp)) {
+        if (!zint_fm_puts(prefix, fmp)) {
             return 0;
         }
     }
-    return fm_puts(buf, fmp);
+    return zint_fm_puts(buf, fmp);
 }

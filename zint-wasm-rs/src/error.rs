@@ -49,8 +49,8 @@ pub enum ZintWarning {
     /// Unknown warning
     #[error("unknown zint warning: #{0}")]
     Other(u32),
-    /// Human Readable Text was truncated (max 199 bytes)
-    #[error("Human Readable Text was truncated (max 199 bytes)")]
+    /// Human Readable Text was truncated (max 255 bytes)
+    #[error("Human Readable Text was truncated (max 255 bytes)")]
     HRTTruncated = ZINT_WARN_HRT_TRUNCATED,
     /// Invalid option given but overridden by Zint
     #[error("Invalid option given but overridden by Zint")]
@@ -109,8 +109,8 @@ pub enum ZintError {
     /// Symbol created not compliant with standards
     #[error("Symbol created not compliant with standards")]
     Noncompliant = ZINT_ERROR_NONCOMPLIANT,
-    /// Human Readable Text was truncated (max 199 bytes)
-    #[error("Human Readable Text was truncated (max 199 bytes)")]
+    /// Human Readable Text was truncated (max 255 bytes)
+    #[error("Human Readable Text was truncated (max 255 bytes)")]
     HRTTruncated = ZINT_ERROR_HRT_TRUNCATED,
 }
 

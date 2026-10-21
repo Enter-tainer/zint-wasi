@@ -16,8 +16,12 @@ pub enum Symbology {
     C25Ind = BARCODE_C25IND as i32,
     Code39 = BARCODE_CODE39 as i32,
     ExCode39 = BARCODE_EXCODE39 as i32,
+    EAN8 = BARCODE_EAN8 as i32,
+    EAN2Addon = BARCODE_EAN_2ADDON as i32,
+    EAN5Addon = BARCODE_EAN_5ADDON as i32,
     EANX = BARCODE_EANX as i32,
     EANXChk = BARCODE_EANX_CHK as i32,
+    EAN13 = BARCODE_EAN13 as i32,
     #[serde(alias = "EAN128")]
     GS1128 = BARCODE_GS1_128 as i32,
     Codabar = BARCODE_CODABAR as i32,
@@ -126,6 +130,9 @@ pub enum Symbology {
     Ultra = BARCODE_ULTRA as i32,
     RMQR = BARCODE_RMQR as i32,
     BC412 = BARCODE_BC412 as i32,
+    DXFilmEdge = BARCODE_DXFILMEDGE as i32,
+    EAN8CC = BARCODE_EAN8_CC as i32,
+    EAN13CC = BARCODE_EAN13_CC as i32,
 }
 
 /// The name a person would call the symbology by, such as `Code 128` for
@@ -133,7 +140,9 @@ pub enum Symbology {
 ///
 /// The names are the descriptions zint gives each symbology in its own header,
 /// word for word, so they say what zint means by each one rather than what this
-/// crate guesses it means. A test holds the two together.
+/// crate guesses it means. A symbology zint has superseded keeps the last
+/// description it had, since the header now only marks it `Legacy`. A test
+/// holds the two together.
 impl std::fmt::Display for Symbology {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let name = match self {
@@ -145,8 +154,12 @@ impl std::fmt::Display for Symbology {
             Self::C25Ind => "2 of 5 Industrial",
             Self::Code39 => "Code 39",
             Self::ExCode39 => "Extended Code 39",
+            Self::EAN8 => "EAN-8 (European Article Number) GTIN-8",
+            Self::EAN2Addon => "EAN/UPC 2-digit add-on (standalone)",
+            Self::EAN5Addon => "EAN/UPC 5-digit add-on (standalone)",
             Self::EANX => "EAN (European Article Number)",
             Self::EANXChk => "EAN + Check Digit",
+            Self::EAN13 => "EAN-13 (European Article Number) GTIN-13",
             Self::GS1128 => "GS1-128",
             Self::Codabar => "Codabar",
             Self::Code128 => "Code 128",
@@ -161,9 +174,9 @@ impl std::fmt::Display for Symbology {
             Self::DBarExp => "GS1 DataBar Expanded",
             Self::Telepen => "Telepen Alpha",
             Self::UPCA => "UPC-A",
-            Self::UPCAChk => "UPC-A + Check Digit",
+            Self::UPCAChk => "UPC-A including check digit",
             Self::UPCE => "UPC-E",
-            Self::UPCEChk => "UPC-E + Check Digit",
+            Self::UPCEChk => "UPC-E including check digit",
             Self::Postnet => "USPS (U.S. Postal Service) POSTNET",
             Self::MSIPlessey => "MSI Plessey",
             Self::FIM => "Facing Identification Mark",
@@ -236,6 +249,9 @@ impl std::fmt::Display for Symbology {
             Self::Ultra => "Ultracode",
             Self::RMQR => "Rectangular Micro QR Code (rMQR)",
             Self::BC412 => "IBM BC412 (SEMI T1-95)",
+            Self::DXFilmEdge => "DX Film Edge Barcode on 35mm and APS films",
+            Self::EAN8CC => "EAN-8 Composite",
+            Self::EAN13CC => "EAN-13 Composite",
         };
         f.write_str(name)
     }
@@ -280,8 +296,12 @@ mod tests {
         C25Ind => "BARCODE_C25IND",
         Code39 => "BARCODE_CODE39",
         ExCode39 => "BARCODE_EXCODE39",
+        EAN8 => "BARCODE_EAN8",
+        EAN2Addon => "BARCODE_EAN_2ADDON",
+        EAN5Addon => "BARCODE_EAN_5ADDON",
         EANX => "BARCODE_EANX",
         EANXChk => "BARCODE_EANX_CHK",
+        EAN13 => "BARCODE_EAN13",
         GS1128 => "BARCODE_GS1_128",
         Codabar => "BARCODE_CODABAR",
         Code128 => "BARCODE_CODE128",
@@ -371,6 +391,9 @@ mod tests {
         Ultra => "BARCODE_ULTRA",
         RMQR => "BARCODE_RMQR",
         BC412 => "BARCODE_BC412",
+        DXFilmEdge => "BARCODE_DXFILMEDGE",
+        EAN8CC => "BARCODE_EAN8_CC",
+        EAN13CC => "BARCODE_EAN13_CC",
     ];
 
     /// Zint's public header, so the tests below can ask what it defines rather
@@ -380,8 +403,14 @@ mod tests {
     /// The former name of a renamed symbology, the alias that still accepts it,
     /// and the variant it names now. Zint keeps its own former names, marked
     /// `Legacy` in the header, and the test below holds the two lists together.
+    ///
+    /// Zint also marks a symbology `Legacy` when it has superseded it but still
+    /// encodes it, as it did the EAN ones on splitting them by length. Those keep
+    /// a value of their own, so the name that accepts them is their variant's.
     const LEGACY_NAMES: &[(&str, &str, Symbology)] = &[
         ("BARCODE_C25MATRIX", "C25Matrix", Symbology::C25Standard),
+        ("BARCODE_EANX", "EANX", Symbology::EANX),
+        ("BARCODE_EANX_CHK", "EANXChk", Symbology::EANXChk),
         ("BARCODE_EAN128", "EAN128", Symbology::GS1128),
         ("BARCODE_RSS14", "RSS14", Symbology::DBarOmn),
         ("BARCODE_RSS_LTD", "RSSLtd", Symbology::DBarLtd),
@@ -397,6 +426,7 @@ mod tests {
         ("BARCODE_RSS_EXPSTACK", "RSSExpStack", Symbology::DBarExpStk),
         ("BARCODE_ONECODE", "OneCode", Symbology::USPSIMail),
         ("BARCODE_MAILMARK", "Mailmark", Symbology::Mailmark4S),
+        ("BARCODE_EANX_CC", "EANXCC", Symbology::EANXCC),
         ("BARCODE_EAN128_CC", "EAN128CC", Symbology::GS1128CC),
         ("BARCODE_RSS14_CC", "RSS14CC", Symbology::DBarOmnCC),
         ("BARCODE_RSS_LTD_CC", "RSSLtdCC", Symbology::DBarLtdCC),
@@ -694,22 +724,43 @@ mod tests {
         }
     }
 
+    /// Symbologies zint has superseded but still encodes, with the description
+    /// it gave them before it marked them `Legacy` and stopped describing them.
+    const SUPERSEDED_NAMES: &[(&str, &str)] = &[
+        ("BARCODE_EANX", "EAN (European Article Number)"),
+        ("BARCODE_EANX_CHK", "EAN + Check Digit"),
+        ("BARCODE_EANX_CC", "EAN Composite"),
+    ];
+
     /// The names are zint's, so a symbology zint renames or redescribes on an
     /// upgrade has to be renamed here too rather than keep a description zint
-    /// itself has given up.
+    /// itself has given up. One zint no longer describes at all keeps the last
+    /// description it had, and has to be listed as doing so.
     #[test]
     fn every_name_is_the_one_zint_gives() {
         let defined = zint_symbologies(ZINT_H);
 
         for (symbology, variant, constant) in SYMBOLOGIES {
-            let define = defined
+            let described = defined
                 .iter()
                 .find(|it| it.constant == *constant && !it.legacy)
-                .unwrap_or_else(|| panic!("zint no longer describes {constant}"));
+                .and_then(|it| it.description);
+            let superseded = SUPERSEDED_NAMES
+                .iter()
+                .find(|(it, _)| it == constant)
+                .map(|(_, name)| *name);
 
+            let expected = match (described, superseded) {
+                (Some(description), None) => description,
+                (None, Some(name)) => name,
+                (Some(_), Some(_)) => {
+                    panic!("zint describes {constant} again; drop it from SUPERSEDED_NAMES")
+                }
+                (None, None) => panic!("zint no longer describes {constant}"),
+            };
             assert_eq!(
-                Some(symbology.to_string().as_str()),
-                define.description,
+                symbology.to_string(),
+                expected,
                 "{variant} is named differently from {constant}"
             );
         }
