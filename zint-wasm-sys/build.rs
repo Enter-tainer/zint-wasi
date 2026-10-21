@@ -88,14 +88,20 @@ fn main() -> Result<()> {
 
     let files = [
         "zint/backend/2of5.c",
+        "zint/backend/2of5inter.c",
+        "zint/backend/2of5inter_based.c",
         "zint/backend/auspost.c",
         "zint/backend/aztec.c",
         "zint/backend/bc412.c",
         // "zint/backend/bmp.c",
+        "zint/backend/channel.c",
+        "zint/backend/codabar.c",
         "zint/backend/codablock.c",
         "zint/backend/code128.c",
+        "zint/backend/code128_based.c",
         "zint/backend/code16k.c",
         "zint/backend/code1.c",
+        "zint/backend/code11.c",
         "zint/backend/code49.c",
         "zint/backend/code.c",
         "zint/backend/common.c",
@@ -103,6 +109,7 @@ fn main() -> Result<()> {
         "zint/backend/dllversion.c",
         "zint/backend/dmatrix.c",
         "zint/backend/dotcode.c",
+        "zint/backend/dxfilmedge.c",
         "zint/backend/eci.c",
         // "zint/backend/emf.c",
         // Replaced by patch/filemem.c, which includes it.

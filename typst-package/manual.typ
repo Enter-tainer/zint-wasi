@@ -538,18 +538,27 @@ is #raw("DM_DMRE") with it. There is no #typst-type("str") spelling for a combin
 
 == EAN (European Article Number)
 #section(
-example-of-simple("EANX", "eanx", eanx, "1234567890"),
+example-of-simple("EAN-13", "ean13", ean13, "451234567890"),
+example-of-simple("EAN-8", "ean8", ean8, "7432365"),
+example-of-simple("EAN-5 add-on", "ean-5addon", ean-5addon, "54321"),
+example-of-simple("EAN-2 add-on", "ean-2addon", ean-2addon, "12"),
 example-of-simple("EAN-14", "ean14", ean14, "1234567890"),
-example-of-simple("EAN-13", "eanx", eanx, "6975004310001"),
-example-of-simple("EAN-8", "eanx", eanx, "12345564"),
-example-of-simple("EAN-5", "eanx", eanx, "12345"),
-example-of-simple("EAN-2", "eanx", eanx, "12"),
+example-of-simple("EANX", "eanx", eanx, "1234567890")[
+  Takes any of the four EAN lengths. Superseded by the shortcuts above, which each take one.
+],
 example-of-composite(
-  "EAN (cc)",
-  "eanx-cc",
-  eanx-cc,
+  "EAN-13 (cc)",
+  "ean13-cc",
+  ean13-cc,
   "331234567890",
-  "[21]1234-abcd",
+  "[99]1234-abcd",
+),
+example-of-composite(
+  "EAN-8 (cc)",
+  "ean8-cc",
+  ean8-cc,
+  "7432365",
+  "[21]A12345678",
 ),
 )
 
@@ -821,6 +830,9 @@ example-of-composite(
     "1234567890",
   ),
   example-of-simple("DotCode", "dotcode", dotcode, "1234567890"),
+  example-of-simple("DX Film Edge", "dx-film-edge", dx-film-edge, "112-1/10A")[
+    The DX number and frame number printed along the edge of 35mm film.
+  ],
   example-of-simple("Extended Code 39", "ex-code39", ex-code39, "1234567890"),
   example-of-simple("Grid Matrix", "grid-matrix", grid-matrix, "1234567890"),
   example-of-simple(
@@ -830,10 +842,10 @@ example-of-composite(
     "abc123全ň全漄",
   ),
   example-of-simple("IBM BC412 (SEMI T1-95)", "bc412", bc412, "1234567890"),
-  example-of-simple("ISBN", "isbnx", isbnx, "9789861817286"),
 )
 #pagebreak()
 #section(
+  example-of-simple("ISBN", "isbnx", isbnx, "9789861817286"),
   example-of-simple("ITF-14", "itf14", itf14, "1234567890"),
   example-of-simple("LOGMARS", "logmars", logmars, "1234567890"),
   example-of-simple("MaxiCode", "maxicode", maxicode, "1234567890"),
@@ -848,10 +860,10 @@ example-of-composite(
     "12345678",
   ),
   example-of-simple("Pharmazentralnummer", "pzn", pzn, "12345678"),
-  example-of-simple("Planet", "planet", planet, "1234567890"),
 )
 #pagebreak()
 #section(
+  example-of-simple("Planet", "planet", planet, "1234567890"),
   example-of-simple("Plessey", "plessey", plessey, "1234567890"),
   example-of-simple("QR Code", "qrcode", qrcode, "1234567890"),
   example-of-simple(
@@ -895,8 +907,12 @@ Following symbology values are supported, each with the name Zint gives it:
   typst-val("\"C25Ind\""), [2 of 5 Industrial],
   typst-val("\"Code39\""), [Code 39],
   typst-val("\"ExCode39\""), [Extended Code 39],
+  typst-val("\"EAN8\""), [EAN-8 (European Article Number) GTIN-8],
+  typst-val("\"EAN2Addon\""), [EAN/UPC 2-digit add-on (standalone)],
+  typst-val("\"EAN5Addon\""), [EAN/UPC 5-digit add-on (standalone)],
   typst-val("\"EANX\""), [EAN (European Article Number)],
   typst-val("\"EANXChk\""), [EAN + Check Digit],
+  typst-val("\"EAN13\""), [EAN-13 (European Article Number) GTIN-13],
   typst-val("\"GS1128\""), [GS1-128],
   typst-val("\"Codabar\""), [Codabar],
   typst-val("\"Code128\""), [Code 128],
@@ -911,9 +927,9 @@ Following symbology values are supported, each with the name Zint gives it:
   typst-val("\"DBarExp\""), [GS1 DataBar Expanded],
   typst-val("\"Telepen\""), [Telepen Alpha],
   typst-val("\"UPCA\""), [UPC-A],
-  typst-val("\"UPCAChk\""), [UPC-A + Check Digit],
+  typst-val("\"UPCAChk\""), [UPC-A including check digit],
   typst-val("\"UPCE\""), [UPC-E],
-  typst-val("\"UPCEChk\""), [UPC-E + Check Digit],
+  typst-val("\"UPCEChk\""), [UPC-E including check digit],
   typst-val("\"Postnet\""), [USPS (U.S. Postal Service) POSTNET],
   typst-val("\"MSIPlessey\""), [MSI Plessey],
   typst-val("\"FIM\""), [Facing Identification Mark],
@@ -986,4 +1002,7 @@ Following symbology values are supported, each with the name Zint gives it:
   typst-val("\"Ultra\""), [Ultracode],
   typst-val("\"RMQR\""), [Rectangular Micro QR Code (rMQR)],
   typst-val("\"BC412\""), [IBM BC412 (SEMI T1-95)],
+  typst-val("\"DXFilmEdge\""), [DX Film Edge Barcode on 35mm and APS films],
+  typst-val("\"EAN8CC\""), [EAN-8 Composite],
+  typst-val("\"EAN13CC\""), [EAN-13 Composite],
 )
