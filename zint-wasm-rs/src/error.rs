@@ -271,6 +271,15 @@ pub enum Error {
     /// A payload longer than zint can be told about
     #[error("the data is {length} bytes, more than zint can be given at once")]
     DataTooLong { length: usize },
+    /// Zint reported success and left no vector behind
+    #[error("zint encoded the symbol but laid out no shapes for it")]
+    MissingVector,
+    /// A colour in zint's vector that this crate does not know how to draw
+    #[error("zint drew in colour {0}, which is not one it defines")]
+    UnknownVectorColour(i32),
+    /// A text alignment in zint's vector that this crate does not know
+    #[error("zint aligned text with {0}, which is not an alignment it defines")]
+    UnknownVectorAlignment(i32),
 }
 
 /// Warning level (symbol->warn_level)
