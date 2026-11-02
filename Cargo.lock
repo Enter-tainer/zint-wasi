@@ -762,7 +762,7 @@ checksum = "fdd20c5420375476fbd4394763288da7eb0cc0b8c11deed431a91562af7335d3"
 
 [[package]]
 name = "zint-typst-plugin"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "ciborium",
  "serde",
@@ -774,7 +774,7 @@ dependencies = [
 
 [[package]]
 name = "zint-wasm-rs"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "bitflags",
  "ciborium",

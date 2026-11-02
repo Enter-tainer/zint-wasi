@@ -75,7 +75,7 @@
 ## Example
 
 ```typ
-#import "@preview/tiaoma:0.3.0"
+#import "@preview/tiaoma:0.4.0"
 #set page(width: auto, height: auto)
 
 = tiáo mǎ
@@ -83,7 +83,7 @@
 #tiaoma.ean("1234567890128")
 ```
 
-![example](./example.svg)
+![An EAN barcode drawn with tiaoma](./example.svg)
 
 Barcodes are drawn with Typst's own shapes, so they take colours, sizes and text styles the way the rest of a document does:
 
