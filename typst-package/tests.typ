@@ -82,6 +82,45 @@
 #assert.eq(_resolve(50%, float.inf * 1pt, "width"), 0pt)
 #context assert.eq(_resolve(50% + 10pt, float.inf * 1pt, "width"), 10pt)
 
+// An alignment or text direction around a barcode moves all of it, never its
+// parts against each other: bars that shift while the human readable text stays
+// put overlap it. Each barcode here fills the same space, so nothing around it
+// can move it, and a tag after each path records where that path ended up.
+#let contexts = (
+  it => it,
+  it => align(horizon, it),
+  it => align(bottom, it),
+  it => align(center + horizon, it),
+  it => align(right + bottom, it),
+  it => { set text(dir: rtl); it },
+)
+#let fits = (
+  code(),
+  code(width: 2cm, height: 2cm, fit: "stretch"),
+  maxicode("1234567890", width: 2cm, height: 2cm, fit: "contain"),
+  code(width: 2cm, height: 2cm, fit: "cover"),
+)
+#for (index, drawn) in fits.enumerate() {
+  let tag = label("path-" + str(index))
+  box(width: natural-width, height: natural-height, {
+    show curve: it => it + [#metadata(none)#tag]
+    for around in contexts {
+      place(top + left, around(drawn))
+    }
+  })
+  context {
+    let positions = query(tag).map(it => it.location().position())
+    let paths = calc.quo(positions.len(), contexts.len())
+    assert(paths >= 1, message: "no path was drawn")
+    for (at, position) in positions.enumerate() {
+      let same = positions.at(calc.rem(at, paths))
+      let moved = "a path moved in context " + str(calc.quo(at, paths))
+      assert-close(position.x, same.x, moved + ", sideways")
+      assert-close(position.y, same.y, moved + ", vertically")
+    }
+  }
+}
+
 // The colours, given directly or through any spelling of the options they
 // used to be. Every one of those spellings has to land somewhere, since the
 // plugin refuses them all.

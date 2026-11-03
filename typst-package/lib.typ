@@ -329,6 +329,13 @@
   let natural-height = plot.height * _unit
 
   box(layout(region => {
+    // Everything below is positioned from the top left corner. `place` starts
+    // from `start`, which has no vertical part and flips with the text
+    // direction, so an alignment or direction around the barcode would get
+    // through, and a shape laid out larger than the space it is drawn into,
+    // such as a path in Zint's units, would move against the rest.
+    set place(top + left)
+
     let placed = _fit(
       (natural-width, natural-height),
       (_resolve(width, region.width, "width"), _resolve(height, region.height, "height")),
