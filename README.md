@@ -126,9 +126,10 @@ cargo xtask version             # prints it, after checking every copy agrees
 cargo xtask bundle              # builds the package and lays it out under target/bundle/tiaoma/0.4.0
 ```
 
-The bundle leaves out the files `typst.toml` excludes, as Universe does. The Universe pull
-request, on the other hand, gets the whole `typst-package` directory, excluded files included,
-which Universe links from the package page.
+The bundle leaves out the files `typst.toml` excludes. The Universe pull request gets the bundle
+plus the files the README links to, which Universe serves from this repository so the manual and
+the example can be shown on the package page without being downloaded with it. Nothing else is
+submitted, `tests.typ` included.
 
 ## License
 

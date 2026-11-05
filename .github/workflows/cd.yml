@@ -206,10 +206,12 @@ jobs:
 
       # Universe takes submissions as pull requests only, from a fork of
       # typst/packages, so this needs a token of a person: the default token
-      # cannot push to another repository. Everything under typst-package is
-      # committed, including what typst.toml excludes; Universe leaves those
-      # files out of the bundle itself and links them from the package page.
+      # cannot push to another repository. The submission is the bundle, which
+      # is the package `typst.toml` publishes, plus the files the README links
+      # to. Universe serves those from the repository, so the manual and the
+      # example are on the package page without being downloaded with it.
       - name: Open the Typst Universe pull request
+        id: universe
         if: ${{ !inputs.dry_run && inputs.publish }}
         env:
           GH_TOKEN: ${{ secrets.TYPST_PACKAGES_TOKEN }}
@@ -237,7 +239,15 @@ jobs:
           git config user.email "$owner_id+$owner@users.noreply.github.com"
           git checkout -b "$branch"
           mkdir -p "$destination"
-          cp -r ../typst-package/. "$destination"
+          cp -r "$GITHUB_WORKSPACE/$XTASK_WORK_DIR/bundle/$PACKAGE_NAME/$VERSION/." "$destination"
+          # Documentation the README links to is committed but stays out of the
+          # archive through `exclude`, which is the shape Universe documents.
+          # Anything else in typst-package, tests included, is not submitted.
+          grep -oE '\]\(\./[^)#]+' "$GITHUB_WORKSPACE/typst-package/README.md" |
+            sed -E 's/^\]\(\.\///' | sort -u |
+            while read -r file; do
+              install -D "$GITHUB_WORKSPACE/typst-package/$file" "$destination/$file"
+            done
           git add "$destination"
           git commit --message "$PACKAGE_NAME:$VERSION"
           git push origin "$branch"
@@ -249,11 +259,12 @@ jobs:
 
           Description: Barcode and QR code generator for Typst, built on Zint. This release is described in ${{ github.server_url }}/${{ github.repository }}/releases/tag/$TAG.
           EOF
-          gh pr create \
+          url=$(gh pr create \
             --repo typst/packages \
             --head "$owner:$branch" \
             --title "$PACKAGE_NAME:$VERSION" \
-            --body-file ../universe-pr.md
+            --body-file ../universe-pr.md)
+          echo "url=$url" >> "$GITHUB_OUTPUT"
 
       - name: Summarise
         env:
@@ -267,7 +278,7 @@ jobs:
             else
               echo "- Release: ${{ github.server_url }}/${{ github.repository }}/releases/tag/$TAG"
               if [ "${{ inputs.publish }}" = "true" ]; then
-                echo "- Typst Universe: see the pull request titled \`$PACKAGE_NAME:$VERSION\` on https://github.com/typst/packages/pulls"
+                echo "- Typst Universe: ${{ steps.universe.outputs.url }}"
               else
                 echo "- Typst Universe: not submitted; run again with 'publish' checked, or submit the package directory by hand."
               fi
