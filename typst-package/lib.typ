@@ -267,7 +267,7 @@
 /// *Example:*
 ///
 /// ```example
-/// #tiaoma.barcode("12345678", "QRCode", fill: blue, background: green.lighten(70%), options: (
+/// #tiaoma.barcode("12345678", "QRCode", fill: gradient.linear(blue, red), background: green.lighten(70%), options: (
 ///   scale: 2.0,
 ///   output-options: (
 ///     barcode-dotty-mode: true

@@ -1,7 +1,6 @@
 #import "./lib.typ": *
 #import "./lib.typ"
 #import "@preview/tidy:0.4.1"
-#import "@preview/tablex:0.0.9": tablex, colspanx, cellx
 #import "./tidy_style.typ"
 
 #set page(
@@ -24,7 +23,7 @@
 
 #v(10pt)
 
-See #l("https://zint.org.uk/manual")[official Zint manual] for a more in-depth description of supported functionality.
+See #l("https://zint.org.uk/manual")[official Zint manual] for a more in-depth description of individual options and barcodes.
 
 = API
 
@@ -86,8 +85,10 @@ Some generators require additional configuration (such as composite codes), this
 }
 
 #let t-style = (
-  auto-vlines: false,
-  stroke: gray.lighten(60%),
+  stroke: (x, y) => (
+    top: gray.lighten(60%),
+    bottom: gray.lighten(60%),
+  ),
 )
 #let reference-table-style(head-rows: 1, key-column: true) = (
   ..t-style,
@@ -129,14 +130,16 @@ A key that is not one of them is an error, so a misspelled option is reported in
 
 #let detailed(dest, content) = link(dest, underline(content))
 
-#tablex(
+#table(
   columns: (auto, 100pt, 1fr, auto),
   align: (center + horizon, center + horizon, left + horizon, center + horizon),
   ..reference-table-style(),
-  [*Field*],
-  [*Type*],
-  [*Description*],
-  [*Default*],
+  table.header(
+    [*Field*],
+    [*Type*],
+    [*Description*],
+    [*Default*],
+  ),
   [height],
   typst-type("float"),
   [Barcode height in X-dimensions (ignored for fixed-width barcodes)],
@@ -245,18 +248,17 @@ Input mode options allow specifying how `Zint` should handle input data. `Zint` 
 The following options are supported:
 
 
-#tablex(
+#table(
   columns: (auto, auto, auto, 1fr),
   align: (left + horizon, center + horizon, center + horizon, left + horizon),
   ..reference-table-style(head-rows: 2),
-  colspanx(4, cellx(align: center)[*Input format (mutually exclusive)*]),
-  (),
-  (),
-  (),
-  [*Constant*],
-  typst-type("int"),
-  typst-type("str"),
-  [*Description*],
+  table.header(
+    table.cell(colspan: 4, align: center)[*Input format (mutually exclusive)*],
+    [*Constant*],
+    typst-type("int"),
+    typst-type("str"),
+    [*Description*],
+  ),
   raw("DATA_MODE"),
   typst-val("0"),
   typst-val("\"data\""),
@@ -271,18 +273,17 @@ The following options are supported:
   [Encode GS1 data using FNC1 characters.],
 )
 
-#tablex(
+#table(
   columns: (auto, auto, auto, 1fr),
   align: (left + horizon, center + horizon, center + horizon, left + horizon),
   ..reference-table-style(head-rows: 2),
-  colspanx(4, cellx(align: center)[*Behavior customization*]),
-  (),
-  (),
-  (),
-  [*Constant*],
-  typst-type("int"),
-  typst-type("str"),
-  [*Description*],
+  table.header(
+    table.cell(colspan: 4, align: center)[*Behavior customization*],
+    [*Constant*],
+    typst-type("int"),
+    typst-type("str"),
+    [*Description*],
+  ),
   raw("ESCAPE_MODE"),
   typst-val("8"),
   typst-val("\"escape\""),
@@ -325,7 +326,7 @@ The following options are supported:
 Additionally, _input format_ can be specified as a #typst-type("str") value paired to #typst-val("\"format\"") key.
 
 In other words, columns of the following table are equivalent:
-#tablex(
+#table(
   columns: (1fr, 1fr, 1fr, 1fr),
   align: (
     center + horizon,
@@ -334,10 +335,12 @@ In other words, columns of the following table are equivalent:
     center + horizon,
   ),
   ..reference-table-style(key-column: false),
-  [#typst-type("dictionary")],
-  [#typst-type("array")],
-  [#typst-type("str")],
-  [#typst-type("int")],
+  table.header(
+    [#typst-type("dictionary")],
+    [#typst-type("array")],
+    [#typst-type("str")],
+    [#typst-type("int")],
+  ),
   [
     (#typst-val("\"format\""): #typst-val("\"data\""))
   ],
@@ -361,11 +364,11 @@ In other words, columns of the following table are equivalent:
 
 Output options allow specifying how `Zint` should generate the barcode/symbol.
 
-#tablex(
+#table(
   columns: (auto, auto, auto, 1fr),
   align: (left + horizon, center + horizon, center + horizon, left + horizon),
   ..reference-table-style(),
-  [*Constant*], typst-type("int"), typst-type("str"), [*Description*],
+  table.header([*Constant*], typst-type("int"), typst-type("str"), [*Description*]),
   raw("BARCODE_BIND_TOP"), typst-val("1"), typst-val("\"barcode-bind-top\""), [Boundary bar _above_ the symbol and between rows if stacking multiple symbols.],
   raw("BARCODE_BIND"), typst-val("2"), typst-val("\"barcode-bind\""), [Boundary bars _above_ and _below_ the symbol and between rows if stacking multiple symbols.],
   raw("BARCODE_BOX"), typst-val("4"), typst-val("\"barcode-box\""), [Add a box surrounding the symbol and whitespace.],
@@ -402,14 +405,16 @@ A fixed Data Matrix size is not one of them: #raw("dm-size(height, width)") retu
 
 The following table documents supported values and their #typst-type("str") representations:
 
-#tablex(
+#table(
   columns: (auto, auto, auto, 1fr),
   align: (left + horizon, center + horizon, center + horizon, left + horizon),
   ..reference-table-style(),
-  [*Constant*],
-  [#typst-type("int")],
-  [#typst-type("str")],
-  [*Description*],
+  table.header(
+    [*Constant*],
+    [#typst-type("int")],
+    [#typst-type("str")],
+    [*Description*],
+  ),
   raw("DM_SQUARE"),
   typst-val("100"),
   typst-val("\"square\""),
