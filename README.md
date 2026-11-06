@@ -99,14 +99,23 @@ wait for, and what it produces is a list to read rather than a pass or a fail.
 
 A release is cut by the `CD` workflow under the repository's Actions tab, started by hand
 from `master`. Given a version, it moves that version into every file that repeats it, builds
-the package, commits and tags the result as `v<version>`, publishes a GitHub release with the
-package and the manual attached, and opens the pull request on
+the package and attests what it built, commits and tags the result as `v<version>`, publishes a
+GitHub release with the package and the manual attached, and opens the pull request on
 [typst/packages](https://github.com/typst/packages) that puts the version on Typst Universe.
 Leaving the version empty releases the version the manifests already carry.
 
 The workflow refuses to run if the tag exists or the version is already on Universe, so a
-failed run can be started again. A dry run builds and uploads the assets without committing,
-tagging, releasing or publishing, and may be started from any branch.
+failed run can be started again. A dry run builds and uploads the assets without attesting,
+committing, tagging, releasing or publishing, and may be started from any branch.
+
+The attestation covers the release assets and each file of the package, which are the files
+Typst downloads from Universe, so any copy of them can be checked against this repository. For
+the plugin in Typst's package cache, for example:
+
+```sh
+gh attestation verify zint_typst_plugin.wasm --repo Enter-tainer/zint-wasi \
+  --signer-workflow Enter-tainer/zint-wasi/.github/workflows/cd.yml
+```
 
 It needs two things set up once:
 
