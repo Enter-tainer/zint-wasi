@@ -1,9 +1,10 @@
 name: CD
 
 # Cuts a release on demand: moves the version where the repository repeats
-# it, builds the package, commits and tags the result, publishes a GitHub
-# release with the package and the manual attached, and opens the pull
-# request that puts the version on Typst Universe.
+# it, builds the package and attests what it built, commits and tags the
+# result, publishes a GitHub release with the package and the manual
+# attached, and opens the pull request that puts the version on Typst
+# Universe.
 #
 # The run stops before it changes anything if the version is already tagged
 # here or already published on Universe, so re-running a failed release is
@@ -21,13 +22,17 @@ on:
         type: boolean
         default: true
       dry_run:
-        description: "Build and upload the release assets only: no commit, tag, release or pull request"
+        description: "Build and upload the release assets only: no attestation, commit, tag, release or pull request"
         required: false
         type: boolean
         default: false
 
 permissions:
   contents: write
+  # For the build provenance: the OIDC token gets the signing certificate,
+  # and the attestation is stored with the repository.
+  id-token: write
+  attestations: write
 
 # A release must never be cancelled halfway through; a second one waits.
 concurrency:
@@ -159,6 +164,22 @@ jobs:
           path: release/
           retention-days: 30
 
+      # Records that this workflow built these files from this commit, so the
+      # release assets and each file of the package, the ones Typst downloads
+      # from Universe included, can be checked with `gh attestation verify`.
+      # It comes before anything is pushed, so a failure here leaves nothing
+      # behind that a second attempt would trip over. The provenance names the
+      # commit the run started from; when the run moves the version itself, the
+      # tag goes on the release commit made right after it.
+      - name: Attest the release
+        if: ${{ !inputs.dry_run }}
+        uses: actions/attest@v4
+        with:
+          subject-path: |
+            release/*
+            ${{ env.XTASK_WORK_DIR }}/bundle/${{ env.PACKAGE_NAME }}/${{ steps.version.outputs.version }}/**
+            typst-package/example.svg
+
       - name: Commit and tag
         if: ${{ !inputs.dry_run }}
         env:
@@ -263,7 +284,7 @@ jobs:
           {
             echo "## $PACKAGE_NAME $VERSION"
             if [ "${{ inputs.dry_run }}" = "true" ]; then
-              echo "Dry run: the assets are attached to this workflow run; nothing was committed, tagged, released or published."
+              echo "Dry run: the assets are attached to this workflow run; nothing was attested, committed, tagged, released or published."
             else
               echo "- Release: ${{ github.server_url }}/${{ github.repository }}/releases/tag/$TAG"
               if [ "${{ inputs.publish }}" = "true" ]; then
